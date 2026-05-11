@@ -1,0 +1,94 @@
+// App shell — simplified per v1 conversation:
+// Header = brand + [Trade] [Pools] [Keeper(cond)] + Connect Wallet dropdown
+// SubNav = contextual sub-tabs per section
+// No more Portfolio Overview (orphaned); no more RoleBadge in header.
+
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AppHeader } from '@/components/AppHeader'
+import { AppSubNav } from '@/components/AppSubNav'
+import { StatusBanner } from '@/components/StatusBanner'
+import { ListingsMarketplace } from '@/screens/ListingsMarketplace'
+import { ListingDetail } from '@/screens/ListingDetail'
+import { LPDeposit } from '@/screens/LPDeposit'
+import { TraderOpen } from '@/screens/TraderOpen'
+import { PositionDetail } from '@/screens/PositionDetail'
+import { TraderPositions } from '@/screens/TraderPositions'
+import { MyListings } from '@/screens/MyListings'
+import { ClosedPositionsList } from '@/screens/ClosedPositionsList'
+import { ClosedPositionDetail } from '@/screens/ClosedPositionDetail'
+import { ClaimableHub } from '@/screens/ClaimableHub'
+import { Onboarding } from '@/screens/Onboarding'
+import { WhitelistGate } from '@/screens/WhitelistGate'
+import { Settings } from '@/screens/Settings'
+import { ListingLiquidationView } from '@/screens/ListingLiquidation'
+import { LiquidatorPositions, LiquidatorListings } from '@/screens/LiquidatorQueue'
+
+export default function App() {
+  return (
+    <div className="min-h-full flex flex-col">
+      <AppHeader />
+      <StatusBanner />
+      <AppSubNav />
+      <main className="flex-1">
+        <Routes>
+          {/* Root → Trade default */}
+          <Route path="/" element={<Navigate to="/listings" replace />} />
+
+          {/* Trade section */}
+          <Route path="/listings" element={<ListingsMarketplace />} />
+          <Route path="/listings/:id" element={<ListingDetail />} />
+          <Route path="/listings/:id/liquidation" element={<ListingLiquidationView />} />
+          <Route path="/trader/positions" element={<SectionWrap><TraderPositions /></SectionWrap>} />
+          <Route path="/trader/positions/:id" element={<PositionDetail />} />
+          <Route path="/trader/open" element={<TraderOpen />} />
+          <Route path="/trader/closed" element={<SectionWrap><ClosedPositionsList /></SectionWrap>} />
+          <Route path="/trader/closed/:id" element={<ClosedPositionDetail />} />
+
+          {/* Pools section */}
+          <Route path="/lp/listings" element={<SectionWrap><MyListings /></SectionWrap>} />
+          <Route path="/lp/listings/:id" element={<ListingDetail />} />
+          <Route path="/lp/deposit" element={<LPDeposit />} />
+          <Route path="/lp/claims" element={<ClaimableHub />} />
+
+          {/* Keeper section (formerly /liquidator) */}
+          <Route path="/keeper/positions" element={<LiquidatorPositions />} />
+          <Route path="/keeper/listings" element={<LiquidatorListings />} />
+          {/* Back-compat alias for old links during refactor window */}
+          <Route path="/liquidator/positions" element={<Navigate to="/keeper/positions" replace />} />
+          <Route path="/liquidator/listings" element={<Navigate to="/keeper/listings" replace />} />
+
+          {/* Auth / config */}
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/access" element={<WhitelistGate />} />
+          <Route path="/settings" element={<Settings />} />
+
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
+  )
+}
+
+function SectionWrap({ children }: { children: React.ReactNode }) {
+  return <div className="mx-auto max-w-7xl px-4 py-6">{children}</div>
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-gray-200 bg-gray-50 text-xs text-gray-500 mt-auto">
+      <div className="mx-auto max-w-7xl px-4 py-4 flex flex-wrap gap-x-6 gap-y-2 justify-between">
+        <span>sLiq Alpha · v2.1 prototype</span>
+        <span>v1: Uniswap V3 only · No insurance fund · No oracle</span>
+      </div>
+    </footer>
+  )
+}
+
+function NotFound() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-16 text-center">
+      <h2 className="text-xl font-semibold mb-2">Not found</h2>
+    </div>
+  )
+}

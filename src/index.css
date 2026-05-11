@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+
+  /* Role colors — per design spec §7 */
+  --color-role-lp: oklch(64% 0.15 150);          /* green */
+  --color-role-lp-bg: oklch(96% 0.04 150);
+  --color-role-trader: oklch(70% 0.16 50);       /* orange */
+  --color-role-trader-bg: oklch(96% 0.05 50);
+  --color-role-liquidator: oklch(58% 0.18 290);  /* purple */
+  --color-role-liquidator-bg: oklch(96% 0.04 290);
+  --color-role-all: oklch(50% 0.01 270);         /* neutral */
+  --color-role-all-bg: oklch(96% 0 0);
+
+  /* Status colors */
+  --color-status-success: oklch(62% 0.16 150);
+  --color-status-info: oklch(60% 0.15 240);
+  --color-status-warning: oklch(75% 0.18 80);
+  --color-status-danger: oklch(58% 0.20 25);
+  --color-status-neutral: oklch(60% 0.01 270);
+
+  /* Beta banner */
+  --color-beta-bg: oklch(96% 0.05 80);
+  --color-beta-border: oklch(85% 0.10 80);
+  --color-beta-text: oklch(35% 0.10 80);
+
+  /* Negative APY surface (per design spec §12) */
+  --color-negative-apy: oklch(60% 0.13 25);
+  --color-negative-apy-bg: oklch(97% 0.03 25);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: oklch(99% 0 0);
+  color: oklch(20% 0 0);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numerals for all numeric displays — financial data must align */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
