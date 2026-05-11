@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// GitHub Pages base path — repo name. Locally `npm run dev` остаётся на /.
+const isGhPages = process.env.GITHUB_PAGES === 'true'
+
 export default defineConfig({
+  base: isGhPages ? '/sliq-ui-prototype/' : '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
