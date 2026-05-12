@@ -1,10 +1,11 @@
-// Landing page — sLiq v4.1 copy
-// v4 critic-validated (Anna + Semen, 2 rounds) → v4.1 hero restructure per Eugene feedback:
-//   - Single H1 + subhead instead of split hero
-//   - Trust line under buttons (sliq.finance pattern)
-//   - New Benefits section with numbers (3 cards)
-//   - For Whom: 3 columns (LP / Traders / Agents) replaces 2-column Two Paths
-//   - Pessimistic plugged in as auditor (was [Auditor] placeholder)
+// Landing page — sLiq v4.2 copy
+// v4.2 changes per Eugene feedback:
+//   - Hero: right-aligned content, left = layered visual placeholder
+//   - Benefits: replace +3-7% APR card (dup of Hero) → TVL placeholder card
+//   - LP card: add prominent leverage chips (Conservative 1× · Advanced up to 100×)
+//   - Agent card: human-friendly description + 4 agent jobs absorbed from old AgentsBlock
+//   - Removed standalone AgentsBlock — best content moved into Agent card
+//   - Security: expanded to Tymio-style 3 prominent cards + 2 supporting
 // Spec: vault/EarnPark/sLiq/docs/{sLiq} {prd} landing copy v2 – 2026-05-12.md
 
 import { useState } from 'react'
@@ -20,7 +21,6 @@ export function Landing() {
       <HowItWorks />
       <UseCases />
       <WhySliq />
-      <AgentsBlock />
       <ComparisonTable />
       <Security />
       <FAQ />
@@ -42,7 +42,6 @@ function LandingNav() {
         <div className="flex items-center gap-2">
           <a href="#how" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">How it works</a>
           <a href="#use-cases" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Use cases</a>
-          <a href="#agents" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">For agents</a>
           <a href="#faq" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">FAQ</a>
           <Link
             to="/listings"
@@ -61,46 +60,85 @@ function LandingNav() {
 function Hero() {
   return (
     <section className="border-b border-gray-100 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 text-white">
-      <div className="mx-auto max-w-5xl px-4 py-20 md:py-28 text-center">
-        <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight">
-          The leverage layer on{' '}
-          <span className="text-lime-300">Uniswap V3</span>
-        </h1>
-        <p className="mt-6 text-base md:text-xl text-gray-300 leading-relaxed max-w-3xl mx-auto">
-          Open up to <strong className="text-white">1000×</strong> leveraged positions on any Uniswap V3 pool.
-          LPs earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
-          <br className="hidden md:block" />
-          <span className="text-gray-400">No funding rate. No oracle. ~4 sec settlement on Arbitrum.</span>
-        </p>
-
-        {/* CTAs */}
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            to="/listings"
-            className="inline-flex items-center gap-2 rounded-md bg-lime-400 hover:bg-lime-300 text-gray-900 px-6 py-3 text-sm md:text-base font-semibold"
-          >
-            Browse markets <span aria-hidden>→</span>
-          </Link>
-          <Link
-            to="/lp/deposit"
-            className="inline-flex items-center gap-2 rounded-md border border-gray-600 hover:border-gray-400 text-gray-200 px-6 py-3 text-sm md:text-base font-medium"
-          >
-            Import your NFT <span aria-hidden>→</span>
-          </Link>
+      <div className="mx-auto max-w-7xl px-4 py-16 md:py-24 grid md:grid-cols-[1fr_1.1fr] gap-10 md:gap-12 items-center">
+        {/* LEFT — visual placeholder (layered stack representing the «layer on Uniswap» metaphor) */}
+        <div className="order-2 md:order-1">
+          <HeroVisual />
         </div>
 
-        {/* Trust line (sliq.finance pattern) */}
-        <div className="mt-8 text-xs md:text-sm text-gray-400 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-          <span>Live on <span className="text-gray-200 font-medium">Arbitrum</span></span>
-          <span className="text-gray-700">·</span>
-          <span>Built on <span className="text-gray-200 font-medium">Uniswap V3</span></span>
-          <span className="text-gray-700">·</span>
-          <span>Non-custodial · <span className="text-gray-200 font-medium">Metamask</span></span>
-          <span className="text-gray-700">·</span>
-          <span>Audited by <span className="text-gray-200 font-medium">Pessimistic</span></span>
+        {/* RIGHT — H1 + sub + CTAs + trust */}
+        <div className="order-1 md:order-2 text-left">
+          <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight">
+            The leverage layer on{' '}
+            <span className="text-lime-300">Uniswap V3</span>
+          </h1>
+          <p className="mt-6 text-base md:text-xl text-gray-300 leading-relaxed">
+            Open up to <strong className="text-white">1000×</strong> leveraged positions on any Uniswap V3 pool.
+            LPs earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
+            <br className="hidden md:block" />
+            <span className="text-gray-400">No funding rate. No oracle. ~4 sec settlement on Arbitrum.</span>
+          </p>
+
+          {/* CTAs */}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link
+              to="/listings"
+              className="inline-flex items-center gap-2 rounded-md bg-lime-400 hover:bg-lime-300 text-gray-900 px-6 py-3 text-sm md:text-base font-semibold"
+            >
+              Browse markets <span aria-hidden>→</span>
+            </Link>
+            <Link
+              to="/lp/deposit"
+              className="inline-flex items-center gap-2 rounded-md border border-gray-600 hover:border-gray-400 text-gray-200 px-6 py-3 text-sm md:text-base font-medium"
+            >
+              Import your NFT <span aria-hidden>→</span>
+            </Link>
+          </div>
+
+          {/* Trust line (sliq.finance pattern) */}
+          <div className="mt-8 text-xs md:text-sm text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>Live on <span className="text-gray-200 font-medium">Arbitrum</span></span>
+            <span className="text-gray-700">·</span>
+            <span>Built on <span className="text-gray-200 font-medium">Uniswap V3</span></span>
+            <span className="text-gray-700">·</span>
+            <span>Non-custodial · <span className="text-gray-200 font-medium">Metamask</span></span>
+            <span className="text-gray-700">·</span>
+            <span>Audited by <span className="text-gray-200 font-medium">Pessimistic</span></span>
+          </div>
         </div>
       </div>
     </section>
+  )
+}
+
+// Layered stack visual — placeholder for proper 3D asset.
+// Conveys «layer on top of Uniswap» metaphor via 3 stacked rounded planes.
+function HeroVisual() {
+  return (
+    <div className="relative aspect-square max-w-md mx-auto md:mx-0 select-none">
+      {/* Base layer — Uniswap */}
+      <div className="absolute inset-x-[12%] bottom-0 top-[40%] rounded-3xl bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600 shadow-xl flex items-end justify-between px-6 py-4">
+        <span className="text-[10px] uppercase tracking-widest text-gray-400">Layer 0</span>
+        <span className="text-sm font-medium text-gray-300">Uniswap V3</span>
+      </div>
+      {/* Mid layer — Markets */}
+      <div className="absolute inset-x-[6%] top-[20%] bottom-[30%] rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600 shadow-2xl flex items-center justify-between px-6">
+        <span className="text-[10px] uppercase tracking-widest text-gray-400">Layer 1</span>
+        <span className="text-sm font-medium text-gray-200">Synthetic markets</span>
+      </div>
+      {/* Top layer — sLiq leverage */}
+      <div className="absolute inset-x-0 top-0 bottom-[60%] rounded-3xl bg-lime-400 shadow-2xl shadow-lime-400/20 flex items-center justify-between px-6 ring-1 ring-lime-300/40">
+        <span className="text-[10px] uppercase tracking-widest text-gray-900/70">Layer 2</span>
+        <span className="text-sm font-semibold text-gray-900">sLiq · up to 1000×</span>
+      </div>
+      {/* Floating chips */}
+      <div className="absolute -bottom-3 -right-2 text-[10px] font-medium text-lime-300 bg-gray-900/80 border border-lime-400/40 rounded-full px-2.5 py-1 backdrop-blur">
+        +3–7% APR
+      </div>
+      <div className="absolute -top-3 -left-2 text-[10px] font-medium text-gray-300 bg-gray-900/80 border border-gray-600 rounded-full px-2.5 py-1 backdrop-blur">
+        No oracle
+      </div>
+    </div>
   )
 }
 
@@ -113,18 +151,21 @@ function Benefits() {
       title: 'Backed by EarnPark',
       body: 'Production fintech with multi-year track record. sLiq is built and operated by the EarnPark team.',
       accent: 'gray' as const,
+      badge: undefined as string | undefined,
     },
     {
-      stat: '+3–7% APR',
-      title: 'Extra yield for LPs',
-      body: 'Premium APY carry paid by sLiq traders on top of your normal Uniswap fees. Set your minimum, market bids above.',
-      accent: 'lime' as const,
+      stat: '$— · Beta',
+      title: 'TVL listed',
+      body: 'Total notional USD value of Uniswap V3 LP NFTs wrapped into sLiq. Live counter at mainnet launch — Beta runs with a TVL cap.',
+      accent: 'gray' as const,
+      badge: 'Coming soon',
     },
     {
-      stat: 'Up to 1000×',
-      title: 'Leverage for traders',
-      body: 'On real Uniswap V3 pools. No funding rate. No oracle. PnL settles against the actual pool price.',
-      accent: 'lime' as const,
+      stat: 'Pessimistic',
+      title: 'Audited',
+      body: 'Full audit by Pessimistic Security covering core + margin + liquidator modules. Report published before mainnet.',
+      accent: 'gray' as const,
+      badge: undefined as string | undefined,
     },
   ]
   return (
@@ -134,15 +175,14 @@ function Benefits() {
           {cards.map(c => (
             <div
               key={c.title}
-              className="rounded-2xl border border-gray-200 bg-white p-7 md:p-8 hover:border-gray-300 transition"
+              className="rounded-2xl border border-gray-200 bg-white p-7 md:p-8 hover:border-gray-300 transition relative"
             >
-              <div
-                className={
-                  c.accent === 'lime'
-                    ? 'text-4xl md:text-5xl font-bold text-gray-900 leading-none tracking-tight'
-                    : 'text-2xl font-bold text-gray-900 leading-none tracking-tight'
-                }
-              >
+              {c.badge && (
+                <span className="absolute top-4 right-4 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  {c.badge}
+                </span>
+              )}
+              <div className="text-2xl md:text-3xl font-bold text-gray-900 leading-none tracking-tight">
                 {c.stat}
               </div>
               <div className="mt-4 text-lg font-semibold text-gray-900">{c.title}</div>
@@ -168,6 +208,7 @@ function ForWhom() {
             tag="LPs"
             tagColor="lime"
             heading="Plug in your existing Uniswap V3 NFT"
+            chips={['Conservative 1× · no liq risk', 'Advanced up to 100×']}
             steps={[
               'Connect wallet, import an existing V3 LP NFT',
               'Set minimum Premium APY (or accept the auction)',
@@ -176,8 +217,7 @@ function ForWhom() {
             cta={{ label: 'Import your NFT', to: '/lp/deposit', kind: 'primary' }}
             micro={
               <>
-                <strong>Conservative 1× by default</strong> — no liquidation risk.<br />
-                Advanced mode unlocks Provider Leverage up to 100×.
+                Advanced mode unlocks <strong>Provider Leverage up to 100×</strong> — amplify your earnings even when underlying pool volume is quiet. Liquidation risk applies in Advanced.
               </>
             }
           />
@@ -185,6 +225,7 @@ function ForWhom() {
             tag="Traders"
             tagColor="lime"
             heading="Leveraged views on real Uniswap pools"
+            chips={['Up to 1000×', 'No funding · No oracle']}
             steps={[
               'Browse live markets — pair, fee tier, leverage available',
               'Open long, short, or volatility with margin',
@@ -201,16 +242,17 @@ function ForWhom() {
             tag="Agents"
             tagColor="amber"
             badge="Soon · Q3 2026"
-            heading="Agent-callable by design"
+            heading="Tell an AI agent to handle your DeFi"
+            chips={['MCP-native', 'Subgraph + REST live']}
             steps={[
-              'Subgraph + REST endpoint — live today',
-              'Public formulas + on-chain primitives',
-              'MCP server + Agent SDK — Q3 2026',
+              '"Hedge IL on my USDC/ETH LP if ETH moves >5%"',
+              '"Auto-rebalance my listings when auction depth spikes"',
+              '"Find the best Premium APY across USDC pairs and list me"',
             ]}
             cta={{ label: 'Join MCP waitlist', to: 'mailto:support@earnpark.com?subject=sLiq%20MCP%20waitlist', kind: 'secondary' }}
             micro={
               <>
-                Built MCP-native for vol-arb bots, IL-hedge agents, LP-rebalance agents. Per the{' '}
+                Your AI agent reads live markets, simulates positions, and executes on-chain in one MCP call. <strong>Subgraph + REST are live today</strong>; MCP server + Agent SDK land Q3 2026. Built on the{' '}
                 <a
                   href="https://teletype.in/@exitsexist/agent-led-growth"
                   target="_blank"
@@ -219,7 +261,7 @@ function ForWhom() {
                 >
                   Agent-Led Growth
                 </a>{' '}
-                thesis.
+                thesis — protocols built for agent consumption win.
               </>
             }
           />
@@ -230,12 +272,13 @@ function ForWhom() {
 }
 
 function ForWhomCard({
-  tag, tagColor, badge, heading, steps, cta, micro,
+  tag, tagColor, badge, heading, chips, steps, cta, micro,
 }: {
   tag: string
   tagColor: 'lime' | 'amber'
   badge?: string
   heading: string
+  chips?: string[]
   steps: string[]
   cta: { label: string; to: string; kind: 'primary' | 'secondary' }
   micro: React.ReactNode
@@ -264,6 +307,18 @@ function ForWhomCard({
         )}
       </div>
       <h3 className="mt-3 text-xl font-bold text-gray-900 leading-snug">{heading}</h3>
+      {chips && chips.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {chips.map(c => (
+            <span
+              key={c}
+              className="text-[11px] font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
       <ol className="mt-5 space-y-2.5 flex-1">
         {steps.map((s, i) => (
           <li key={i} className="flex gap-2.5 text-sm text-gray-700">
@@ -483,105 +538,9 @@ function WhySliq() {
   )
 }
 
-// ─── 7. Agents-MCP block (Soon) — deeper section with ALG thesis ─────────
-
-function AgentsBlock() {
-  const agentTypes = [
-    { type: 'Vol arb bot', job: 'Monitor Premium APY auctions across markets, open vol positions when carry < expected realized vol' },
-    { type: 'IL-hedge agent', job: 'Watch a user\'s LP positions on Uniswap, auto-open hedge shorts on sLiq when range drifts' },
-    { type: 'LP-rebalance agent', job: 'Adjust Min Premium APY based on auction depth, withdraw/reinvest on signal' },
-    { type: 'DCA-into-LP agent', job: 'Steadily build LP positions and list them at programmed leverage' },
-  ]
-  const surface = [
-    { live: true, label: 'Subgraph', detail: 'Full event indexing, queryable today' },
-    { live: true, label: 'REST endpoint', detail: 'Read market state, listings, positions' },
-    { live: true, label: 'Public formulas', detail: 'Premium APY, Reference Fees, Provider Leverage math in white paper' },
-    { live: false, label: 'MCP server', detail: 'Q3 2026' },
-    { live: false, label: 'Agent SDK (Python + TypeScript)', detail: 'Q3 2026' },
-  ]
-  return (
-    <section id="agents" className="border-b border-gray-100 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <span className="text-[11px] uppercase tracking-wide font-semibold text-lime-300">For autonomous agents</span>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">
-            🤖 Soon · MCP server launching Q3 2026
-          </span>
-        </div>
-        <h2 className="text-3xl md:text-4xl font-bold leading-tight max-w-3xl">
-          Built for agents, not just humans.
-        </h2>
-        <p className="mt-4 max-w-3xl text-gray-300 leading-relaxed">
-          Synthetic markets are an agent-native primitive: precise formulas, public auctions, programmatic settlement,
-          no GUI dependencies. sLiq's MCP server (in development) will let any AI agent — Claude Desktop, custom GPTs,
-          in-house ops bots — read live markets, simulate positions, and open/close on-chain in one MCP call.
-        </p>
-        <p className="mt-4 max-w-3xl text-xs text-gray-400">
-          Per the{' '}
-          <a
-            href="https://teletype.in/@exitsexist/agent-led-growth"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-lime-300 hover:text-lime-200 underline"
-          >
-            Agent-Led Growth
-          </a>{' '}
-          thesis, buyers are increasingly AI agents — 77% of B2B purchases land with the vendor agents flag first.
-          sLiq's protocol surface is built to be <strong>agent-evaluable from day one</strong>: public white paper,
-          open formulas, on-chain primitives, low token-to-value.
-        </p>
-
-        <div className="mt-10 grid md:grid-cols-2 gap-8">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wide">What agents will do</h3>
-            <div className="mt-4 space-y-3">
-              {agentTypes.map(a => (
-                <div key={a.type} className="rounded-lg bg-gray-900/60 border border-gray-700 p-4">
-                  <div className="text-sm font-semibold text-lime-300">{a.type}</div>
-                  <div className="text-sm text-gray-300 mt-1 leading-relaxed">{a.job}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wide">Agent surface</h3>
-            <div className="mt-4 space-y-2">
-              {surface.map(s => (
-                <div key={s.label} className="flex items-start gap-3 rounded-lg bg-gray-900/60 border border-gray-700 p-3">
-                  <span className={`shrink-0 mt-0.5 text-base ${s.live ? 'text-lime-400' : 'text-amber-400'}`}>
-                    {s.live ? '✓' : '○'}
-                  </span>
-                  <div>
-                    <div className="text-sm font-medium text-white">{s.label}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{s.detail}</div>
-                  </div>
-                  <span className={`ml-auto text-[10px] uppercase tracking-wide font-semibold ${s.live ? 'text-lime-400' : 'text-amber-400'}`}>
-                    {s.live ? 'Live' : 'Soon'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-10 flex flex-wrap gap-3">
-          <a
-            href="mailto:support@earnpark.com?subject=sLiq%20MCP%20waitlist"
-            className="inline-flex items-center gap-2 rounded-md bg-lime-400 hover:bg-lime-300 text-gray-900 px-5 py-3 text-sm font-semibold"
-          >
-            Join MCP waitlist <span aria-hidden>→</span>
-          </a>
-          <a
-            href="#"
-            className="inline-flex items-center gap-2 rounded-md border border-gray-600 hover:border-gray-400 text-gray-200 px-5 py-3 text-sm font-medium"
-          >
-            Read protocol spec
-          </a>
-        </div>
-      </div>
-    </section>
-  )
-}
+// ─── AgentsBlock removed in v4.2 — best content absorbed into «For Whom» Agent card.
+//     ALG thesis link, MCP-native framing, agent prompt examples, and surface status
+//     all now live inside the Agent column above.
 
 // ─── 8. Comparison ───────────────────────────────────────────────────────
 
@@ -632,24 +591,70 @@ function ComparisonTable() {
 // ─── 9. Security ─────────────────────────────────────────────────────────
 
 function Security() {
-  const items = [
-    { label: 'Audited by Pessimistic', detail: 'Full audit report → link' },
-    { label: 'Open source', detail: 'Code on GitHub' },
-    { label: 'Non-custodial', detail: 'Your wallet, your keys, no admin keys over funds' },
-    { label: 'Beta on Arbitrum', detail: 'TVL cap to bound early risk' },
-    { label: 'Liquidator design', detail: 'Public, permissionless, on-chain settlement' },
+  const primary = [
+    {
+      icon: '🔑',
+      title: 'Non-custodial',
+      body: (
+        <>
+          sLiq is a non-custodial protocol. Your wallet signs every action. sLiq core contracts hold{' '}
+          <strong>no admin keys</strong> over user funds — neither EarnPark nor anyone else can move your assets.
+          Contracts live on Arbitrum (<a href="#" className="underline hover:text-gray-900">addresses</a>).
+        </>
+      ),
+    },
+    {
+      icon: '🛡️',
+      title: 'Audited by Pessimistic',
+      body: (
+        <>
+          Full audit by <a href="#" className="underline hover:text-gray-900">Pessimistic Security</a> covering{' '}
+          <strong>SLIQCore + margin module + liquidator + listing module</strong>. Report published with the codebase.
+          All sLiq contracts are open source and verifiable on GitHub.
+        </>
+      ),
+    },
+    {
+      icon: '⚙️',
+      title: 'On-chain settlement only',
+      body: (
+        <>
+          All position settlement happens through <strong>permissionless keepers</strong> reading the actual Uniswap V3 pool state.
+          No oracle, no centralized price feed, no off-chain order book. Anyone can run a keeper and earn liquidation rewards.
+        </>
+      ),
+    },
+  ]
+  const secondary = [
+    {
+      title: 'Beta on Arbitrum with TVL cap',
+      body: 'Beta runs with a TVL cap to bound early risk. Cap lifts gradually as the protocol matures and additional audits land.',
+    },
+    {
+      title: 'No third-party liquidity risk',
+      body: 'User funds remain inside sLiq smart contracts and serve only as collateral for trades. sLiq does not rehypothecate, lend, or move user capital off-chain.',
+    },
   ]
   return (
     <section className="border-b border-gray-100 bg-gray-50/60">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <SectionHeader eyebrow="Security" title="Security & trust" />
-        <div className="grid md:grid-cols-2 gap-4 mt-10">
-          {items.map(it => (
-            <div key={it.label} className="rounded-lg bg-white border border-gray-200 px-5 py-4 flex items-start gap-3">
+        <SectionHeader eyebrow="Security" title="Safety of users' funds is our first priority" />
+        <div className="grid md:grid-cols-3 gap-5 mt-10">
+          {primary.map(it => (
+            <div key={it.title} className="rounded-xl bg-white border border-gray-200 p-6 md:p-7 hover:border-gray-300 transition">
+              <div className="text-2xl mb-3">{it.icon}</div>
+              <div className="text-lg font-semibold text-gray-900">{it.title}</div>
+              <p className="mt-2 text-sm text-gray-600 leading-relaxed">{it.body}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid md:grid-cols-2 gap-4 mt-5">
+          {secondary.map(it => (
+            <div key={it.title} className="rounded-lg bg-white border border-gray-200 p-5 flex items-start gap-3">
               <span className="text-lime-500 text-lg mt-0.5">✓</span>
               <div>
-                <div className="text-sm font-semibold text-gray-900">{it.label}</div>
-                <div className="text-sm text-gray-600 mt-0.5">{it.detail}</div>
+                <div className="text-sm font-semibold text-gray-900">{it.title}</div>
+                <p className="text-sm text-gray-600 mt-1 leading-relaxed">{it.body}</p>
               </div>
             </div>
           ))}
