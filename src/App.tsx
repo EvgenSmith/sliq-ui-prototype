@@ -3,10 +3,11 @@
 // SubNav = contextual sub-tabs per section
 // No more Portfolio Overview (orphaned); no more RoleBadge in header.
 
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppHeader } from '@/components/AppHeader'
 import { AppSubNav } from '@/components/AppSubNav'
 import { StatusBanner } from '@/components/StatusBanner'
+import { Landing } from '@/screens/Landing'
 import { ListingsMarketplace } from '@/screens/ListingsMarketplace'
 import { ListingDetail } from '@/screens/ListingDetail'
 import { LPDeposit } from '@/screens/LPDeposit'
@@ -24,6 +25,11 @@ import { ListingLiquidationView } from '@/screens/ListingLiquidation'
 import { LiquidatorPositions, LiquidatorListings } from '@/screens/LiquidatorQueue'
 
 export default function App() {
+  const location = useLocation()
+  // Landing has its own nav/footer — bypass AppShell entirely
+  if (location.pathname === '/') {
+    return <Landing />
+  }
   return (
     <div className="min-h-full flex flex-col">
       <AppHeader />
@@ -31,9 +37,6 @@ export default function App() {
       <AppSubNav />
       <main className="flex-1">
         <Routes>
-          {/* Root → Trade default */}
-          <Route path="/" element={<Navigate to="/listings" replace />} />
-
           {/* Trade section */}
           <Route path="/listings" element={<ListingsMarketplace />} />
           <Route path="/listings/:id" element={<ListingDetail />} />
