@@ -244,6 +244,8 @@ function ForWhom() {
             badge="Soon"
             heading="Tell an AI agent to handle your DeFi"
             chips={['MCP-native', 'Subgraph + REST live']}
+            stepsLabel="Ask your agent:"
+            stepsStyle="prompt"
             steps={[
               'Hedge IL on my USDC/ETH LP if ETH moves more than 5%',
               'Auto-rebalance my listings when auction depth spikes',
@@ -272,7 +274,7 @@ function ForWhom() {
 }
 
 function ForWhomCard({
-  tag, tagColor, badge, heading, chips, steps, cta, micro,
+  tag, tagColor, badge, heading, chips, steps, stepsLabel, stepsStyle, cta, micro,
 }: {
   tag: string
   tagColor: 'lime' | 'amber'
@@ -280,9 +282,12 @@ function ForWhomCard({
   heading: string
   chips?: string[]
   steps: string[]
+  stepsLabel?: string
+  stepsStyle?: 'numbered' | 'prompt'
   cta: { label: string; to: string; kind: 'primary' | 'secondary' }
   micro: React.ReactNode
 }) {
+  const isPrompt = stepsStyle === 'prompt'
   const tagCls =
     tagColor === 'lime'
       ? 'text-lime-700 bg-lime-50 border-lime-200'
@@ -319,13 +324,22 @@ function ForWhomCard({
           ))}
         </div>
       )}
-      <ol className="mt-5 space-y-2.5 flex-1">
+      {stepsLabel && (
+        <div className="mt-5 text-[11px] uppercase tracking-wide font-semibold text-gray-500">{stepsLabel}</div>
+      )}
+      <ol className={`${stepsLabel ? 'mt-2' : 'mt-5'} space-y-2.5 flex-1`}>
         {steps.map((s, i) => (
-          <li key={i} className="flex gap-2.5 text-sm text-gray-700">
-            <span className="shrink-0 w-5 h-5 rounded-full bg-gray-900 text-white text-[10px] font-semibold flex items-center justify-center mt-0.5">
-              {i + 1}
-            </span>
-            <span>{s}</span>
+          <li key={i} className="flex gap-2.5 text-sm">
+            {isPrompt ? (
+              <span className="shrink-0 w-5 h-5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-base font-serif leading-none flex items-center justify-center mt-0.5">
+                {'“'}
+              </span>
+            ) : (
+              <span className="shrink-0 w-5 h-5 rounded-full bg-gray-900 text-white text-[10px] font-semibold flex items-center justify-center mt-0.5">
+                {i + 1}
+              </span>
+            )}
+            <span className={isPrompt ? 'italic text-gray-700' : 'text-gray-700'}>{s}</span>
           </li>
         ))}
       </ol>
@@ -345,10 +359,10 @@ function ForWhomCard({
 
 function HowItWorks() {
   const steps = [
-    { n: 'List', body: 'An LP wraps a Uniswap V3 NFT into sLiq and sets a minimum carry (their Premium APY).' },
+    { n: 'List', body: 'A liquidity provider wraps a Uniswap V3 NFT into sLiq and sets a minimum carry (their Premium APY).' },
     { n: 'Auction', body: 'sLiq matches the market to trader demand via continuous Premium APY auction.' },
     { n: 'Trade', body: 'Traders open leveraged long, short, or vol positions. PnL mirrors the underlying Uniswap pool.' },
-    { n: 'Settle', body: 'Positions close on-chain. LPs receive Uniswap fees + carry. Traders receive PnL (or get liquidated by a keeper).' },
+    { n: 'Settle', body: 'Positions close on-chain. Liquidity providers receive Uniswap fees + carry. Traders receive PnL — or get auto-closed by a permissionless keeper.' },
   ]
   return (
     <section id="how" className="border-b border-gray-100">
@@ -366,8 +380,37 @@ function HowItWorks() {
             </div>
           ))}
         </div>
+
+        {/* Keepers callout — 4th party in sLiq economy */}
+        <div className="mt-10 rounded-2xl border border-gray-200 bg-gray-50/60 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4">
+          <div className="shrink-0 w-11 h-11 rounded-xl bg-gray-900 text-lime-300 flex items-center justify-center">
+            <SvgBolt />
+          </div>
+          <div className="flex-1">
+            <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Fourth party</div>
+            <div className="mt-1 text-base font-semibold text-gray-900">Settlement & liquidations run by permissionless keepers</div>
+            <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+              Anyone can run a keeper node — monitor positions, execute liquidations on price moves,
+              settle expired markets — and earn keeper fees for each successful action. No central operator. No allowlist.
+            </p>
+          </div>
+          <Link
+            to="/keeper/positions"
+            className="shrink-0 inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-4 py-2 text-sm font-medium"
+          >
+            Run a keeper <span aria-hidden>→</span>
+          </Link>
+        </div>
       </div>
     </section>
+  )
+}
+
+function SvgBolt() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
   )
 }
 
