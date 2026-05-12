@@ -17,7 +17,6 @@ export function Landing() {
       <LandingNav />
       <Hero />
       <Benefits />
-      <StatStrip />
       <ForWhom />
       <HowItWorks />
       <UseCases />
@@ -77,9 +76,6 @@ function Hero() {
           </p>
           <p className="mt-3 text-base md:text-xl text-gray-300 leading-relaxed">
             Liquidity providers earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
-          </p>
-          <p className="mt-3 text-sm md:text-base text-gray-400 leading-relaxed">
-            No funding rate. No oracle. Open and exit any time — settles in ~4 sec on Arbitrum.
           </p>
 
           {/* CTAs */}
@@ -152,79 +148,78 @@ function HeroVisual() {
 
 // ─── 2. Benefits — 3 cards with numbers ──────────────────────────────────
 
+// Benefits — GMX-style bento. 5 cards, asymmetric grid:
+//   Row 1: [A trust 1c] [B leverage WIDE 2c]
+//   Row 2: [C no-friction 1c] [D no-idle-yield 1c] [E live-stats 1c]
+// Card anatomy matches Security: icon box + eyebrow + stat + title + body.
 function Benefits() {
-  const cards: {
-    stat: React.ReactNode
-    title: string
-    body: React.ReactNode
-  }[] = [
-    {
-      stat: 'Since 2022',
-      title: 'Backed by EarnPark',
-      body: (
-        <>
-          Production fintech with multi-year track record. <strong>Qualified market maker on Binance.</strong>
-        </>
-      ),
-    },
-    {
-      stat: <>Up to 1000×</>,
-      title: 'No funding · No oracle',
-      body: (
-        <>
-          Traders open up to <strong>1000×</strong> on real Uniswap pools. Liquidity providers earn carry up to <strong>100×</strong> via Provider Leverage. Leverage cap is set per market.
-        </>
-      ),
-    },
-    {
-      stat: 'No idle yield',
-      title: 'Base Uniswap APY never pauses',
-      body: (
-        <>
-          Your Uniswap fees keep accruing at all times — pre-listing, listed-but-not-taken, listed-and-active. No dead-time window. Premium APY is <strong>on top</strong>, not instead.
-        </>
-      ),
-    },
-  ]
   return (
     <section className="border-b border-gray-100">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {cards.map(c => (
-            <div
-              key={c.title}
-              className="rounded-2xl border border-gray-200 bg-white p-6 md:p-7 hover:border-gray-300 transition"
-            >
-              <div className="text-3xl md:text-4xl font-bold text-gray-900 leading-none tracking-tight">
-                {c.stat}
-              </div>
-              <div className="mt-3 text-base font-semibold text-gray-900">{c.title}</div>
-              <p className="mt-2 text-sm text-gray-600 leading-relaxed">{c.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
+        <div className="grid md:grid-cols-3 gap-5">
+          {/* A — Trust */}
+          <BenefitCard
+            icon={<SvgBuilding />}
+            eyebrow="Trusted operator"
+            stat="Since 2022"
+            title="Backed by EarnPark"
+            body={
+              <>
+                Production fintech with multi-year track record. <strong>Qualified market maker on Binance.</strong>
+              </>
+            }
+          />
 
-// Compact stat strip — inline horizontal layout: label · value · label · value
-// Smaller than hero-stat treatment, reads as a single credibility bar.
-function StatStrip() {
-  return (
-    <section className="border-b border-gray-100 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-5 md:py-6">
-        <div className="grid grid-cols-2 md:flex md:items-center md:justify-around gap-3 md:gap-8">
-          <Stat label="Liquidity providers" value="47" />
-          <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
-          <Stat label="Active markets" value="12" />
-          <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
-          <Stat label="Open interest" value="$84K" />
-          <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
-          <Stat
-            label="Top trade today"
-            value="+$2.4K"
-            href="https://dune.com/"
+          {/* B — Leverage (WIDE, 2-column) */}
+          <BenefitCard
+            wide
+            icon={<SvgLightning />}
+            eyebrow="Max leverage"
+            stat={<>Up to <span className="text-lime-600">1000×</span></>}
+            title="Leverage on real Uniswap pools"
+            body={
+              <>
+                Traders open up to <strong>1000×</strong> per market. Liquidity providers earn carry up to <strong>100×</strong> via Provider Leverage. Cap is set per market based on liquidity depth — not a protocol-wide constant.
+              </>
+            }
+          />
+
+          {/* C — No friction (trading mechanics, from Hero subhead) */}
+          <BenefitCard
+            icon={<SvgZap />}
+            eyebrow="No friction"
+            title="No funding · No oracle · Exit any time"
+            body={
+              <>
+                Carry rate is the only ongoing cost — no perp funding. Settlement at the actual Uniswap V3 pool, not an oracle feed. Open and exit any time — settles in <strong>~4 sec on Arbitrum</strong>.
+              </>
+            }
+          />
+
+          {/* D — No idle yield */}
+          <BenefitCard
+            icon={<SvgInfinity />}
+            eyebrow="No idle yield"
+            title="Base Uniswap APY never pauses"
+            body={
+              <>
+                Your Uniswap fees keep accruing at all times — pre-listing, listed-but-not-taken, listed-and-active. Premium APY is <strong>on top</strong>, not instead.
+              </>
+            }
+          />
+
+          {/* E — Live stats (combined 4 numbers into one card) */}
+          <BenefitCard
+            icon={<SvgPulse />}
+            eyebrow="Live on Beta"
+            customBody={
+              <div className="grid grid-cols-2 gap-x-4 gap-y-4 mt-2">
+                <MiniStat value="47" label="Liquidity providers" />
+                <MiniStat value="12" label="Active markets" />
+                <MiniStat value="$84K" label="Open interest" />
+                <MiniStat value="+$2.4K" label="Top trade today" href="https://dune.com/" />
+              </div>
+            }
           />
         </div>
       </div>
@@ -232,27 +227,96 @@ function StatStrip() {
   )
 }
 
-function Stat({ label, value, href }: { label: string; value: string; href?: string }) {
+// Bento benefit card — Security-style anatomy: icon box + eyebrow + (optional) stat + title + body.
+// `wide` adds md:col-span-2 for the asymmetric grid row.
+// `customBody` replaces the body+title slot with arbitrary content (used by the stats card).
+function BenefitCard({
+  icon, eyebrow, stat, title, body, customBody, wide,
+}: {
+  icon: React.ReactNode
+  eyebrow: string
+  stat?: React.ReactNode
+  title?: string
+  body?: React.ReactNode
+  customBody?: React.ReactNode
+  wide?: boolean
+}) {
+  return (
+    <div className={`rounded-2xl bg-white border border-gray-200 p-6 md:p-7 hover:border-gray-300 transition ${wide ? 'md:col-span-2' : ''}`}>
+      <div className="w-11 h-11 rounded-xl bg-lime-100 text-lime-700 flex items-center justify-center mb-5">
+        {icon}
+      </div>
+      <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">{eyebrow}</div>
+      {stat && (
+        <div className={`mt-1 ${wide ? 'text-4xl md:text-5xl' : 'text-2xl md:text-3xl'} font-bold text-gray-900 leading-none tracking-tight`}>
+          {stat}
+        </div>
+      )}
+      {title && (
+        <div className={`${stat ? 'mt-3' : 'mt-1'} text-base md:text-lg font-bold text-gray-900`}>
+          {title}
+        </div>
+      )}
+      {body && <p className="mt-2 text-sm text-gray-600 leading-relaxed">{body}</p>}
+      {customBody}
+    </div>
+  )
+}
+
+function MiniStat({ value, label, href }: { value: string; label: string; href?: string }) {
   const inner = (
-    <div className="flex items-baseline gap-2">
-      <span className="text-xl md:text-2xl font-bold tracking-tight text-white leading-none">{value}</span>
-      <span className="text-xs md:text-sm text-gray-400 inline-flex items-center gap-1">
-        {label}
-        {href && <span aria-hidden className="text-[10px]">↗</span>}
-      </span>
+    <div>
+      <div className="text-2xl md:text-3xl font-bold text-gray-900 leading-none tracking-tight">
+        {value}
+        {href && <span aria-hidden className="text-xs text-gray-500 ml-1">↗</span>}
+      </div>
+      <div className="mt-1 text-[11px] uppercase tracking-wide font-medium text-gray-500">{label}</div>
     </div>
   )
   return href ? (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="hover:opacity-90 transition"
-    >
+    <a href={href} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition">
       {inner}
     </a>
   ) : (
     inner
+  )
+}
+
+// Bento icon SVGs (lime-700 currentColor)
+function SvgBuilding() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <rect x="4" y="3" width="16" height="18" rx="1" />
+      <path d="M9 7h1M9 11h1M9 15h1M14 7h1M14 11h1M14 15h1" />
+    </svg>
+  )
+}
+function SvgLightning() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className="w-5 h-5">
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  )
+}
+function SvgZap() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+function SvgInfinity() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.739-8z" />
+    </svg>
+  )
+}
+function SvgPulse() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
   )
 }
 
