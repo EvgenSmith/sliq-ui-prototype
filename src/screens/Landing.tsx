@@ -91,13 +91,13 @@ function Hero() {
         {/* LEFT — H1 + sub + CTAs + trust */}
         <div className="order-1 text-left">
           <h1
-            className="text-4xl md:text-6xl leading-[1.1] tracking-tight"
-            style={{ font: 'var(--h2m)', fontFamily: 'var(--font-header)', letterSpacing: '-0.01em', color: 'var(--fg-1)' }}
+            className="text-3xl md:text-5xl leading-[1.1] tracking-tight"
+            style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em', color: 'var(--fg-1)' }}
           >
             Rent out your <span style={{ color: 'var(--primary-lime-0)' }}>Uniswap LP</span>.<br />
             Take leveraged views on any pool.
           </h1>
-          <p className="mt-6 leading-relaxed" style={{ font: 'var(--b6)', color: 'var(--fg-2)' }}>
+          <p className="mt-6 text-base md:text-lg leading-relaxed" style={{ color: 'var(--fg-2)' }}>
             Up to <strong style={{ color: 'var(--fg-1)' }}>1000×</strong> leverage for traders.{' '}
             <span className="md:inline block">
               <strong style={{ color: 'var(--primary-lime-0)' }}>+3–7% APR</strong> extra carry for liquidity providers.
@@ -1262,7 +1262,7 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
     <div>
       <div className="text-xs uppercase tracking-wide font-semibold text-[var(--fg-3)]">{eyebrow}</div>
       <h2
-        className="mt-1 text-3xl md:text-4xl leading-tight text-[var(--fg-1)]"
+        className="mt-1 text-2xl md:text-3xl leading-tight text-[var(--fg-1)]"
         style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em' }}
       >
         {title}
