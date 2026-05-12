@@ -8,6 +8,7 @@
 // - All status chips covered
 
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { HelpPopover } from '@/components/HelpPopover'
 import { ListingsTable } from '@/components/ListingsTable'
 import { closedPositions, connectedWallet, listings, positions } from '@/mocks/data'
@@ -151,6 +152,12 @@ export function ListingsMarketplace() {
         <p className="text-sm text-gray-700 leading-relaxed">
           <strong>С плечом до 1000× зайди в чужую LP позицию на Uniswap.</strong>{' '}
           <span className="text-gray-600">Любое движение цены пары — твой профит, неважно куда; чем сильнее движение, тем больше зарабатываешь.</span>
+        </p>
+        <p className="text-xs text-gray-500 mt-1.5">
+          У тебя есть Uniswap V3 LP NFT?{' '}
+          <Link to="/lp/deposit" className="text-[var(--color-role-lp)] font-medium underline hover:no-underline">
+            Принеси сюда — заработай extra Premium APY поверх обычных Uniswap fees →
+          </Link>
         </p>
 
         {/* Slim onboarding banner — "what can I do as a trader?" */}

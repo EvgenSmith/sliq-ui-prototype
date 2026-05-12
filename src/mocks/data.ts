@@ -474,13 +474,16 @@ listings.forEach(l => {
   l.lifetimePremiumUSD = l.minPremiumApyBps >= 0 ? dailyPremium * ageDays : -dailyPremium * ageDays
   // Reference Fees — synthetic; depends on leverage
   l.lifetimeReferenceUSD = dailyUniFee * (l.providerLeverage - 1) * ageDays * utilization
+  // Pseudo-deterministic seed from listing id — stable across refreshes
+  const seed = parseInt(l.id.replace(/\D/g, '') || '1', 10)
+  const pseudo = (n: number) => ((seed * 9301 + 49297 + n * 7919) % 233280) / 233280
   // Net PnL = sum of incomes minus mock IL (~ -0.5-2% of initial liquidity)
-  const ilProxy = -l.initialLiquidityUSD * (0.005 + Math.random() * 0.015)
+  const ilProxy = -l.initialLiquidityUSD * (0.005 + pseudo(1) * 0.015)
   l.netPnLUSD = (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0) + ilProxy
   // HODL delta = how much extra LP earns vs just holding tokens
   l.hodlDeltaUSD = (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0) // simplified — gross income
-  // Range hit rate — mock 50-95%
-  l.rangeHitRatePct = Math.floor(50 + Math.random() * 45)
+  // Range hit rate — mock 50-95%, deterministic from seed
+  l.rangeHitRatePct = Math.floor(50 + pseudo(2) * 45)
   // Auto-compound default on
   l.autoCompound = true
 })

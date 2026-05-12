@@ -17,28 +17,45 @@ export function LPDeposit() {
   const [mode, setMode] = useState<Mode>('import')
   const [selected, setSelected] = useState<WalletNFT | null>(null)
   const [providerMode, setProviderMode] = useState<'conservative' | 'advanced'>('conservative')
-  const [leverage, setLeverage] = useState(10)
+  const [leverage, setLeverage] = useState(5)
   const [minApyPct, setMinApyPct] = useState(5)
   const [autoCompound, setAutoCompound] = useState(true)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [advancedWarningOpen, setAdvancedWarningOpen] = useState(false)
 
   const isAdvanced = providerMode === 'advanced'
   const effectiveLeverage = isAdvanced ? leverage : 1
   const subsidized = minApyPct < 0
 
-  // Earnings estimate (mocked)
+  // Earnings estimate (mocked from comparable listings)
   const estimate = useMemo(() => {
     if (!selected) return null
     const uniApr = selected.uniswapApyBps / 100
-    // Premium APY proxy from comparable listings — roughly minApy + 5-10% market spread
-    const premApr = Math.max(minApyPct + 5, 8)
+    // Premium APY — range from comparable listings (typical 8-18% for major pairs)
+    const premAprLow = Math.max(minApyPct, 6)
+    const premAprHigh = Math.max(minApyPct + 12, 18)
+    const premAprMid = (premAprLow + premAprHigh) / 2
     // Reference Fees ≈ uni × (leverage - 1) for advanced
     const refApr = uniApr * Math.max(0, effectiveLeverage - 1)
+    // Combined low / high estimates
+    const lowApr = uniApr + (subsidized ? minApyPct : premAprLow) + refApr
+    const highApr = uniApr + (subsidized ? minApyPct : premAprHigh) + refApr
+    const midApr = uniApr + (subsidized ? minApyPct : premAprMid) + refApr
+    // Dollar amounts на liquidity
+    const lowUSDPerYear = (lowApr / 100) * selected.liquidityUSD
+    const highUSDPerYear = (highApr / 100) * selected.liquidityUSD
+    const midUSDPerYear = (midApr / 100) * selected.liquidityUSD
     return {
       uniApr,
-      premApr: subsidized ? minApyPct : premApr,
+      premAprLow: subsidized ? minApyPct : premAprLow,
+      premAprHigh: subsidized ? minApyPct : premAprHigh,
       refApr,
-      totalApr: uniApr + (subsidized ? minApyPct : premApr) + refApr,
+      lowApr,
+      highApr,
+      midApr,
+      lowUSDPerYear,
+      highUSDPerYear,
+      midUSDPerYear,
     }
   }, [selected, minApyPct, effectiveLeverage, subsidized])
 
@@ -133,7 +150,13 @@ export function LPDeposit() {
                       />
                       <ModeOption
                         active={providerMode === 'advanced'}
-                        onClick={() => setProviderMode('advanced')}
+                        onClick={() => {
+                          if (providerMode !== 'advanced') {
+                            setAdvancedWarningOpen(true)
+                          } else {
+                            setProviderMode('advanced')
+                          }
+                        }}
                         title="At-risk · N×"
                         subtitle="NFT в залоге, выше потенциал"
                       />
@@ -221,30 +244,46 @@ export function LPDeposit() {
                     </label>
                   </div>
 
-                  {/* Earnings estimate */}
+                  {/* Earnings estimate — range from comparable listings */}
                   {estimate && (
                     <div className="rounded-md border border-gray-200 bg-white p-3 num text-sm">
-                      <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Estimated earnings (APR)</div>
+                      <div className="flex items-baseline justify-between mb-2">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Estimated earnings</div>
+                        <div className="text-[10px] text-gray-400">on {fmtUSD(selected.liquidityUSD)} liquidity</div>
+                      </div>
                       <div className="space-y-1">
-                        <PreviewRow label="Uniswap baseline" value={`${estimate.uniApr.toFixed(2)}%`} />
+                        <PreviewRow label="Uniswap baseline (last 30d realized)" value={`${estimate.uniApr.toFixed(2)}%`} />
                         {estimate.refApr > 0 && (
-                          <PreviewRow label="Reference Fees" value={`+${estimate.refApr.toFixed(2)}%`} />
+                          <PreviewRow label="Reference Fees (LP leverage × baseline)" value={`+${estimate.refApr.toFixed(2)}%`} />
                         )}
                         <PreviewRow
-                          label={subsidized ? 'Premium APY (you pay)' : 'Premium APY (trader pays you)'}
-                          value={subsidized ? `${minApyPct}%` : `+${estimate.premApr.toFixed(2)}%`}
+                          label={subsidized ? 'Premium APY (you pay traders)' : 'Premium APY (typical range from comparable listings)'}
+                          value={
+                            subsidized
+                              ? `${minApyPct}%`
+                              : `+${estimate.premAprLow.toFixed(0)}% – +${estimate.premAprHigh.toFixed(0)}%`
+                          }
                           tone={subsidized ? 'danger' : 'success'}
                         />
                         <div className="border-t border-gray-100 pt-1.5 mt-1.5">
                           <PreviewRow
-                            label="Combined APR (estimate)"
-                            value={`${estimate.totalApr >= 0 ? '+' : ''}${estimate.totalApr.toFixed(2)}%`}
+                            label="Combined APR · range"
+                            value={`${estimate.lowApr.toFixed(1)}% – ${estimate.highApr.toFixed(1)}%`}
                             bold
+                          />
+                          <PreviewRow
+                            label="↳ in dollars · per year"
+                            value={`${fmtUSD(estimate.lowUSDPerYear)} – ${fmtUSD(estimate.highUSDPerYear)}`}
+                            bold
+                          />
+                          <PreviewRow
+                            label="↳ midpoint estimate"
+                            value={`~${fmtUSD(estimate.midUSDPerYear)} / year`}
                           />
                         </div>
                       </div>
                       <p className="text-[10px] text-gray-500 mt-2 leading-snug">
-                        Estimate. Реальный earnings зависит от market demand (Premium APY auction) и Uniswap pool activity.
+                        Range derived из comparable {selected.pair.token0}/{selected.pair.token1} {fmtFeeTier(selected.feeTierBps)} listings за 30d. Реальный earnings зависит от Premium APY auction (твоя Min APY = floor) и Uniswap pool activity.
                       </p>
                     </div>
                   )}
@@ -341,11 +380,75 @@ export function LPDeposit() {
               <li>• Uniswap fees flow normally (95% from baseline)</li>
               <li>• Ты задаёшь price range (мы не трогаем)</li>
               <li>• NFT в твоём контроле (Conservative · 1×)</li>
-              <li>• Withdrawal anytime (~12s)</li>
+              <li>• Withdrawal anytime (~1-2 blocks)</li>
+            </ul>
+          </div>
+
+          {/* Risk reminders — addresses Анна's «can I lose NFT?» fear */}
+          <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-900 mb-2">
+              Risk reminders
+            </h3>
+            <ul className="space-y-2 text-xs text-gray-700 leading-snug">
+              <li>
+                <strong className="text-gray-900">🔒 Custody</strong>
+                <div className="text-[11px] text-gray-600 mt-0.5">
+                  NFT в sLiq smart contract (audit-pending · Beta). Не custodial 3rd-party — on-chain control. Withdraw anytime через 2-block keeper settlement (~0.5-1s на Arbitrum).
+                </div>
+              </li>
+              <li>
+                <strong className="text-gray-900">🛡 Conservative · 1×</strong>
+                <div className="text-[11px] text-gray-600 mt-0.5">
+                  NFT <strong>не может</strong> быть ликвидирован. Listing-level liq невозможен. Recommended для первого listing.
+                </div>
+              </li>
+              <li>
+                <strong className="text-gray-900">⚠️ Advanced · N×</strong>
+                <div className="text-[11px] text-gray-600 mt-0.5">
+                  NFT становится collateral. При vol-event'е возможна listing-level liquidation — часть NFT может быть потеряна. Только для high-conviction LPs.
+                </div>
+              </li>
+              <li>
+                <strong className="text-gray-900">🚧 Beta version</strong>
+                <div className="text-[11px] text-gray-600 mt-0.5">
+                  Smart contracts audit-pending. Не вкладывай больше чем готов потерять. Whitelist-only access. <Link to="/access" className="underline">Request access →</Link>
+                </div>
+              </li>
             </ul>
           </div>
         </aside>
       </div>
+
+      {/* Advanced mode warning — before enabling N× leverage */}
+      <HighStakesConfirmModal
+        open={advancedWarningOpen}
+        title="Enable Advanced mode — read this"
+        subtitle="Advanced mode делает твою NFT collateral. Это для high-conviction LPs которые знают V3 edge cases."
+        currentState={[
+          { label: 'Current mode', value: 'Safe · 1×' },
+          { label: 'NFT at risk', value: 'No' },
+          { label: 'Listing-level liq', value: 'Impossible' },
+        ]}
+        newState={[
+          { label: 'New mode', value: 'At-risk · 5× (default)', deltaTone: 'negative' },
+          { label: 'NFT at risk', value: 'Yes', deltaTone: 'negative' },
+          { label: 'Listing-level liq', value: 'Possible at vol-event', deltaTone: 'negative' },
+        ]}
+        risks={[
+          'Vol-event может triggered listing-level liquidation — часть NFT потеряна (pro-rata distribution)',
+          'Reference Fees pool амплифицирован × N — выше earnings потенциал',
+          'Effective leverage = √N (для N=5 → ~2.2×). Это конкретно sLiq mechanic, не Uniswap',
+          'Для first-time LP — strongly recommended стартануть с Safe · 1×',
+        ]}
+        irreversibilityNote="Можешь переключить обратно в Safe later (с задержкой 1 block для anti-manipulation)."
+        confirmType="checkbox"
+        confirmButtonLabel="I understand — enable Advanced"
+        onConfirm={() => {
+          setProviderMode('advanced')
+          setAdvancedWarningOpen(false)
+        }}
+        onCancel={() => setAdvancedWarningOpen(false)}
+      />
 
       {/* Confirm modal */}
       {selected && (

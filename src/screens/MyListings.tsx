@@ -495,9 +495,9 @@ function SummaryCard({
 function OnboardingBanner() {
   const KEY = 'sliq.mylistings.onboardingState'
   const [state, setState] = useState<'expanded' | 'collapsed'>(() => {
-    if (typeof window === 'undefined') return 'collapsed'
+    if (typeof window === 'undefined') return 'expanded'
     const stored = localStorage.getItem(KEY) as 'expanded' | 'collapsed' | null
-    return stored ?? 'collapsed'
+    return stored ?? 'expanded' // first-time visitor → expanded; sticky preference after
   })
   function setStateAndStore(next: 'expanded' | 'collapsed') {
     setState(next)

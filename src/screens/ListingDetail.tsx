@@ -189,8 +189,9 @@ export function ListingDetail() {
             />
           )}
 
-          {/* Pro Metrics — relocated to right rail per design feedback */}
-          {!isOwner && <ProMetrics listing={listing} positions={listingPositions} />}
+          {/* Pro Metrics — relocated to right rail. Visible for both trader & owner
+              (owner uses these для self-benchmark vs other listings) */}
+          <ProMetrics listing={listing} positions={listingPositions} />
         </aside>
       </div>
     </div>
@@ -1044,6 +1045,28 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
         <p className="text-[10px] text-gray-500 mt-2 leading-snug">
           Что Uniswap UI скрывает: gross fees − IL = real PnL. С sLiq добавляются Reference Fees + Premium APY от lessees → итог часто positive даже когда Uniswap-only был бы в минусе.
         </p>
+        {netPnL < 0 && (
+          <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+            <div className="text-xs font-semibold text-amber-900 mb-1">💡 What to do</div>
+            <ul className="text-[11px] text-amber-900 space-y-1 leading-snug list-disc list-outside ml-4">
+              {hitRate < 50 && (
+                <li><strong>Range hit-rate {hitRate}% слишком низкий</strong> — NFT часто out-of-range. Withdraw + re-list через Uniswap с wider range.</li>
+              )}
+              {hitRate >= 50 && hitRate < 70 && (
+                <li>Range hit-rate {hitRate}% — норм, но можно расширить для стабильности fees.</li>
+              )}
+              {Math.abs(ilProxy) > lifetimeUni + lifetimePremium + lifetimeRef && (
+                <li><strong>IL превышает earnings</strong> — цена двинулась против range. Если ждёшь mean-reversion, оставь; если нет — закрой через Request withdrawal.</li>
+              )}
+              {!isAdvanced && (
+                <li>Consider Advanced mode для больше Reference Fees — но только если ты конfident в pair direction.</li>
+              )}
+              {activeLessees.length === 0 && (
+                <li>Нет lessees — listing simply not attractive at current Min APY. Снизь Min APY чтобы привлечь traders.</li>
+              )}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Range hit-rate */}
@@ -1078,56 +1101,71 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
       <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
         <h2 className="text-base font-semibold">Manage listing</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ActionButton
-            title="Update Provider Leverage"
-            subtitle={`Now: ${listing.providerLeverage}×`}
-            onClick={() => setLeverageOpen(true)}
-            tooltipLabel="Update Leverage"
-            tooltipBody="Conservative ↔ Advanced. Higher leverage amplifies Reference Fees pool но делает NFT collateralized."
-          />
-          <ActionButton
-            title="Update Min Premium APY"
-            subtitle={`Now: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
-            onClick={() => setUpdateApyOpen(true)}
-            tooltipLabel="Update Min APY"
-            tooltipBody="Floor для auction. Trader должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь lessees."
-          />
-          <ToggleAction
-            title="Pause new lessees"
-            subtitle={paused ? 'Paused — existing keep' : 'Active — accepting opens'}
-            active={paused}
-            onClick={() => setPaused(p => !p)}
-            tooltipLabel="Pause"
-            tooltipBody="Pause blocks new opens, existing lessees продолжают сидеть и платить carry. To force-close everyone → use Request withdrawal instead."
-          />
-          <ToggleAction
-            title="Auto-compound Uniswap fees"
-            subtitle={autoCompound ? 'ON — keeper compounds на каждом settlement' : 'OFF — fees collect-only'}
-            active={autoCompound}
-            onClick={() => setAutoCompound(a => !a)}
-            tooltipLabel="Auto-compound"
-            tooltipBody="Keeper автоматически collect Uniswap fees и re-добавляет к NFT при каждом settlement event. No manual collect+re-add."
-          />
-        </div>
-
-        {claimable > 1 && (
-          <div className="rounded-md border border-[var(--color-role-lp)]/30 bg-[var(--color-role-lp-bg)]/40 p-3 flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">Ready to claim: {fmtUSD(claimable)}</div>
-              <div className="text-[11px] text-gray-600 mt-0.5">Uniswap fees + Reference + Premium accrued</div>
+        {/* PRIMARY action — Claim (если есть accrued) */}
+        {claimable > 1 ? (
+          <div className="rounded-lg border-2 border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)]/40 p-4 flex items-baseline justify-between gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-wide text-[var(--color-role-lp)] font-semibold">Ready to claim</div>
+              <div className="text-2xl num font-bold text-[var(--color-role-lp)] mt-0.5">{fmtUSD(claimable)}</div>
+              <div className="text-[11px] text-gray-600 mt-0.5">
+                Uniswap fees {fmtUSD(lifetimeUni * 0.3)} + Reference {fmtUSD(lifetimeRef * 0.4)} + Premium {fmtUSD(lifetimePremium * 0.2)}
+              </div>
             </div>
             <Link
               to="/lp/claims"
-              className="text-sm font-semibold px-3 py-1.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
+              className="text-sm font-bold px-5 py-2.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition whitespace-nowrap"
             >
               Claim →
             </Link>
           </div>
+        ) : (
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+            <strong>No earnings ready to claim yet.</strong> Auto-compound{autoCompound ? ' ON — fees added back to NFT automatically.' : ' OFF — fees accumulate, will appear here.'}
+          </div>
         )}
+
+        {/* SECONDARY actions — settings */}
+        <div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Settings</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <ActionButton
+              title={isAdvanced ? 'Update Provider Leverage' : 'Enable Advanced mode'}
+              subtitle={`Now: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
+              onClick={() => setLeverageOpen(true)}
+              tooltipLabel={isAdvanced ? 'Update Leverage' : 'Enable Advanced'}
+              tooltipBody={isAdvanced
+                ? 'Adjust Provider Leverage 2-100×. Higher = amplified Reference Fees pool, ниже = безопаснее.'
+                : 'Switch from Safe · 1× to At-risk · N×. NFT becomes collateral. Только для high-conviction LPs.'}
+            />
+            <ActionButton
+              title="Update Min Premium APY"
+              subtitle={`Now: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
+              onClick={() => setUpdateApyOpen(true)}
+              tooltipLabel="Update Min APY"
+              tooltipBody="Floor для auction. Trader должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь lessees."
+            />
+            <ToggleAction
+              title="Pause new lessees"
+              subtitle={paused ? 'Paused — existing keep' : 'Active — accepting opens'}
+              active={paused}
+              onClick={() => setPaused(p => !p)}
+              tooltipLabel="Pause"
+              tooltipBody="Pause blocks new opens, existing lessees продолжают сидеть и платить. To force-close everyone → use Request withdrawal instead."
+            />
+            <ToggleAction
+              title="Auto-compound Uniswap fees"
+              subtitle={autoCompound ? 'ON — keeper compounds на каждом settlement' : 'OFF — fees collect-only'}
+              active={autoCompound}
+              onClick={() => setAutoCompound(a => !a)}
+              tooltipLabel="Auto-compound"
+              tooltipBody="Keeper автоматически collect Uniswap fees и re-добавляет к NFT при каждом settlement event. No manual collect+re-add."
+            />
+          </div>
+        </div>
 
         <hr className="border-gray-100" />
 
+        {/* DESTRUCTIVE action — withdraw */}
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <div>
             <h3 className="text-sm font-semibold">Request NFT withdrawal</h3>
@@ -1185,19 +1223,41 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
         </div>
       )}
 
-      {/* Vs HODL chart placeholder */}
+      {/* Vs HODL comparison — all values relative to «just held tokens» baseline */}
       <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold mb-2">Vs HODL · 30d</h3>
+        <h3 className="text-sm font-semibold mb-2">Vs HODL · с момента листинга</h3>
         <div className="text-[11px] text-gray-500 mb-3">
-          Что было бы если бы ты просто держал tokens (без LP):
+          Все числа — <strong>отклонение от baseline</strong> «просто держал tokens» ($0 = ничего не делал).
         </div>
-        <div className="grid grid-cols-3 gap-3 num text-sm">
-          <ComparisonBlock label="Pure HODL" value={`−${fmtUSD(Math.abs(ilProxy))}`} tone="neutral" subtitle="just held tokens" />
-          <ComparisonBlock label="Uniswap LP only" value={`+${fmtUSD(lifetimeUni + ilProxy)}`} tone={lifetimeUni + ilProxy >= 0 ? 'success' : 'danger'} subtitle="fees minus IL" />
-          <ComparisonBlock label="sLiq LP" value={netPnL >= 0 ? `+${fmtUSD(netPnL)}` : `−${fmtUSD(Math.abs(netPnL))}`} tone={netPnL >= 0 ? 'success' : 'danger'} subtitle="+ Premium + Reference" highlight />
-        </div>
+        {(() => {
+          const uniDelta = lifetimeUni + ilProxy // fees minus IL
+          const sliqDelta = netPnL
+          return (
+            <div className="grid grid-cols-3 gap-3 num text-sm">
+              <ComparisonBlock
+                label="Pure HODL"
+                value="$0"
+                tone="neutral"
+                subtitle="baseline · просто держал"
+              />
+              <ComparisonBlock
+                label="Uniswap LP only"
+                value={`${uniDelta >= 0 ? '+' : '−'}${fmtUSD(Math.abs(uniDelta))}`}
+                tone={uniDelta >= 0 ? 'success' : 'danger'}
+                subtitle="Uniswap fees − IL"
+              />
+              <ComparisonBlock
+                label="sLiq LP"
+                value={`${sliqDelta >= 0 ? '+' : '−'}${fmtUSD(Math.abs(sliqDelta))}`}
+                tone={sliqDelta >= 0 ? 'success' : 'danger'}
+                subtitle="+ Reference + Premium"
+                highlight
+              />
+            </div>
+          )
+        })()}
         <p className="text-[10px] text-gray-500 mt-3 leading-snug">
-          sLiq добавляет Premium APY + Reference Fees к Uniswap baseline. Total &gt; HODL — листинг успешный.
+          sLiq добавляет Reference Fees + Premium APY к Uniswap baseline. Если sLiq column больше Uniswap LP — листинг приносит extra поверх обычного LP.
         </p>
       </div>
 
