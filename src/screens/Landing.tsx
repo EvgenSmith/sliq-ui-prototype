@@ -62,21 +62,16 @@ function LandingNav() {
 function Hero() {
   return (
     <section className="border-b border-gray-100 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-16 md:py-24 grid md:grid-cols-[1fr_1.1fr] gap-10 md:gap-12 items-center">
-        {/* LEFT — visual placeholder (layered stack representing the «layer on Uniswap» metaphor) */}
-        <div className="order-2 md:order-1">
-          <HeroVisual />
-        </div>
-
-        {/* RIGHT — H1 + sub + CTAs + trust */}
-        <div className="order-1 md:order-2 text-left">
+      <div className="mx-auto max-w-7xl px-4 py-16 md:py-24 grid md:grid-cols-[1.1fr_1fr] gap-10 md:gap-12 items-center">
+        {/* LEFT — H1 + sub + CTAs + trust */}
+        <div className="order-1 text-left">
           <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight">
             The leverage layer on{' '}
             <span className="text-lime-300">Uniswap V3</span>
           </h1>
           <p className="mt-6 text-base md:text-xl text-gray-300 leading-relaxed">
             Open up to <strong className="text-white">1000×</strong> leveraged positions on any Uniswap V3 pool.
-            LPs earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
+            Liquidity providers earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
             <br className="hidden md:block" />
             <span className="text-gray-400">No funding rate. No oracle. ~4 sec settlement on Arbitrum.</span>
           </p>
@@ -107,6 +102,11 @@ function Hero() {
             <span className="text-gray-700">·</span>
             <span>Audited by <span className="text-gray-200 font-medium">Pessimistic</span></span>
           </div>
+        </div>
+
+        {/* RIGHT — visual */}
+        <div className="order-2">
+          <HeroVisual />
         </div>
       </div>
     </section>
@@ -151,43 +151,41 @@ function Benefits() {
     {
       stat: 'Since 2022',
       title: 'Backed by EarnPark',
-      body: 'Production fintech with multi-year track record. sLiq is built and operated by the EarnPark team.',
-      accent: 'gray' as const,
-      badge: undefined as string | undefined,
+      body: (
+        <>
+          Production fintech with multi-year track record. <strong>Qualified market maker on Binance.</strong> sLiq is built and operated by the EarnPark team.
+        </>
+      ),
     },
     {
-      stat: '$— · Beta',
-      title: 'TVL listed',
-      body: 'Total notional USD value of Uniswap V3 LP NFTs wrapped into sLiq. Live counter at mainnet launch — Beta runs with a TVL cap.',
-      accent: 'gray' as const,
-      badge: 'Coming soon',
+      stat: '1K',
+      title: 'Active traders',
+      body: 'Real users testing leveraged Uniswap exposure during Beta.',
     },
     {
-      stat: 'Pessimistic',
-      title: 'Audited',
-      body: 'Full audit by Pessimistic Security covering core + margin + liquidator modules. Report published before mainnet.',
-      accent: 'gray' as const,
-      badge: undefined as string | undefined,
+      stat: '$2M',
+      title: 'Open interest',
+      body: 'Combined notional across all currently open positions on sLiq.',
+    },
+    {
+      stat: '$3M',
+      title: 'Total volume',
+      body: 'Cumulative settled notional since Beta launch.',
     },
   ]
   return (
     <section className="border-b border-gray-100">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {cards.map(c => (
             <div
               key={c.title}
-              className="rounded-2xl border border-gray-200 bg-white p-7 md:p-8 hover:border-gray-300 transition relative"
+              className="rounded-2xl border border-gray-200 bg-white p-6 md:p-7 hover:border-gray-300 transition"
             >
-              {c.badge && (
-                <span className="absolute top-4 right-4 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                  {c.badge}
-                </span>
-              )}
-              <div className="text-2xl md:text-3xl font-bold text-gray-900 leading-none tracking-tight">
+              <div className="text-3xl md:text-4xl font-bold text-gray-900 leading-none tracking-tight">
                 {c.stat}
               </div>
-              <div className="mt-4 text-lg font-semibold text-gray-900">{c.title}</div>
+              <div className="mt-3 text-base font-semibold text-gray-900">{c.title}</div>
               <p className="mt-2 text-sm text-gray-600 leading-relaxed">{c.body}</p>
             </div>
           ))}
@@ -207,7 +205,7 @@ function ForWhom() {
 
         <div className="mt-10 grid md:grid-cols-3 gap-5">
           <ForWhomCard
-            tag="LPs"
+            tag="Liquidity providers"
             tagColor="lime"
             heading="Plug in your existing Uniswap V3 NFT"
             chips={['Conservative 1× · no liq risk', 'Advanced up to 100×']}
@@ -243,18 +241,18 @@ function ForWhom() {
           <ForWhomCard
             tag="Agents"
             tagColor="amber"
-            badge="Soon · Q3 2026"
+            badge="Soon"
             heading="Tell an AI agent to handle your DeFi"
             chips={['MCP-native', 'Subgraph + REST live']}
             steps={[
-              '"Hedge IL on my USDC/ETH LP if ETH moves >5%"',
-              '"Auto-rebalance my listings when auction depth spikes"',
-              '"Find the best Premium APY across USDC pairs and list me"',
+              'Hedge IL on my USDC/ETH LP if ETH moves more than 5%',
+              'Auto-rebalance my listings when auction depth spikes',
+              'Find the best Premium APY across USDC pairs and list me',
             ]}
             cta={{ label: 'Join MCP waitlist', to: 'mailto:support@earnpark.com?subject=sLiq%20MCP%20waitlist', kind: 'secondary' }}
             micro={
               <>
-                Your AI agent reads live markets, simulates positions, and executes on-chain in one MCP call. <strong>Subgraph + REST are live today</strong>; MCP server + Agent SDK land Q3 2026. Built on the{' '}
+                Your AI agent reads live markets, simulates positions, and executes on-chain in one MCP call. <strong>Subgraph + REST are live today</strong>; MCP server + Agent SDK land soon. Built on the{' '}
                 <a
                   href="https://teletype.in/@exitsexist/agent-led-growth"
                   target="_blank"
@@ -511,11 +509,11 @@ function WhySliq() {
       body: 'Every market references an actual Uniswap V3 pool. No custom AMM. No oracle dependency for index price.',
     },
     {
-      title: 'LPs keep their NFT',
+      title: 'Liquidity providers keep their NFT',
       body: 'You list your position. You don\'t sell it. 2-click exit with a 2-block guard (~4 sec on Arbitrum). Uniswap fees keep accruing normally throughout.',
     },
     {
-      title: 'Built-in LP tools Uniswap UI doesn\'t have',
+      title: 'Built-in tools Uniswap UI doesn\'t have',
       body: 'In-range / out-of-range alerts via Telegram or email. IL-aware PnL in dollar terms — not just «fees earned». One panel for all your listings.',
     },
     {
@@ -555,7 +553,7 @@ function ComparisonTable() {
     ['Exit', 'manual remove + collect', '2-click, ~4 sec on Arbitrum'],
     ['Provider Leverage (Advanced)', '—', 'up to 100×'],
     ['Liquidation risk', 'none', 'none on Conservative · yes on Advanced'],
-    ['Agent-callable (MCP)', '—', 'Soon (Q3 2026)'],
+    ['Agent-callable (MCP)', '—', 'Soon'],
   ]
   return (
     <section className="border-b border-gray-100">
@@ -595,7 +593,8 @@ function ComparisonTable() {
 function Security() {
   const primary = [
     {
-      icon: '🔑',
+      eyebrow: 'SELF-CUSTODY',
+      icon: <SvgKey />,
       title: 'Non-custodial',
       body: (
         <>
@@ -606,7 +605,8 @@ function Security() {
       ),
     },
     {
-      icon: '🛡️',
+      eyebrow: 'INDEPENDENT AUDIT',
+      icon: <SvgShield />,
       title: 'Audited by Pessimistic',
       body: (
         <>
@@ -617,7 +617,8 @@ function Security() {
       ),
     },
     {
-      icon: '⚙️',
+      eyebrow: 'NO ORACLES, NO OFF-CHAIN MATCHERS',
+      icon: <SvgChain />,
       title: 'On-chain settlement only',
       body: (
         <>
@@ -643,16 +644,19 @@ function Security() {
         <SectionHeader eyebrow="Security" title="Safety of users' funds is our first priority" />
         <div className="grid md:grid-cols-3 gap-5 mt-10">
           {primary.map(it => (
-            <div key={it.title} className="rounded-xl bg-white border border-gray-200 p-6 md:p-7 hover:border-gray-300 transition">
-              <div className="text-2xl mb-3">{it.icon}</div>
-              <div className="text-lg font-semibold text-gray-900">{it.title}</div>
-              <p className="mt-2 text-sm text-gray-600 leading-relaxed">{it.body}</p>
+            <div key={it.title} className="rounded-2xl bg-white border border-gray-200 p-6 md:p-7 hover:border-gray-300 transition">
+              <div className="w-11 h-11 rounded-xl bg-lime-100 text-lime-700 flex items-center justify-center mb-5">
+                {it.icon}
+              </div>
+              <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">{it.eyebrow}</div>
+              <div className="mt-1 text-xl font-bold text-gray-900">{it.title}</div>
+              <p className="mt-3 text-sm text-gray-600 leading-relaxed">{it.body}</p>
             </div>
           ))}
         </div>
         <div className="grid md:grid-cols-2 gap-4 mt-5">
           {secondary.map(it => (
-            <div key={it.title} className="rounded-lg bg-white border border-gray-200 p-5 flex items-start gap-3">
+            <div key={it.title} className="rounded-xl bg-white border border-gray-200 p-5 flex items-start gap-3">
               <span className="text-lime-500 text-lg mt-0.5">✓</span>
               <div>
                 <div className="text-sm font-semibold text-gray-900">{it.title}</div>
@@ -666,13 +670,40 @@ function Security() {
   )
 }
 
+function SvgKey() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <circle cx="8" cy="15" r="4" />
+      <path d="M10.85 12.15 19 4" />
+      <path d="m18 5 2 2" />
+      <path d="m15 8 2 2" />
+    </svg>
+  )
+}
+function SvgShield() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
+}
+function SvgChain() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
 // ─── 10. FAQ ─────────────────────────────────────────────────────────────
 
 function FAQ() {
   const items = [
     {
       q: 'What is sLiq?',
-      a: 'A protocol that lets Uniswap V3 LPs earn extra yield from leveraged traders. Traders get exposure to real Uniswap pools without owning the LP.',
+      a: 'A protocol that lets Uniswap V3 liquidity providers earn extra yield from leveraged traders. Traders get exposure to real Uniswap pools without owning the LP NFT.',
     },
     {
       q: 'How is this different from Uniswap?',
@@ -680,23 +711,23 @@ function FAQ() {
     },
     {
       q: 'Who is this for?',
-      a: 'LPs already providing V3 liquidity who want extra yield on idle range time. Traders who want directional or vol exposure without perp funding or oracle risk. AI agents — sLiq is built MCP-native (server launching Q3 2026).',
+      a: 'Liquidity providers already running V3 ranges who want extra yield on idle range time. Traders who want directional or vol exposure without perp funding or oracle risk. AI agents — sLiq is built MCP-native (server launching soon).',
     },
     {
       q: 'What is Premium APY?',
-      a: 'The carry rate traders pay LPs for hosting their leveraged exposure. Set by a continuous auction — LPs set a minimum, traders bid above.',
+      a: 'The carry rate traders pay liquidity providers for hosting their leveraged exposure. Set by a continuous auction — providers set a minimum, traders bid above.',
     },
     {
       q: 'What are Reference Fees?',
-      a: 'The synthetic fee stream LPs earn from sLiq traders: Reference Fees = realized Uniswap fees × Provider Leverage.',
+      a: 'The synthetic fee stream liquidity providers earn from sLiq traders: Reference Fees = realized Uniswap fees × Provider Leverage.',
     },
     {
       q: 'What is Provider Leverage?',
-      a: 'In Advanced mode, LPs can amplify their exposure (and Reference Fee earnings) up to 100×. Liquidation risk applies if the pool moves against the LP\'s range. Conservative mode (1×, default) has no liquidation risk.',
+      a: 'In Advanced mode, liquidity providers can amplify their exposure (and Reference Fee earnings) up to 100×. Liquidation risk applies if the pool moves against the provider\'s range. Conservative mode (1×, default) has no liquidation risk.',
     },
     {
       q: 'Can AI agents use sLiq?',
-      a: 'Yes — by design. sLiq\'s protocol surface (open auctions, public formulas, on-chain settlement) is machine-readable. Subgraph and REST endpoints are live today. A dedicated MCP server launches Q3 2026 so any AI agent (Claude Desktop, custom, ops bot) can browse markets, simulate, and execute in one MCP call.',
+      a: 'Yes — by design. sLiq\'s protocol surface (open auctions, public formulas, on-chain settlement) is machine-readable. Subgraph and REST endpoints are live today. A dedicated MCP server launches soon so any AI agent (Claude Desktop, custom, ops bot) can browse markets, simulate, and execute in one MCP call.',
     },
     {
       q: 'Is it audited?',
@@ -748,7 +779,7 @@ function LandingFooter() {
           <div>
             <div className="text-white font-bold text-lg mb-3">sLiq</div>
             <p className="text-sm leading-relaxed max-w-md">
-              Extra yield for LPs. Leveraged exposure for traders. Built on real Uniswap V3.
+              Extra yield for liquidity providers. Leveraged exposure for traders.
             </p>
             <p className="mt-4 text-xs">
               sLiq Protocol · Powered by EarnPark · <a href="mailto:support@earnpark.com" className="hover:text-white">support@earnpark.com</a>
@@ -759,17 +790,29 @@ function LandingFooter() {
             ['Import NFT', '/lp/deposit'],
             ['MCP waitlist', 'mailto:support@earnpark.com?subject=sLiq%20MCP%20waitlist'],
           ]} />
-          <FooterCol title="Resources" items={[
+          <FooterCol title="Docs" items={[
             ['White paper', '#'],
             ['Audit (Pessimistic)', '#'],
             ['GitHub', '#'],
             ['MCP spec', '#'],
           ]} />
-          <FooterCol title="Community" items={[
-            ['Discord', '#'],
-            ['X', '#'],
-            ['Telegram', '#'],
-          ]} />
+          <div>
+            <div className="text-xs uppercase tracking-wide font-semibold text-gray-300 mb-3">Community</div>
+            <div className="flex items-center gap-3">
+              <a href="#" aria-label="X" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+                <SvgX />
+              </a>
+              <a href="#" aria-label="Discord" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+                <SvgDiscord />
+              </a>
+              <a href="#" aria-label="Telegram" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+                <SvgTelegram />
+              </a>
+              <a href="https://github.com/" aria-label="GitHub" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+                <SvgGithub />
+              </a>
+            </div>
+          </div>
         </div>
         <div className="mt-10 pt-6 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3 text-xs">
           <span>© 2026 sLiq Protocol</span>
@@ -780,6 +823,35 @@ function LandingFooter() {
         </div>
       </div>
     </footer>
+  )
+}
+
+function SvgX() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  )
+}
+function SvgDiscord() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.6 12.6 0 0 0-.617-1.25.077.077 0 0 0-.079-.037 19.736 19.736 0 0 0-4.885 1.515.07.07 0 0 0-.032.027C.533 9.045-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+    </svg>
+  )
+}
+function SvgTelegram() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+    </svg>
+  )
+}
+function SvgGithub() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+    </svg>
   )
 }
 
