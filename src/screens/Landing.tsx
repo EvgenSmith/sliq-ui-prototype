@@ -28,7 +28,6 @@ export function Landing() {
       <ForWhom />
       <HowItWorks />
       <UseCases />
-      <WhySliq />
       <ComparisonTable />
       <Security />
       <FAQ />
@@ -215,12 +214,11 @@ function Benefits() {
             }
           />
 
-          {/* A — Trust (compact, 1-col) */}
+          {/* A — Trust (compact, 1-col, single combined heading) */}
           <BenefitCard
             icon={<SvgBuilding />}
             eyebrow="Trusted operator"
-            stat="Since 2022"
-            title="Backed by EarnPark"
+            title="Since 2022 · Backed by EarnPark"
             body={
               <>
                 Production fintech with multi-year track record. <strong>Qualified market maker on Binance.</strong>
@@ -401,7 +399,7 @@ function ForWhom() {
           <ForWhomCard
             tag="Traders"
             tagColor="lime"
-            heading="Leveraged views on any Uniswap V3 pool"
+            heading="Trade any Uniswap V3 pool"
             chips={['Up to 1000× per market', 'Two-token margin']}
             steps={[
               'Browse live markets — pair, fee tier, leverage available',
@@ -768,46 +766,11 @@ function UseCaseRow({
 
 // ─── 6. Why sLiq ─────────────────────────────────────────────────────────
 
-function WhySliq() {
-  const pillars = [
-    {
-      title: 'Real Uniswap, not a synthetic clone',
-      body: 'Every market references an actual Uniswap V3 pool. No custom AMM. No oracle dependency for index price.',
-    },
-    {
-      title: 'Liquidity providers keep their NFT',
-      body: 'You list your position. You don\'t sell it. 2-click exit with a 2-block guard (~4 sec on Arbitrum). Uniswap fees keep accruing normally throughout.',
-    },
-    {
-      title: 'Built-in tools Uniswap UI doesn\'t have',
-      body: 'In-range / out-of-range alerts via Telegram or email. IL-aware PnL in dollar terms — not just «fees earned». One panel for all your listings.',
-    },
-    {
-      title: 'Non-custodial by design',
-      body: 'Your wallet signs every action. sLiq core holds no admin keys over user funds. Audit reports public on day one.',
-    },
-  ]
-  return (
-    <section className="border-b border-[var(--border-1)]">
-      <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <SectionHeader eyebrow="Why sLiq" title="What makes sLiq different" />
-        <div className="grid md:grid-cols-2 gap-5 mt-10">
-          {pillars.map(p => (
-            <div key={p.title} className="rounded-xl border border-[var(--border-1)] bg-[var(--bg-2)] p-6">
-              <h3
-                className="text-base text-[var(--fg-1)]"
-                style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em' }}
-              >
-                {p.title}
-              </h3>
-              <p className="mt-2 text-sm text-[var(--fg-2)] leading-relaxed">{p.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
+// ─── «Why sLiq» section removed in v6.5 — 4 pillars duplicated content from
+//     Benefits cards (No idle yield, No friction) + Security (Non-custodial,
+//     On-chain settlement) + Comparison (Real Uniswap). The only unique
+//     content was «Built-in tools Uniswap UI doesn't have» (alerts, IL PnL,
+//     2-click exit) — and «2-click exit» already lives in LP card step 3.
 
 // ─── AgentsBlock removed in v4.2 — best content absorbed into «For Whom» Agent card.
 //     ALG thesis link, MCP-native framing, agent prompt examples, and surface status
