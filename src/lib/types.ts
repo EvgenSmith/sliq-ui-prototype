@@ -63,6 +63,29 @@ export interface Listing {
   // Advanced-only metrics (only present when providerMode === 'advanced')
   aggregateReserveUSD?: number
   distanceToLiqPct?: number
+  // LP-side analytics (computed/aggregated)
+  rangeHitRatePct?: number    // % time in range last 30d
+  autoCompound?: boolean      // toggle
+  lifetimeUniFeesUSD?: number // realized fees from Uniswap baseline since listing
+  lifetimePremiumUSD?: number // realized Premium APY paid by lessees since listing
+  lifetimeReferenceUSD?: number // realized Reference Fees since listing
+  netPnLUSD?: number          // IL-adjusted PnL vs initial deposit value
+  hodlDeltaUSD?: number       // delta vs «if just HODL'd»
+}
+
+// Wallet-owned Uniswap V3 NFTs available for import (S12)
+export interface WalletNFT {
+  tokenId: number
+  pair: { token0: string; token1: string }
+  feeTierBps: number
+  rangeLow: number
+  rangeHigh: number
+  currentPrice: number        // current pool price для in-range check
+  liquidityUSD: number
+  amountToken0: number        // current token amounts in NFT
+  amountToken1: number
+  inRange: boolean
+  uniswapApyBps: number       // recent 30d
 }
 
 export interface Position {

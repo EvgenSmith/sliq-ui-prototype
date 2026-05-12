@@ -5,7 +5,7 @@
 //   L3: USDC/USDT subsidized (UC-LP-1.D — high-conviction LP, NEGATIVE Premium APY) ⭐
 // Two positions and one buyout-pending state to exercise APYBreakdown variants.
 
-import type { Listing, Position, ClaimRow, Activity, ClosedPosition } from '@/lib/types'
+import type { Listing, Position, ClaimRow, Activity, ClosedPosition, WalletNFT } from '@/lib/types'
 import { generateListings } from './listings-generator'
 import { generatePositions } from './positions-generator'
 import { generateClosedPositions } from './closed-positions-generator'
@@ -402,3 +402,85 @@ export const totalsForUser = {
     0
   ),
 }
+
+// === LP-side mock data ===
+
+// Wallet NFTs available to import (S12 primary path)
+// User имеет несколько Uniswap V3 LP NFTs which не в sLiq yet
+export const walletNFTs: WalletNFT[] = [
+  {
+    tokenId: 421500,
+    pair: { token0: 'ETH', token1: 'USDC' },
+    feeTierBps: 5,
+    rangeLow: 3120,
+    rangeHigh: 3580,
+    currentPrice: 3372,
+    liquidityUSD: 48_000,
+    amountToken0: 7.12,
+    amountToken1: 24_000,
+    inRange: true,
+    uniswapApyBps: 1080,
+  },
+  {
+    tokenId: 422100,
+    pair: { token0: 'WBTC', token1: 'ETH' },
+    feeTierBps: 30,
+    rangeLow: 18.6,
+    rangeHigh: 19.8,
+    currentPrice: 19.05,
+    liquidityUSD: 92_000,
+    amountToken0: 1.21,
+    amountToken1: 23.0,
+    inRange: true,
+    uniswapApyBps: 540,
+  },
+  {
+    tokenId: 419872,
+    pair: { token0: 'USDC', token1: 'USDT' },
+    feeTierBps: 1,
+    rangeLow: 0.998,
+    rangeHigh: 1.002,
+    currentPrice: 1.0001,
+    liquidityUSD: 250_000,
+    amountToken0: 125_000,
+    amountToken1: 125_000,
+    inRange: true,
+    uniswapApyBps: 240,
+  },
+  {
+    tokenId: 425001,
+    pair: { token0: 'ARB', token1: 'USDC' },
+    feeTierBps: 30,
+    rangeLow: 0.78,
+    rangeHigh: 1.12,
+    currentPrice: 1.15,
+    liquidityUSD: 18_000,
+    amountToken0: 22_000,
+    amountToken1: 0,
+    inRange: false,
+    uniswapApyBps: 1820,
+  },
+]
+
+// Enrich existing listings (L1-L4) with LP-side analytics — mock data
+// Computed in pseudo-realistic way: lifetime fees scale with listedAt age + APY rate
+listings.forEach(l => {
+  const ageDays = Math.max(1, (now - l.listedAt) / (1000 * 60 * 60 * 24))
+  const dailyUniFee = l.initialLiquidityUSD * (l.uniswapApyBps / 10000) / 365
+  l.lifetimeUniFeesUSD = dailyUniFee * ageDays
+  // Premium APY paid by lessees — proxy as Premium rate × leased capacity × time
+  const utilization = 1 - (l.availableCapacityUSD / Math.max(l.totalCapacityUSD, 1))
+  const dailyPremium = l.totalCapacityUSD * utilization * (Math.abs(l.minPremiumApyBps) / 10000) / 365
+  l.lifetimePremiumUSD = l.minPremiumApyBps >= 0 ? dailyPremium * ageDays : -dailyPremium * ageDays
+  // Reference Fees — synthetic; depends on leverage
+  l.lifetimeReferenceUSD = dailyUniFee * (l.providerLeverage - 1) * ageDays * utilization
+  // Net PnL = sum of incomes minus mock IL (~ -0.5-2% of initial liquidity)
+  const ilProxy = -l.initialLiquidityUSD * (0.005 + Math.random() * 0.015)
+  l.netPnLUSD = (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0) + ilProxy
+  // HODL delta = how much extra LP earns vs just holding tokens
+  l.hodlDeltaUSD = (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0) // simplified — gross income
+  // Range hit rate — mock 50-95%
+  l.rangeHitRatePct = Math.floor(50 + Math.random() * 45)
+  // Auto-compound default on
+  l.autoCompound = true
+})

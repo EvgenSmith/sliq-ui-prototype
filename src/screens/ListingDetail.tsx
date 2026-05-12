@@ -19,7 +19,7 @@ import { RiskPanel } from '@/components/RiskPanel'
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 import { LPFlowSelector } from '@/components/LPFlowSelector'
 import { HelpPopover } from '@/components/HelpPopover'
-import { estimatePositionPnL } from '@/lib/derive'
+import { capacityFreePct, estimatePositionPnL } from '@/lib/derive'
 import { useState as useState2 } from 'react'
 
 export function ListingDetail() {
@@ -973,144 +973,464 @@ function MetricBlock({ label, value, tone = 'ok' }: { label: string; value: stri
 function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
   const [leverageOpen, setLeverageOpen] = useState2(false)
   const [withdrawOpen, setWithdrawOpen] = useState2(false)
+  const [updateApyOpen, setUpdateApyOpen] = useState2(false)
   const [withdrawing, setWithdrawing] = useState2(false)
   const [newLeverage, setNewLeverage] = useState2(listing.providerLeverage)
   const [newMode, setNewMode] = useState2(listing.providerMode)
+  const [newMinApyPct, setNewMinApyPct] = useState2(listing.minPremiumApyBps / 100)
+  const [autoCompound, setAutoCompound] = useState2(listing.autoCompound ?? true)
+  const [paused, setPaused] = useState2(listing.status === 'PAUSED')
 
-  const activePositions = 1 // mocked; in real, count from positions[listingId]
+  const myListingPositions = positions.filter(p => p.listingId === listing.id)
+  const activeLessees = myListingPositions.filter(p => p.status === 'OPEN')
+  const lifetimeUni = listing.lifetimeUniFeesUSD ?? 0
+  const lifetimePremium = listing.lifetimePremiumUSD ?? 0
+  const lifetimeRef = listing.lifetimeReferenceUSD ?? 0
+  const netPnL = listing.netPnLUSD ?? 0
+  const ilProxy = netPnL - lifetimeUni - lifetimePremium - lifetimeRef
+  const claimable = lifetimeUni * 0.3 + lifetimePremium * 0.2 + lifetimeRef * 0.4 // mock — accrued but not claimed
+  const ageHours = Math.max(1, (Date.now() - listing.listedAt) / (1000 * 60 * 60))
+  const uniPerHour = lifetimeUni / ageHours
+  const premPerHour = lifetimePremium / ageHours
+
+  const subsidized = listing.minPremiumApyBps < 0
+  const isAdvanced = listing.providerMode === 'advanced'
+  const hitRate = listing.rangeHitRatePct ?? 0
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Earnings panel — headline */}
       <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="text-base font-semibold mb-3">Earnings</h2>
-        <APYBreakdown
-          uniswapApyBps={listing.uniswapApyBps}
-          refRealizedApyBps={listing.referenceApyBps}
-          premRealizedApyBps={listing.minPremiumApyBps}
-          refPendingApyBps={listing.referenceApyBps}
-          premPendingApyBps={listing.minPremiumApyBps}
-          perspective="lp"
-        />
-        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
-          <button
-            type="button"
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-base font-semibold">Earnings since listing</h2>
+          <span
+            className="num font-bold text-2xl"
+            style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+          >
+            {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
+            <span className="text-xs font-medium text-gray-500 ml-2">net</span>
+          </span>
+        </div>
+        <div className="space-y-1.5 text-sm">
+          <BreakdownRow label="Uniswap fees (baseline)" hint={`real fees from V3 pool · ${fmtUSD(uniPerHour)}/h avg`} value={
+            <span className="num font-medium text-[var(--color-status-success)]">+{fmtUSD(lifetimeUni)}</span>
+          } />
+          <BreakdownRow label="Reference Fees" hint={`paid by lessees, ${listing.providerLeverage}× amplified`} value={
+            <span className="num text-[var(--color-status-success)]">+{fmtUSD(lifetimeRef)}</span>
+          } />
+          <BreakdownRow
+            label={subsidized ? 'Premium APY (you pay traders)' : 'Premium APY (paid by lessees)'}
+            hint={`${subsidized ? 'paid out' : 'collected'} · ${fmtUSD(Math.abs(premPerHour))}/h`}
+            value={
+              <span className="num" style={{ color: subsidized ? 'var(--color-status-danger)' : 'var(--color-status-success)' }}>
+                {subsidized ? '−' : '+'}{fmtUSD(Math.abs(lifetimePremium))}
+              </span>
+            }
+          />
+          <BreakdownRow label="Impermanent Loss" hint="vs HODL value (V3 IL math)" value={
+            <span className="num text-[var(--color-status-danger)]">{fmtUSD(ilProxy)}</span>
+          } />
+        </div>
+        <hr className="border-gray-100 my-2.5" />
+        <div className="flex items-baseline justify-between text-sm">
+          <span className="font-medium">Net PnL (IL-adjusted)</span>
+          <span
+            className="num font-bold"
+            style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+          >
+            {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
+          </span>
+        </div>
+        <p className="text-[10px] text-gray-500 mt-2 leading-snug">
+          Что Uniswap UI скрывает: gross fees − IL = real PnL. С sLiq добавляются Reference Fees + Premium APY от lessees → итог часто positive даже когда Uniswap-only был бы в минусе.
+        </p>
+      </div>
+
+      {/* Range hit-rate */}
+      <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold">Range hit-rate · last 30d</h3>
+          <span
+            className="num font-bold text-lg"
+            style={{ color: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
+          >
+            {hitRate}%
+          </span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full transition-all"
+            style={{
+              width: `${hitRate}%`,
+              background: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)',
+            }}
+          />
+        </div>
+        <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+          % времени когда price была в твоём range. <strong>{hitRate}% / 30d.</strong>{' '}
+          {hitRate > 70 ? 'Хорошо — fees регулярно начисляются.'
+           : hitRate > 40 ? 'Средне — рассмотри расширение range.'
+           : 'Низко — NFT часто out-of-range, fees не идут. Withdraw + re-list с новым range.'}
+        </p>
+      </div>
+
+      {/* Manage actions panel */}
+      <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
+        <h2 className="text-base font-semibold">Manage listing</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <ActionButton
+            title="Update Provider Leverage"
+            subtitle={`Now: ${listing.providerLeverage}×`}
             onClick={() => setLeverageOpen(true)}
-            className="text-sm font-medium px-3 py-2 rounded-md border border-[var(--color-role-lp)] text-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)] transition"
-          >
-            Update leverage
-          </button>
-          <Link
-            to="/lp/claims"
-            className="text-sm font-medium px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
-          >
-            Claim fees
-          </Link>
+            tooltipLabel="Update Leverage"
+            tooltipBody="Conservative ↔ Advanced. Higher leverage amplifies Reference Fees pool но делает NFT collateralized."
+          />
+          <ActionButton
+            title="Update Min Premium APY"
+            subtitle={`Now: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
+            onClick={() => setUpdateApyOpen(true)}
+            tooltipLabel="Update Min APY"
+            tooltipBody="Floor для auction. Trader должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь lessees."
+          />
+          <ToggleAction
+            title="Pause new lessees"
+            subtitle={paused ? 'Paused — existing keep' : 'Active — accepting opens'}
+            active={paused}
+            onClick={() => setPaused(p => !p)}
+            tooltipLabel="Pause"
+            tooltipBody="Pause blocks new opens, existing lessees продолжают сидеть и платить carry. To force-close everyone → use Request withdrawal instead."
+          />
+          <ToggleAction
+            title="Auto-compound Uniswap fees"
+            subtitle={autoCompound ? 'ON — keeper compounds на каждом settlement' : 'OFF — fees collect-only'}
+            active={autoCompound}
+            onClick={() => setAutoCompound(a => !a)}
+            tooltipLabel="Auto-compound"
+            tooltipBody="Keeper автоматически collect Uniswap fees и re-добавляет к NFT при каждом settlement event. No manual collect+re-add."
+          />
+        </div>
+
+        {claimable > 1 && (
+          <div className="rounded-md border border-[var(--color-role-lp)]/30 bg-[var(--color-role-lp-bg)]/40 p-3 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold">Ready to claim: {fmtUSD(claimable)}</div>
+              <div className="text-[11px] text-gray-600 mt-0.5">Uniswap fees + Reference + Premium accrued</div>
+            </div>
+            <Link
+              to="/lp/claims"
+              className="text-sm font-semibold px-3 py-1.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
+            >
+              Claim →
+            </Link>
+          </div>
+        )}
+
+        <hr className="border-gray-100" />
+
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold">Request NFT withdrawal</h3>
+            <p className="text-[11px] text-gray-600 mt-0.5">
+              Force-closes все existing lessees. NFT возвращается на твой wallet через 2-block keeper settlement.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setWithdrawOpen(true)}
             disabled={withdrawing}
-            className="text-sm font-medium px-3 py-2 rounded-md border border-[var(--color-status-danger)] text-[var(--color-status-danger)] hover:bg-red-50 transition ml-auto disabled:opacity-50"
+            className="text-sm font-semibold px-4 py-2 rounded-md border border-[var(--color-status-danger)] text-[var(--color-status-danger)] hover:bg-red-50 transition disabled:opacity-50"
           >
-            {withdrawing ? 'Withdrawal requested · awaiting keepers' : 'Request withdraw'}
+            {withdrawing ? 'Withdrawing…' : 'Request withdraw'}
           </button>
         </div>
       </div>
 
+      {/* Active lessees table */}
+      {activeLessees.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <h3 className="text-sm font-semibold mb-3">Active lessees ({activeLessees.length})</h3>
+          <table className="w-full text-sm">
+            <thead className="text-[11px] uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="text-left font-medium pb-2">Trader</th>
+                <th className="text-right font-medium pb-2">Notional</th>
+                <th className="text-right font-medium pb-2">APY paid to you</th>
+                <th className="text-right font-medium pb-2">Their PnL</th>
+                <th className="text-right font-medium pb-2">Opened</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeLessees.map(p => {
+                const pnl = estimatePositionPnL(p)
+                return (
+                  <tr key={p.id} className="border-t border-gray-100">
+                    <td className="py-2 num text-xs">{shortAddr(p.trader)}</td>
+                    <td className="py-2 text-right num">{fmtUSD(p.notionalUSD)}</td>
+                    <td className="py-2 text-right num font-medium" style={{ color: p.apyBps < 0 ? 'var(--color-negative-apy)' : undefined }}>
+                      {fmtPct(p.apyBps, { signed: true })}
+                    </td>
+                    <td className="py-2 text-right num text-xs" style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
+                      {pnl >= 0 ? '+' : '−'}{fmtUSD(Math.abs(pnl))}
+                    </td>
+                    <td className="py-2 text-right num text-xs text-gray-500">{fmtTimeAgo(p.openedAt)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-gray-500 mt-3 leading-snug">
+            Если их PnL positive — рынок верит что твой листинг стоит carry. Сигнал поднять Min APY.
+          </p>
+        </div>
+      )}
+
+      {/* Vs HODL chart placeholder */}
       <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold mb-2">Settings</h3>
-        <dl className="space-y-1 text-sm">
-          <Row k="Min Premium APY" v={
-            <span
-              className="num font-medium"
-              style={{
-                color: listing.minPremiumApyBps < 0 ? 'var(--color-negative-apy)' : 'inherit',
-              }}
-            >
-              {fmtPct(listing.minPremiumApyBps, { signed: true })}
-            </span>
-          } />
-          <Row k="Provider Leverage" v={<span className="num">{listing.providerLeverage}×</span>} />
-          <Row k="Mode" v={listing.providerMode === 'advanced' ? 'Advanced' : 'Conservative'} />
-          <Row k="Status" v={listing.status} />
-        </dl>
+        <h3 className="text-sm font-semibold mb-2">Vs HODL · 30d</h3>
+        <div className="text-[11px] text-gray-500 mb-3">
+          Что было бы если бы ты просто держал tokens (без LP):
+        </div>
+        <div className="grid grid-cols-3 gap-3 num text-sm">
+          <ComparisonBlock label="Pure HODL" value={`−${fmtUSD(Math.abs(ilProxy))}`} tone="neutral" subtitle="just held tokens" />
+          <ComparisonBlock label="Uniswap LP only" value={`+${fmtUSD(lifetimeUni + ilProxy)}`} tone={lifetimeUni + ilProxy >= 0 ? 'success' : 'danger'} subtitle="fees minus IL" />
+          <ComparisonBlock label="sLiq LP" value={netPnL >= 0 ? `+${fmtUSD(netPnL)}` : `−${fmtUSD(Math.abs(netPnL))}`} tone={netPnL >= 0 ? 'success' : 'danger'} subtitle="+ Premium + Reference" highlight />
+        </div>
+        <p className="text-[10px] text-gray-500 mt-3 leading-snug">
+          sLiq добавляет Premium APY + Reference Fees к Uniswap baseline. Total &gt; HODL — листинг успешный.
+        </p>
       </div>
 
-      {/* S7 — Provider Leverage change modal */}
+      {/* Pro Metrics */}
+      <details className="rounded-lg border border-gray-200 bg-white p-5">
+        <summary className="cursor-pointer text-sm font-semibold hover:text-gray-700 inline-flex items-center gap-2">
+          Pro metrics
+          <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">для опытных</span>
+        </summary>
+        <div className="mt-4 space-y-3">
+          <div className="rounded border border-gray-200 p-3">
+            <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Listing economics</div>
+            <div className="grid grid-cols-2 gap-2 text-sm num">
+              <MetricBlock label="Effective APR (combined)" value={`${((netPnL / listing.initialLiquidityUSD) * (365 / (ageHours / 24)) * 100).toFixed(2)}%`} />
+              <MetricBlock label="Lessees turnover" value={`${myListingPositions.length} pos lifetime`} />
+              <MetricBlock label="Capacity utilization" value={`${(100 - capacityFreePct(listing)).toFixed(0)}%`} />
+              <MetricBlock label="IL/Fees ratio" value={`${(Math.abs(ilProxy) / Math.max(0.01, lifetimeUni + lifetimePremium + lifetimeRef)).toFixed(2)}×`} />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => alert('CSV export — mock. Production: full listing history + earnings + lessees.')}
+            className="text-[11px] font-medium px-2.5 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
+          >
+            ↓ Export CSV
+          </button>
+          <p className="text-[10px] text-gray-400 leading-snug">
+            <strong>Data sources:</strong> Uniswap fees → V3 subgraph · IL → V3 SDK client-side · Reference/Premium → sLiq subgraph · range hit-rate → swap-events aggregation.
+          </p>
+        </div>
+      </details>
+
+      {/* === Modals === */}
+
+      {/* Update Leverage */}
       <HighStakesConfirmModal
         open={leverageOpen}
         title="Update Provider Leverage — confirm"
         subtitle={
-          listing.providerMode === 'conservative' && newMode === 'advanced'
-            ? 'Switching from Conservative to Advanced. Your NFT becomes collateral.'
-            : 'You are changing the leverage on this listing.'
+          newMode === 'advanced' && listing.providerMode !== 'advanced'
+            ? 'Switching to Advanced. NFT becomes collateral — listing-level liquidation possible at vol-event.'
+            : newLeverage > listing.providerLeverage
+            ? 'Higher leverage → tighter liquidation distance. Reference Fees pool amplified.'
+            : 'Lower leverage → safer но Reference Fees pool сокращается.'
         }
         currentState={[
-          { label: 'Mode', value: listing.providerMode === 'advanced' ? 'Advanced' : 'Conservative' },
-          { label: 'Provider Leverage', value: `${listing.providerLeverage}×` },
-          { label: 'NFT at risk', value: listing.providerMode === 'advanced' ? 'Yes' : 'No' },
+          { label: 'Mode', value: listing.providerMode === 'advanced' ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×' },
+          { label: 'NFT at risk', value: isAdvanced ? 'Yes' : 'No' },
         ]}
         newState={[
-          { label: 'Mode', value: newMode === 'advanced' ? 'Advanced' : 'Conservative' },
-          {
-            label: 'Provider Leverage',
-            value: `${newLeverage}×`,
-            deltaTone: newLeverage > listing.providerLeverage ? 'negative' : 'positive',
-          },
-          {
-            label: 'NFT at risk',
-            value: newMode === 'advanced' ? 'Yes' : 'No',
-            deltaTone: newMode === 'advanced' && listing.providerMode !== 'advanced' ? 'negative' : 'neutral',
-          },
+          { label: 'Mode', value: newMode === 'advanced' ? `at-risk · ${newLeverage}×` : 'safe · 1×', deltaTone: newLeverage > listing.providerLeverage ? 'negative' : 'positive' },
+          { label: 'NFT at risk', value: newMode === 'advanced' ? 'Yes' : 'No', deltaTone: newMode === 'advanced' && !isAdvanced ? 'negative' : 'neutral' },
         ]}
         risks={[
-          newLeverage > listing.providerLeverage
-            ? 'Higher leverage tightens the distance to listing-level liquidation.'
-            : 'Existing trader positions keep the leverage they opened under — lowering does not free them.',
-          'New trader positions will open against the new value immediately.',
-          newMode === 'advanced'
-            ? 'Aggregate trader claims may exceed your collateral if price moves sharply.'
-            : 'Switching to Conservative limits future positions; active ones continue under their original cap.',
+          newLeverage > listing.providerLeverage ? 'Higher leverage tightens distance to listing-level liquidation' : 'Lower leverage safer but reduces Reference Fees',
+          'Existing lessees keep their original leverage (per excerpt 1 §3 — open positions don\'t re-quote)',
+          newMode === 'advanced' && !isAdvanced ? 'NFT becomes collateral — possible loss at vol-event' : 'NFT stays under your control',
         ]}
-        irreversibilityNote="Open positions don't re-quote — they keep the leverage they opened under."
+        irreversibilityNote="Going up takes 1 block to activate (manipulation guard). Going down — immediate next-block."
         confirmType={newLeverage > 25 ? 'type-to-confirm' : 'checkbox'}
         typeWord={`${newLeverage}X`}
-        confirmButtonLabel="Confirm — Update leverage"
-        onConfirm={() => {
-          setLeverageOpen(false)
-        }}
+        confirmButtonLabel="Confirm leverage"
+        onConfirm={() => setLeverageOpen(false)}
         onCancel={() => setLeverageOpen(false)}
       />
 
-      {/* S12 — Withdrawal flow modal */}
+      {/* Update Min APY */}
+      <HighStakesConfirmModal
+        open={updateApyOpen}
+        title="Update Min Premium APY — confirm"
+        subtitle={newMinApyPct < 0
+          ? `⚠️ Negative APY — ты будешь платить ${Math.abs(newMinApyPct)}% годовых traders. Use только если знаешь что делаешь.`
+          : 'Changes the floor для auction. Existing lessees keep their carry rate.'
+        }
+        currentState={[
+          { label: 'Current Min APY', value: fmtPct(listing.minPremiumApyBps, { signed: true }) },
+        ]}
+        newState={[
+          { label: 'New Min APY', value: `${newMinApyPct}%`, deltaTone: newMinApyPct < (listing.minPremiumApyBps / 100) ? 'negative' : 'positive' },
+        ]}
+        risks={[
+          newMinApyPct > (listing.minPremiumApyBps / 100) ? 'Higher floor — могут быть меньше lessees' : 'Lower floor — больше lessees но per-lessee earnings снижаются',
+          newMinApyPct < 0 ? `Subsidized — ты платишь ${Math.abs(newMinApyPct)}% годовых` : 'Existing lessees keep their original rate, не affected',
+        ]}
+        irreversibilityNote="Effective next-block Arbitrum."
+        confirmType="checkbox"
+        confirmButtonLabel="Confirm Min APY update"
+        onConfirm={() => setUpdateApyOpen(false)}
+        onCancel={() => setUpdateApyOpen(false)}
+      />
+
+      {/* Withdrawal modal */}
       <HighStakesConfirmModal
         open={withdrawOpen}
         title="Request NFT withdrawal — confirm"
-        subtitle="This force-closes every open trader position on this listing."
+        subtitle="Force-closes все existing lessees. NFT возвращается на wallet через 2-block keeper settlement."
         currentState={[
-          { label: 'Active positions', value: String(activePositions) },
-          { label: 'Listing status', value: 'Active' },
+          { label: 'Active lessees', value: String(activeLessees.length) },
+          { label: 'Listing status', value: listing.status },
           { label: 'NFT in protocol', value: `#${listing.tokenId}` },
         ]}
         newState={[
-          { label: 'Listing status', value: 'Withdrawal requested', deltaTone: 'neutral' },
-          { label: 'New positions', value: 'Blocked', deltaTone: 'neutral' },
-          { label: 'Open positions', value: 'Forced into close queue', deltaTone: 'negative' },
+          { label: 'Listing status', value: 'withdrawing · LP exit', deltaTone: 'neutral' },
+          { label: 'New lessees', value: 'Blocked', deltaTone: 'neutral' },
+          { label: 'Existing lessees', value: 'Force-closed at next-block price', deltaTone: 'negative' },
         ]}
         risks={[
-          'Open positions close at the next pool price each settles at — not a single snapshot.',
-          'Pending Reference Fees and Premium APY are paid from each position\'s reserve as it closes.',
-          'You can\'t bid for, list against, or modify this NFT until withdrawal finalizes.',
+          'Lessees могут заработать меньше Premium чем при wait-out',
+          'Pending Reference + Premium списываются from each lessee\'s reserve at close',
+          'Withdrawal can\'t be cancelled after submit',
         ]}
-        irreversibilityNote="Withdrawal requests can't be cancelled. Re-listing requires a fresh deposit."
+        irreversibilityNote="Re-listing requires fresh deposit (new NFT import)."
         confirmType="type-to-confirm"
         typeWord="WITHDRAW"
-        confirmButtonLabel="Confirm — Request withdraw"
+        confirmButtonLabel="Confirm withdrawal"
         onConfirm={() => {
           setWithdrawOpen(false)
           setWithdrawing(true)
         }}
         onCancel={() => setWithdrawOpen(false)}
       />
+    </div>
+  )
+}
+
+function BreakdownRow({ label, hint, value }: { label: string; hint?: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <div className="flex-1 min-w-0">
+        <span className="text-sm text-gray-700">{label}</span>
+        {hint && <div className="text-[10px] text-gray-500 leading-tight">{hint}</div>}
+      </div>
+      <div>{value}</div>
+    </div>
+  )
+}
+
+function ActionButton({
+  title,
+  subtitle,
+  onClick,
+  tooltipLabel,
+  tooltipBody,
+}: {
+  title: string
+  subtitle: string
+  onClick: () => void
+  tooltipLabel: string
+  tooltipBody: string
+}) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-3 flex items-baseline justify-between gap-2">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium inline-flex items-center gap-1">
+          {title}
+          <HelpPopover label={tooltipLabel} width="w-64">
+            <p>{tooltipBody}</p>
+          </HelpPopover>
+        </div>
+        <div className="text-[11px] text-gray-500 num mt-0.5">{subtitle}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--color-role-lp)] text-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)] transition whitespace-nowrap"
+      >
+        Edit
+      </button>
+    </div>
+  )
+}
+
+function ToggleAction({
+  title,
+  subtitle,
+  active,
+  onClick,
+  tooltipLabel,
+  tooltipBody,
+}: {
+  title: string
+  subtitle: string
+  active: boolean
+  onClick: () => void
+  tooltipLabel: string
+  tooltipBody: string
+}) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-3 flex items-baseline justify-between gap-2">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium inline-flex items-center gap-1">
+          {title}
+          <HelpPopover label={tooltipLabel} width="w-64">
+            <p>{tooltipBody}</p>
+          </HelpPopover>
+        </div>
+        <div className="text-[11px] text-gray-500 mt-0.5">{subtitle}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        className={
+          'text-xs font-medium px-2.5 py-1 rounded transition whitespace-nowrap ' +
+          (active
+            ? 'bg-[var(--color-role-lp)] text-white hover:opacity-90'
+            : 'border border-gray-300 text-gray-700 hover:bg-gray-50')
+        }
+      >
+        {active ? 'ON' : 'OFF'}
+      </button>
+    </div>
+  )
+}
+
+function ComparisonBlock({
+  label,
+  value,
+  subtitle,
+  tone,
+  highlight,
+}: {
+  label: string
+  value: string
+  subtitle?: string
+  tone: 'success' | 'danger' | 'neutral'
+  highlight?: boolean
+}) {
+  const color = tone === 'success' ? 'var(--color-status-success)' : tone === 'danger' ? 'var(--color-status-danger)' : 'oklch(20% 0 0)'
+  return (
+    <div className={'rounded-md px-3 py-2 ' + (highlight ? 'bg-[var(--color-role-lp-bg)]/30 border border-[var(--color-role-lp)]/30' : 'bg-gray-50')}>
+      <div className="text-[10px] text-gray-500 uppercase tracking-wide leading-tight">{label}</div>
+      <div className="text-lg font-semibold mt-1" style={{ color }}>{value}</div>
+      {subtitle && <div className="text-[10px] text-gray-500 mt-0.5">{subtitle}</div>}
     </div>
   )
 }
