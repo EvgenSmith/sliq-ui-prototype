@@ -302,21 +302,26 @@
 
 [data-theme="night"], [data-theme="day"] { -webkit-font-smoothing: antialiased; }
 
-h1 { font: var(--h2m); letter-spacing: -0.01em; }
-h2 { font: var(--h3m); letter-spacing: -0.01em; }
-h3 { font: var(--h5m); }
-h4 { font: var(--h7m); }
-
-p  { font: var(--b7); color: var(--fg-1); }
-small, .caption { font: var(--b9); color: var(--fg-2); }
+/* Element-level header rules removed — they were overriding component-level
+   Tailwind classes (text-3xl, text-lg etc) via font shorthand specificity.
+   Tokens (--h1..--h7, --b5..--b9) remain available for explicit use:
+   `style={{ font: 'var(--h3m)' }}` or in CSS rules.
+   Originally:
+     h1 { font: var(--h2m); letter-spacing: -0.01em; }
+     h2 { font: var(--h3m); letter-spacing: -0.01em; }
+     h3 { font: var(--h5m); }
+     h4 { font: var(--h7m); }
+     p  { font: var(--b7); color: var(--fg-1); }
+     small, .caption { font: var(--b9); color: var(--fg-2); } */
 
 code, pre, kbd, .mono {
     font-family: var(--font-mono);
     font-size: 13px;
 }
 
-a { color: var(--link); text-decoration: none; }
-a:hover { color: var(--link-hover); }
+/* Element-level a-link rule removed — was painting every <a> indigo across the landing.
+   Components style links explicitly per context.
+   Originally: a { color: var(--link); text-decoration: none; } a:hover { color: var(--link-hover); } */
 
 hr { border: 0; border-top: 1px solid var(--border-1); margin: var(--space-6) 0; }
 

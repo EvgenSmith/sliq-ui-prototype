@@ -91,7 +91,7 @@ function Hero() {
         {/* LEFT — H1 + sub + CTAs + trust */}
         <div className="order-1 text-left">
           <h1
-            className="text-3xl md:text-5xl leading-[1.1] tracking-tight"
+            className="text-[28px] md:text-[40px] leading-[1.1] tracking-tight"
             style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em', color: 'var(--fg-1)' }}
           >
             Rent out your <span style={{ color: 'var(--primary-lime-0)' }}>Uniswap LP</span>.<br />
@@ -285,18 +285,27 @@ function BenefitCard({
   wide?: boolean
 }) {
   return (
-    <div className={`rounded-2xl bg-[var(--bg-2)] border border-[var(--border-1)] p-6 md:p-7 hover:border-[var(--border-1)] transition ${wide ? 'md:col-span-2' : ''}`}>
-      <div className="w-11 h-11 rounded-xl bg-[var(--primary-lime-80)] text-[var(--primary-lime-0)] flex items-center justify-center mb-5">
-        {icon}
+    <div className={`rounded-2xl bg-[var(--bg-2)] border border-[var(--border-1)] p-5 md:p-6 hover:border-[var(--primary-black-30)] transition ${wide ? 'md:col-span-2' : ''}`}>
+      {/* Icon + eyebrow inline at top — compact header row */}
+      <div className="flex items-center gap-2.5">
+        <div className="shrink-0 w-8 h-8 rounded-lg bg-[var(--primary-lime-80)] text-[var(--primary-lime-0)] flex items-center justify-center">
+          {icon}
+        </div>
+        <div className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)]">{eyebrow}</div>
       </div>
-      <div className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)]">{eyebrow}</div>
       {stat && (
-        <div className={`mt-1 ${wide ? 'text-4xl md:text-5xl' : 'text-2xl md:text-3xl'} font-bold text-[var(--fg-1)] leading-none tracking-tight`}>
+        <div
+          className={`mt-3 ${wide ? 'text-3xl md:text-4xl' : 'text-xl md:text-2xl'} text-[var(--fg-1)] leading-none tracking-tight`}
+          style={{ fontFamily: 'var(--font-header)', fontWeight: 500 }}
+        >
           {stat}
         </div>
       )}
       {title && (
-        <div className={`${stat ? 'mt-3' : 'mt-1'} text-base md:text-lg font-bold text-[var(--fg-1)]`}>
+        <div
+          className={`${stat ? 'mt-2' : 'mt-3'} text-base md:text-lg text-[var(--fg-1)]`}
+          style={{ fontFamily: 'var(--font-header)', fontWeight: 500 }}
+        >
           {title}
         </div>
       )}
@@ -480,7 +489,12 @@ function ForWhomCard({
           </span>
         )}
       </div>
-      <h3 className="mt-3 text-xl font-bold text-[var(--fg-1)] leading-snug">{heading}</h3>
+      <h3
+        className="mt-3 text-lg md:text-xl text-[var(--fg-1)] leading-snug"
+        style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em' }}
+      >
+        {heading}
+      </h3>
       {chips && chips.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {chips.map(c => (
@@ -711,7 +725,12 @@ function UseCaseRow({
         <div className="text-2xl font-bold text-[var(--fg-3)] leading-none">{num}</div>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-[var(--fg-1)]">{title}</h3>
+            <h3
+              className="text-base md:text-lg text-[var(--fg-1)]"
+              style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em' }}
+            >
+              {title}
+            </h3>
             {audienceLabel && (
               <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${audienceCls}`}>
                 {audienceLabel}
@@ -775,7 +794,12 @@ function WhySliq() {
         <div className="grid md:grid-cols-2 gap-5 mt-10">
           {pillars.map(p => (
             <div key={p.title} className="rounded-xl border border-[var(--border-1)] bg-[var(--bg-2)] p-6">
-              <h3 className="text-base font-semibold text-[var(--fg-1)]">{p.title}</h3>
+              <h3
+                className="text-base text-[var(--fg-1)]"
+                style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em' }}
+              >
+                {p.title}
+              </h3>
               <p className="mt-2 text-sm text-[var(--fg-2)] leading-relaxed">{p.body}</p>
             </div>
           ))}
@@ -966,7 +990,12 @@ function Security() {
                 {it.icon}
               </div>
               <div className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)]">{it.eyebrow}</div>
-              <div className="mt-1 text-xl font-bold text-[var(--fg-1)]">{it.title}</div>
+              <div
+                className="mt-1 text-base md:text-lg text-[var(--fg-1)]"
+                style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em' }}
+              >
+                {it.title}
+              </div>
               <p className="mt-3 text-sm text-[var(--fg-2)] leading-relaxed">{it.body}</p>
             </div>
           ))}
@@ -1149,21 +1178,24 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 function LandingFooter() {
   return (
-    <footer style={{ background: 'var(--black)', color: 'var(--primary-black-0)' }}>
+    <footer style={{ background: 'var(--black)', color: '#d1d5db' }}>
       <div className="mx-auto max-w-7xl px-4 py-12 md:py-16">
         <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-8">
           <div>
-            <div className="flex flex-col leading-tight mb-4">
-              <span className="text-white font-semibold tracking-tight text-base">sLiq Protocol</span>
-              <span className="text-[10px] text-[var(--fg-3)] -mt-0.5">
-                powered by <span className="font-medium text-gray-200">EarnPark</span>
-              </span>
+            <div className="flex items-center gap-2 mb-4">
+              <img src={`${import.meta.env.BASE_URL}logo-mark.svg`} alt="" className="w-7 h-7" />
+              <div className="flex flex-col leading-tight">
+                <span className="text-white tracking-tight text-base" style={{ fontFamily: 'var(--font-header)', fontWeight: 500 }}>sLiq Protocol</span>
+                <span className="text-[10px] text-gray-500 -mt-0.5">
+                  powered by <span className="font-medium text-gray-300">EarnPark</span>
+                </span>
+              </div>
             </div>
-            <p className="text-sm leading-relaxed max-w-md">
+            <p className="text-sm leading-relaxed max-w-md text-gray-400">
               Extra yield for liquidity providers. Leveraged exposure for traders.
             </p>
-            <p className="mt-4 text-xs">
-              sLiq Protocol · Powered by EarnPark · <a href="mailto:support@earnpark.com" className="hover:text-white">support@earnpark.com</a>
+            <p className="mt-4 text-xs text-gray-500">
+              sLiq Protocol · Powered by EarnPark · <a href="mailto:support@earnpark.com" className="text-gray-400 hover:text-white underline decoration-gray-600 hover:decoration-gray-400">support@earnpark.com</a>
             </p>
           </div>
           <FooterCol title="Product" items={[
@@ -1178,28 +1210,28 @@ function LandingFooter() {
             ['MCP spec', '#'],
           ]} />
           <div>
-            <div className="text-xs uppercase tracking-wide font-semibold text-[var(--fg-3)] mb-3">Community</div>
+            <div className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-3">Community</div>
             <div className="flex items-center gap-3">
-              <a href="#" aria-label="X" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
+              <a href="#" aria-label="X" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-900 flex items-center justify-center text-gray-400 hover:text-white transition">
                 <SvgX />
               </a>
-              <a href="#" aria-label="Discord" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
+              <a href="#" aria-label="Discord" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-900 flex items-center justify-center text-gray-400 hover:text-white transition">
                 <SvgDiscord />
               </a>
-              <a href="#" aria-label="Telegram" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
+              <a href="#" aria-label="Telegram" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-900 flex items-center justify-center text-gray-400 hover:text-white transition">
                 <SvgTelegram />
               </a>
-              <a href="https://github.com/" aria-label="GitHub" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
+              <a href="https://github.com/" aria-label="GitHub" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-900 flex items-center justify-center text-gray-400 hover:text-white transition">
                 <SvgGithub />
               </a>
             </div>
           </div>
         </div>
-        <div className="mt-10 pt-6 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="mt-10 pt-6 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
           <span>© 2026 sLiq Protocol</span>
           <div className="flex gap-4">
-            <a href="#" className="hover:text-white">Terms</a>
-            <a href="#" className="hover:text-white">Privacy</a>
+            <a href="#" className="text-gray-400 hover:text-white transition">Terms</a>
+            <a href="#" className="text-gray-400 hover:text-white transition">Privacy</a>
           </div>
         </div>
       </div>
@@ -1239,14 +1271,14 @@ function SvgGithub() {
 function FooterCol({ title, items }: { title: string; items: [string, string][] }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide font-semibold text-[var(--fg-3)] mb-3">{title}</div>
+      <div className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-3">{title}</div>
       <ul className="space-y-2 text-sm">
         {items.map(([label, href]) => (
           <li key={label}>
             {href.startsWith('mailto:') || href === '#' || href.startsWith('http') ? (
-              <a href={href} className="hover:text-white">{label}</a>
+              <a href={href} className="text-gray-300 hover:text-white transition">{label}</a>
             ) : (
-              <Link to={href} className="hover:text-white">{label}</Link>
+              <Link to={href} className="text-gray-300 hover:text-white transition">{label}</Link>
             )}
           </li>
         ))}
