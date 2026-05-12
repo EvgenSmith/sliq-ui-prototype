@@ -17,6 +17,7 @@ export function Landing() {
       <LandingNav />
       <Hero />
       <Benefits />
+      <StatStrip />
       <ForWhom />
       <HowItWorks />
       <UseCases />
@@ -164,33 +165,6 @@ function Benefits() {
       ),
     },
     {
-      stat: '1K',
-      title: 'Active traders',
-      body: 'Real users testing leveraged Uniswap exposure during Beta.',
-    },
-    {
-      stat: '$2M',
-      title: 'Open interest',
-      body: 'Combined notional across all currently open positions on sLiq.',
-    },
-    {
-      stat: '$3M',
-      title: 'Total volume',
-      body: (
-        <>
-          Cumulative settled notional since Beta launch.{' '}
-          <a
-            href="https://dune.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 text-gray-900 font-medium underline decoration-gray-300 hover:decoration-gray-700"
-          >
-            Verify on Dune <span aria-hidden className="text-[10px]">↗</span>
-          </a>
-        </>
-      ),
-    },
-    {
       stat: <>100× <span className="text-gray-400">/</span> 1000×</>,
       title: 'Use liquidity efficiently',
       body: (
@@ -228,6 +202,53 @@ function Benefits() {
         </div>
       </div>
     </section>
+  )
+}
+
+// Compact stat strip — Hyperliquid-style: dark bg, big numbers, minimal label.
+function StatStrip() {
+  return (
+    <section className="border-b border-gray-100 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+      <div className="mx-auto max-w-7xl px-4 py-10 md:py-12">
+        <div className="grid grid-cols-3 gap-4 md:gap-8">
+          <Stat label="Traders" value="1K" />
+          <Stat label="Open interest" value="$2M" />
+          <Stat
+            label="Total volume"
+            value="$3M"
+            href="https://dune.com/"
+          />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Stat({ label, value, href }: { label: string; value: string; href?: string }) {
+  const labelEl = (
+    <span className="text-sm md:text-base text-gray-400 inline-flex items-center gap-1">
+      {label}
+      {href && <span aria-hidden className="text-xs">↗</span>}
+    </span>
+  )
+  return (
+    <div>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-white transition"
+        >
+          {labelEl}
+        </a>
+      ) : (
+        labelEl
+      )}
+      <div className="mt-2 md:mt-3 text-4xl md:text-6xl font-bold tracking-tight leading-none">
+        {value}
+      </div>
+    </div>
   )
 }
 
@@ -720,7 +741,7 @@ function Security() {
   return (
     <section id="safety" className="border-b border-gray-100 bg-gray-50/60">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <SectionHeader eyebrow="Security" title="Safety of users' funds is our first priority" />
+        <SectionHeader eyebrow="Security" title="Safety" />
         <div className="grid md:grid-cols-3 gap-5 mt-10">
           {primary.map(it => (
             <div key={it.title} className="rounded-2xl bg-white border border-gray-200 p-6 md:p-7 hover:border-gray-300 transition">
