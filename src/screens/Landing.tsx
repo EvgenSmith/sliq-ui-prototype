@@ -219,7 +219,7 @@ function Benefits() {
             icon={<SvgBuilding />}
             eyebrow="Trusted operator"
             title="Since 2022 · Backed by EarnPark"
-            body={<>Track record from <strong>Pro Binance market makers.</strong></>}
+            body={<>Built by <strong>Pro Binance market makers.</strong></>}
           />
 
           {/* C — No friction */}
