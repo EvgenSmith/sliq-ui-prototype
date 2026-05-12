@@ -40,8 +40,10 @@ function LandingNav() {
           <span className="text-xs font-normal text-gray-400">powered by EarnPark</span>
         </Link>
         <div className="flex items-center gap-2">
+          <a href="#built-for" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Built for</a>
           <a href="#how" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">How it works</a>
           <a href="#use-cases" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Use cases</a>
+          <a href="#safety" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Safety</a>
           <a href="#faq" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">FAQ</a>
           <Link
             to="/listings"
@@ -199,9 +201,9 @@ function Benefits() {
 
 function ForWhom() {
   return (
-    <section className="border-b border-gray-100 bg-gray-50/60">
+    <section id="built-for" className="border-b border-gray-100 bg-gray-50/60">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <SectionHeader eyebrow="For whom" title="Who sLiq is built for" />
+        <SectionHeader eyebrow="Built for" title="Who sLiq is built for" />
 
         <div className="mt-10 grid md:grid-cols-3 gap-5">
           <ForWhomCard
@@ -636,7 +638,7 @@ function Security() {
     },
   ]
   return (
-    <section className="border-b border-gray-100 bg-gray-50/60">
+    <section id="safety" className="border-b border-gray-100 bg-gray-50/60">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="Security" title="Safety of users' funds is our first priority" />
         <div className="grid md:grid-cols-3 gap-5 mt-10">
@@ -746,8 +748,7 @@ function LandingFooter() {
           <div>
             <div className="text-white font-bold text-lg mb-3">sLiq</div>
             <p className="text-sm leading-relaxed max-w-md">
-              Extra yield for LPs. Leveraged exposure for traders.{' '}
-              <span className="text-lime-300">Agent-callable by design.</span>
+              Extra yield for LPs. Leveraged exposure for traders. Built on real Uniswap V3.
             </p>
             <p className="mt-4 text-xs">
               sLiq Protocol · Powered by EarnPark · <a href="mailto:support@earnpark.com" className="hover:text-white">support@earnpark.com</a>
