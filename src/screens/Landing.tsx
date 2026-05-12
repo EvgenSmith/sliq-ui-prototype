@@ -453,11 +453,19 @@ function HowItWorks() {
             <SvgBolt />
           </div>
           <div className="flex-1">
-            <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Fourth party</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Fourth party</span>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                Beta: sLiq team only
+              </span>
+            </div>
             <div className="mt-1 text-base font-semibold text-gray-900">Settlement & liquidations run by permissionless keepers</div>
             <p className="mt-1 text-sm text-gray-600 leading-relaxed">
               Anyone can run a keeper node — monitor positions, execute liquidations on price moves,
               settle expired markets — and earn keeper fees for each successful action. No central operator. No allowlist.
+            </p>
+            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+              <strong>In Beta:</strong> keeper infrastructure is operated by the sLiq team only. Permissionless opens after mainnet audit + 3rd-party keeper SDK release.
             </p>
           </div>
           <Link
