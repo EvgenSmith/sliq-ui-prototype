@@ -187,7 +187,7 @@ export function ListingDetail() {
 
           {/* Pro Metrics — relocated to right rail. Visible for both trader & owner
               (owner uses these для self-benchmark vs other listings) */}
-          <ProMetrics listing={listing} positions={listingPositions} />
+          <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
         </aside>
       </div>
     </div>
@@ -791,9 +791,11 @@ function PreviewRow({ label, value }: { label: string; value: React.ReactNode })
 function ProMetrics({
   listing,
   positions,
+  isOwner,
 }: {
   listing: import('@/lib/types').Listing
   positions: import('@/lib/types').Position[]
+  isOwner?: boolean
 }) {
   // Mock-derived metrics — UX-grade placeholders
   // realized vol estimate from pair tier (high-vol pairs would have wider range)
@@ -829,8 +831,56 @@ function ProMetrics({
       <summary className="cursor-pointer text-sm font-semibold hover:text-gray-700 inline-flex items-center gap-2">
         Pro metrics
         <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">для опытных</span>
-        <span className="text-[11px] text-gray-500 font-normal ml-1">vol · σ-distance · auction depth · OI</span>
+        <span className="text-[11px] text-gray-500 font-normal ml-1">
+          {isOwner ? 'performance · vs HODL · vol · σ-distance · auction · OI' : 'vol · σ-distance · auction depth · OI'}
+        </span>
       </summary>
+
+      {/* LP-only sub-section: Listing performance + Vs HODL */}
+      {isOwner && (() => {
+        const ageHoursLocal = Math.max(1, (Date.now() - listing.listedAt) / (1000 * 60 * 60))
+        const netPnLLocal = listing.netPnLUSD ?? 0
+        const lifetimeUniLocal = listing.lifetimeUniFeesUSD ?? 0
+        const lifetimePremiumLocal = listing.lifetimePremiumUSD ?? 0
+        const lifetimeRefLocal = listing.lifetimeReferenceUSD ?? 0
+        const ilProxyLocal = netPnLLocal - lifetimeUniLocal - lifetimePremiumLocal - lifetimeRefLocal
+        const effectiveApr = (netPnLLocal / listing.initialLiquidityUSD) * (365 / (ageHoursLocal / 24)) * 100
+        const ilFeesRatio = Math.abs(ilProxyLocal) / Math.max(0.01, lifetimeUniLocal + lifetimePremiumLocal + lifetimeRefLocal)
+        const uniDelta = lifetimeUniLocal + ilProxyLocal
+        const sliqDelta = netPnLLocal
+        return (
+          <div className="mt-4 space-y-3">
+            <div className="rounded border border-gray-200 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Listing performance</div>
+              <div className="grid grid-cols-2 gap-2 text-xs num">
+                <MetricBlock label="Effective APR" value={`${effectiveApr.toFixed(2)}%`} />
+                <MetricBlock label="Lessees turnover" value={`${positions.length} pos lifetime`} />
+                <MetricBlock label="Capacity utilization" value={`${(100 - capacityFreePct(listing)).toFixed(0)}%`} />
+                <MetricBlock label="IL / Fees ratio" value={`${ilFeesRatio.toFixed(2)}×`} />
+              </div>
+            </div>
+            <div className="rounded border border-gray-200 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Vs HODL · с момента листинга</div>
+              <div className="grid grid-cols-3 gap-2 text-xs num">
+                <MetricBlock label="HODL" value="$0" />
+                <MetricBlock
+                  label="Uniswap LP only"
+                  value={`${uniDelta >= 0 ? '+' : '−'}${fmtUSD(Math.abs(uniDelta))}`}
+                  tone={uniDelta >= 0 ? 'ok' : 'warn'}
+                />
+                <MetricBlock
+                  label="sLiq LP"
+                  value={`${sliqDelta >= 0 ? '+' : '−'}${fmtUSD(Math.abs(sliqDelta))}`}
+                  tone={sliqDelta >= 0 ? 'ok' : 'warn'}
+                />
+              </div>
+              <p className="text-[10px] text-gray-500 mt-2 leading-snug">
+                Все числа — отклонение от baseline «just held tokens» ($0). sLiq column &gt; Uniswap LP only = листинг приносит extra поверх обычного LP.
+              </p>
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Vol panel */}
@@ -999,13 +1049,20 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
       {/* Earnings panel — headline */}
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-base font-semibold">Earnings since listing</h2>
+          <h2 className="text-base font-semibold inline-flex items-center gap-1">
+            Earnings since listing
+            <HelpPopover label="Что показывает Net PnL" width="w-80">
+              <p className="font-semibold mb-1">Net PnL (IL-adjusted) — то что Uniswap скрывает</p>
+              <p className="mb-1.5">Uniswap UI показывает только «fees earned» — misleading metric. Real PnL = gross fees − Impermanent Loss.</p>
+              <p>С sLiq добавляются Reference Fees + Premium APY от lessees → итог часто positive даже когда Uniswap-only был бы в минусе.</p>
+            </HelpPopover>
+          </h2>
           <span
             className="num font-bold text-2xl"
             style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
           >
             {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
-            <span className="text-xs font-medium text-gray-500 ml-2">net</span>
+            <span className="text-xs font-medium text-gray-500 ml-2">net · IL-adjusted</span>
           </span>
         </div>
         <div className="space-y-1.5 text-sm">
@@ -1028,19 +1085,6 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
             <span className="num text-[var(--color-status-danger)]">{fmtUSD(ilProxy)}</span>
           } />
         </div>
-        <hr className="border-gray-100 my-2.5" />
-        <div className="flex items-baseline justify-between text-sm">
-          <span className="font-medium">Net PnL (IL-adjusted)</span>
-          <span
-            className="num font-bold"
-            style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
-          >
-            {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
-          </span>
-        </div>
-        <p className="text-[10px] text-gray-500 mt-2 leading-snug">
-          Что Uniswap UI скрывает: gross fees − IL = real PnL. С sLiq добавляются Reference Fees + Premium APY от lessees → итог часто positive даже когда Uniswap-only был бы в минусе.
-        </p>
         {netPnL < 0 && (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
             <div className="text-xs font-semibold text-amber-900 mb-1">💡 What to do</div>
@@ -1097,11 +1141,18 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
       <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
         <h2 className="text-base font-semibold">Manage listing</h2>
 
-        {/* PRIMARY action — Claim (если есть accrued) */}
+        {/* PRIMARY action — Collect accrued earnings (NOT withdraw NFT) */}
         {claimable > 1 ? (
           <div className="rounded-lg border-2 border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)]/40 p-4 flex items-baseline justify-between gap-3 flex-wrap">
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] uppercase tracking-wide text-[var(--color-role-lp)] font-semibold">Ready to claim</div>
+              <div className="text-[10px] uppercase tracking-wide text-[var(--color-role-lp)] font-semibold inline-flex items-center gap-1">
+                Ready to collect
+                <HelpPopover label="Что значит «Collect»" width="w-80">
+                  <p className="font-semibold mb-1">Collect earnings = забрать accrued fees</p>
+                  <p className="mb-1.5">Это <strong>не</strong> withdraw NFT — это получить на кошелёк все накопленные fees + Premium APY + Reference Fees. NFT остаётся листингом дальше зарабатывать.</p>
+                  <p className="text-[11px] text-gray-500">Чтобы забрать NFT обратно → отдельная кнопка «Request NFT withdrawal» ниже.</p>
+                </HelpPopover>
+              </div>
               <div className="text-2xl num font-bold text-[var(--color-role-lp)] mt-0.5">{fmtUSD(claimable)}</div>
               <div className="text-[11px] text-gray-600 mt-0.5">
                 Uniswap fees {fmtUSD(lifetimeUni * 0.3)} + Reference {fmtUSD(lifetimeRef * 0.4)} + Premium {fmtUSD(lifetimePremium * 0.2)}
@@ -1111,12 +1162,12 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
               to="/lp/claims"
               className="text-sm font-bold px-5 py-2.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition whitespace-nowrap"
             >
-              Claim →
+              Collect earnings →
             </Link>
           </div>
         ) : (
           <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
-            <strong>No earnings ready to claim yet.</strong> Auto-compound{autoCompound ? ' ON — fees added back to NFT automatically.' : ' OFF — fees accumulate, will appear here.'}
+            <strong>No earnings ready to collect yet.</strong> Auto-compound{autoCompound ? ' ON — fees added back to NFT automatically.' : ' OFF — fees accumulate, will appear here.'}
           </div>
         )}
 
@@ -1180,111 +1231,66 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
         </div>
       </div>
 
-      {/* Active lessees table */}
-      {activeLessees.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="text-sm font-semibold mb-3">Active lessees ({activeLessees.length})</h3>
-          <table className="w-full text-sm">
-            <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-              <tr>
-                <th className="text-left font-medium pb-2">Trader</th>
-                <th className="text-right font-medium pb-2">Notional</th>
-                <th className="text-right font-medium pb-2">APY paid to you</th>
-                <th className="text-right font-medium pb-2">Their PnL</th>
-                <th className="text-right font-medium pb-2">Opened</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeLessees.map(p => {
-                const pnl = estimatePositionPnL(p)
-                return (
-                  <tr key={p.id} className="border-t border-gray-100">
-                    <td className="py-2 num text-xs">{shortAddr(p.trader)}</td>
-                    <td className="py-2 text-right num">{fmtUSD(p.notionalUSD)}</td>
-                    <td className="py-2 text-right num font-medium" style={{ color: p.apyBps < 0 ? 'var(--color-negative-apy)' : undefined }}>
-                      {fmtPct(p.apyBps, { signed: true })}
-                    </td>
-                    <td className="py-2 text-right num text-xs" style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
-                      {pnl >= 0 ? '+' : '−'}{fmtUSD(Math.abs(pnl))}
-                    </td>
-                    <td className="py-2 text-right num text-xs text-gray-500">{fmtTimeAgo(p.openedAt)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <p className="text-[10px] text-gray-500 mt-3 leading-snug">
-            Если их PnL positive — рынок верит что твой листинг стоит carry. Сигнал поднять Min APY.
-          </p>
-        </div>
-      )}
+      {/* Active lessees — summary one-liner + expandable */}
+      {activeLessees.length > 0 && (() => {
+        const totalLeased = activeLessees.reduce((s, p) => s + p.notionalUSD, 0)
+        const avgApy = activeLessees.reduce((s, p) => s + p.apyBps, 0) / activeLessees.length
+        const totalLesseePnl = activeLessees.reduce((s, p) => s + estimatePositionPnL(p), 0)
+        const lesseesProfitable = totalLesseePnl > 0
+        return (
+          <details className="rounded-lg border border-gray-200 bg-white p-4">
+            <summary className="cursor-pointer hover:text-gray-700 list-none">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                <div className="text-sm">
+                  <strong>{activeLessees.length} active {activeLessees.length === 1 ? 'lessee' : 'lessees'}</strong>
+                  <span className="text-gray-500 num"> · {fmtUSD(totalLeased)} leased · avg {fmtPct(avgApy)} APY paid to you</span>
+                </div>
+                <span className="text-[11px] text-gray-500 inline-flex items-center gap-1">
+                  {lesseesProfitable ? (
+                    <>
+                      💡 They're profitable (+{fmtUSD(totalLesseePnl)} aggregate) — consider raising Min APY
+                    </>
+                  ) : (
+                    <>Aggregate PnL: <span style={{ color: 'var(--color-status-danger)' }}>{fmtUSD(totalLesseePnl)}</span></>
+                  )}
+                  <span className="ml-1 underline decoration-dotted">show all ▾</span>
+                </span>
+              </div>
+            </summary>
+            <table className="w-full text-sm mt-3">
+              <thead className="text-[11px] uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="text-left font-medium pb-2">Trader</th>
+                  <th className="text-right font-medium pb-2">Notional</th>
+                  <th className="text-right font-medium pb-2">APY paid to you</th>
+                  <th className="text-right font-medium pb-2">Their PnL</th>
+                  <th className="text-right font-medium pb-2">Opened</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeLessees.map(p => {
+                  const pnl = estimatePositionPnL(p)
+                  return (
+                    <tr key={p.id} className="border-t border-gray-100">
+                      <td className="py-2 num text-xs">{shortAddr(p.trader)}</td>
+                      <td className="py-2 text-right num">{fmtUSD(p.notionalUSD)}</td>
+                      <td className="py-2 text-right num font-medium" style={{ color: p.apyBps < 0 ? 'var(--color-negative-apy)' : undefined }}>
+                        {fmtPct(p.apyBps, { signed: true })}
+                      </td>
+                      <td className="py-2 text-right num text-xs" style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
+                        {pnl >= 0 ? '+' : '−'}{fmtUSD(Math.abs(pnl))}
+                      </td>
+                      <td className="py-2 text-right num text-xs text-gray-500">{fmtTimeAgo(p.openedAt)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </details>
+        )
+      })()}
 
-      {/* Vs HODL comparison — all values relative to «just held tokens» baseline */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold mb-2">Vs HODL · с момента листинга</h3>
-        <div className="text-[11px] text-gray-500 mb-3">
-          Все числа — <strong>отклонение от baseline</strong> «просто держал tokens» ($0 = ничего не делал).
-        </div>
-        {(() => {
-          const uniDelta = lifetimeUni + ilProxy // fees minus IL
-          const sliqDelta = netPnL
-          return (
-            <div className="grid grid-cols-3 gap-3 num text-sm">
-              <ComparisonBlock
-                label="Pure HODL"
-                value="$0"
-                tone="neutral"
-                subtitle="baseline · просто держал"
-              />
-              <ComparisonBlock
-                label="Uniswap LP only"
-                value={`${uniDelta >= 0 ? '+' : '−'}${fmtUSD(Math.abs(uniDelta))}`}
-                tone={uniDelta >= 0 ? 'success' : 'danger'}
-                subtitle="Uniswap fees − IL"
-              />
-              <ComparisonBlock
-                label="sLiq LP"
-                value={`${sliqDelta >= 0 ? '+' : '−'}${fmtUSD(Math.abs(sliqDelta))}`}
-                tone={sliqDelta >= 0 ? 'success' : 'danger'}
-                subtitle="+ Reference + Premium"
-                highlight
-              />
-            </div>
-          )
-        })()}
-        <p className="text-[10px] text-gray-500 mt-3 leading-snug">
-          sLiq добавляет Reference Fees + Premium APY к Uniswap baseline. Если sLiq column больше Uniswap LP — листинг приносит extra поверх обычного LP.
-        </p>
-      </div>
-
-      {/* Pro Metrics */}
-      <details className="rounded-lg border border-gray-200 bg-white p-5">
-        <summary className="cursor-pointer text-sm font-semibold hover:text-gray-700 inline-flex items-center gap-2">
-          Pro metrics
-          <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">для опытных</span>
-        </summary>
-        <div className="mt-4 space-y-3">
-          <div className="rounded border border-gray-200 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Listing economics</div>
-            <div className="grid grid-cols-2 gap-2 text-sm num">
-              <MetricBlock label="Effective APR (combined)" value={`${((netPnL / listing.initialLiquidityUSD) * (365 / (ageHours / 24)) * 100).toFixed(2)}%`} />
-              <MetricBlock label="Lessees turnover" value={`${myListingPositions.length} pos lifetime`} />
-              <MetricBlock label="Capacity utilization" value={`${(100 - capacityFreePct(listing)).toFixed(0)}%`} />
-              <MetricBlock label="IL/Fees ratio" value={`${(Math.abs(ilProxy) / Math.max(0.01, lifetimeUni + lifetimePremium + lifetimeRef)).toFixed(2)}×`} />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => alert('CSV export — mock. Production: full listing history + earnings + lessees.')}
-            className="text-[11px] font-medium px-2.5 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
-          >
-            ↓ Export CSV
-          </button>
-          <p className="text-[10px] text-gray-400 leading-snug">
-            <strong>Data sources:</strong> Uniswap fees → V3 subgraph · IL → V3 SDK client-side · Reference/Premium → sLiq subgraph · range hit-rate → swap-events aggregation.
-          </p>
-        </div>
-      </details>
+      {/* Vs HODL + Pro Metrics consolidated → right-rail ProMetrics (LP-side sub-sections) */}
 
       {/* === Modals === */}
 

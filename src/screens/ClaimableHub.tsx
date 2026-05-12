@@ -117,7 +117,7 @@ export function ClaimableHub() {
             <tfoot className="bg-gray-50 border-t-2 border-gray-200">
               <tr>
                 <td colSpan={4} className="px-4 py-2.5 text-right text-xs uppercase tracking-wide text-gray-500 font-semibold">
-                  Total claimable
+                  Total to collect
                 </td>
                 <td className="px-4 py-2.5 text-right num font-semibold" style={{ color: 'var(--color-status-success)' }}>
                   {fmtUSD(claimableTotal)}
@@ -127,7 +127,7 @@ export function ClaimableHub() {
                     type="button"
                     className="text-sm font-semibold px-3 py-1.5 rounded bg-[var(--color-status-success)] text-white hover:opacity-90 transition"
                   >
-                    Claim all
+                    Collect all
                   </button>
                 </td>
               </tr>
