@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom'
 export function Landing() {
   return (
     <div
-      data-theme="night"
+      data-theme="day"
       className="min-h-screen"
       style={{
         background: 'var(--bg-1)',
@@ -44,7 +44,7 @@ function LandingNav() {
     <nav
       className="sticky top-0 z-30 backdrop-blur"
       style={{
-        background: 'rgba(16, 24, 28, 0.85)',
+        background: 'rgba(255, 255, 255, 0.9)',
         borderBottom: '1px solid var(--border-1)',
       }}
     >
@@ -174,14 +174,14 @@ function HeroVisual() {
       </div>
       {/* Floating chips */}
       <div
-        className="absolute -bottom-3 -right-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur"
-        style={{ color: 'var(--primary-lime-0)', background: 'rgba(16, 24, 28, 0.85)', border: '1px solid rgba(184, 244, 0, 0.4)' }}
+        className="absolute -bottom-3 -right-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur shadow-sm"
+        style={{ color: 'var(--primary-active-dark)', background: 'var(--bg-1)', border: '1px solid var(--primary-lime-0)' }}
       >
         +3–7% APR
       </div>
       <div
-        className="absolute -top-3 -left-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur"
-        style={{ color: 'var(--fg-2)', background: 'rgba(16, 24, 28, 0.85)', border: '1px solid var(--border-1)' }}
+        className="absolute -top-3 -left-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur shadow-sm"
+        style={{ color: 'var(--fg-2)', background: 'var(--bg-1)', border: '1px solid var(--border-1)' }}
       >
         No oracle
       </div>
@@ -464,7 +464,7 @@ function ForWhomCard({
   const isExt = cta.to.startsWith('mailto:') || cta.to.startsWith('http')
   const ctaCls =
     cta.kind === 'primary'
-      ? 'bg-[var(--bg-3)] hover:opacity-90 text-white'
+      ? 'bg-[var(--black)] hover:opacity-85 text-white'
       : 'border border-[var(--border-1)] hover:border-[var(--primary-black-30)] text-[var(--fg-1)]'
   const ctaBase = 'inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium'
 
@@ -511,7 +511,7 @@ function ForWhomCard({
         {steps.map((s, i) => (
           <li key={i} className="flex gap-2.5 text-sm">
             {!isPrompt && (
-              <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--bg-3)] text-white text-[10px] font-semibold flex items-center justify-center mt-0.5">
+              <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--black)] text-white text-[10px] font-semibold flex items-center justify-center mt-0.5">
                 {i + 1}
               </span>
             )}
@@ -559,7 +559,7 @@ function HowItWorks() {
 
         {/* Keepers callout — 4th party in sLiq economy */}
         <div className="mt-10 rounded-2xl border border-[var(--border-1)] bg-[var(--bg-1)] p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4">
-          <div className="shrink-0 w-11 h-11 rounded-xl bg-[var(--bg-3)] text-[var(--primary-lime-0)] flex items-center justify-center">
+          <div className="shrink-0 w-11 h-11 rounded-xl bg-[var(--black)] text-[var(--primary-lime-0)] flex items-center justify-center">
             <SvgBolt />
           </div>
           <div className="flex-1">
@@ -1149,7 +1149,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 function LandingFooter() {
   return (
-    <footer className="bg-[var(--bg-3)] text-[var(--fg-3)]">
+    <footer style={{ background: 'var(--black)', color: 'var(--primary-black-0)' }}>
       <div className="mx-auto max-w-7xl px-4 py-12 md:py-16">
         <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-8">
           <div>
