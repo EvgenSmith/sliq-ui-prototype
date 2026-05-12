@@ -200,7 +200,22 @@ function Benefits() {
     <section className="border-b border-[var(--border-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <div className="grid md:grid-cols-3 gap-5">
-          {/* A — Trust */}
+          {/* E — Live stats (WIDE 2-col, 4 stats in horizontal row) */}
+          <BenefitCard
+            wide
+            icon={<SvgPulse />}
+            eyebrow="Live on Beta"
+            customBody={
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 mt-4">
+                <MiniStat value="47" label="Liquidity providers" />
+                <MiniStat value="12" label="Active markets" />
+                <MiniStat value="$84K" label="Open interest" />
+                <MiniStat value="+$2.4K" label="Top trade today" href="https://dune.com/" />
+              </div>
+            }
+          />
+
+          {/* A — Trust (compact, 1-col) */}
           <BenefitCard
             icon={<SvgBuilding />}
             eyebrow="Trusted operator"
@@ -213,21 +228,7 @@ function Benefits() {
             }
           />
 
-          {/* B — Leverage (WIDE, 2-column) */}
-          <BenefitCard
-            wide
-            icon={<SvgLightning />}
-            eyebrow="Max leverage"
-            stat={<>Up to <span className="text-[var(--primary-lime-0)]">1000×</span></>}
-            title="Leverage on real Uniswap pools"
-            body={
-              <>
-                Traders open up to <strong>1000×</strong> per market. Liquidity providers earn carry up to <strong>100×</strong> via Provider Leverage. Cap is set per market based on liquidity depth — not a protocol-wide constant.
-              </>
-            }
-          />
-
-          {/* C — No friction (trading mechanics, from Hero subhead) */}
+          {/* C — No friction */}
           <BenefitCard
             icon={<SvgZap />}
             eyebrow="No friction"
@@ -251,17 +252,16 @@ function Benefits() {
             }
           />
 
-          {/* E — Live stats (combined 4 numbers into one card) */}
+          {/* B — Max leverage (now compact, 1-col, bottom row) */}
           <BenefitCard
-            icon={<SvgPulse />}
-            eyebrow="Live on Beta"
-            customBody={
-              <div className="grid grid-cols-2 gap-x-4 gap-y-4 mt-2">
-                <MiniStat value="47" label="Liquidity providers" />
-                <MiniStat value="12" label="Active markets" />
-                <MiniStat value="$84K" label="Open interest" />
-                <MiniStat value="+$2.4K" label="Top trade today" href="https://dune.com/" />
-              </div>
+            icon={<SvgLightning />}
+            eyebrow="Max leverage"
+            stat={<>Up to <span className="text-[var(--primary-lime-0)]">1000×</span></>}
+            title="Per market, real Uniswap pools"
+            body={
+              <>
+                Traders up to <strong>1000×</strong>. Liquidity providers up to <strong>100×</strong> via Provider Leverage. Cap set per market based on liquidity depth.
+              </>
             }
           />
         </div>
