@@ -155,7 +155,7 @@ export function ListingsMarketplace() {
         </p>
         <p className="text-xs text-gray-500 mt-1.5">
           У тебя есть Uniswap V3 LP NFT?{' '}
-          <Link to="/lp/deposit" className="text-[var(--color-role-lp)] font-medium underline hover:no-underline">
+          <Link to="/lp/deposit" className="text-gray-600 hover:text-gray-900 underline decoration-gray-300 hover:decoration-gray-600 underline-offset-2">
             Принеси сюда — заработай extra Premium APY поверх обычных Uniswap fees →
           </Link>
         </p>
@@ -453,7 +453,7 @@ function OnboardingBanner() {
             </>
           )}
         </span>
-        <span className="text-gray-400 group-hover:text-gray-700 ml-auto">как это работает →</span>
+        <span className="text-gray-900 font-medium group-hover:underline ml-auto">Как это работает →</span>
       </button>
     )
   }
