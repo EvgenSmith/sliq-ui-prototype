@@ -385,16 +385,22 @@ function ForWhomCard({
         </div>
       )}
       {stepsLabel && (
-        <div className="mt-5 text-[11px] uppercase tracking-wide font-semibold text-gray-500">{stepsLabel}</div>
+        <div className="mt-5 flex items-start justify-between gap-2">
+          <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">{stepsLabel}</span>
+          {isPrompt && (
+            <span
+              aria-hidden
+              className="text-5xl text-amber-400 font-serif leading-[0.4] select-none -mt-1"
+            >
+              {'“'}
+            </span>
+          )}
+        </div>
       )}
       <ol className={`${stepsLabel ? 'mt-2' : 'mt-5'} space-y-2.5 flex-1`}>
         {steps.map((s, i) => (
           <li key={i} className="flex gap-2.5 text-sm">
-            {isPrompt ? (
-              <span className="shrink-0 w-5 h-5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-base font-serif leading-none flex items-center justify-center mt-0.5">
-                {'“'}
-              </span>
-            ) : (
+            {!isPrompt && (
               <span className="shrink-0 w-5 h-5 rounded-full bg-gray-900 text-white text-[10px] font-semibold flex items-center justify-center mt-0.5">
                 {i + 1}
               </span>
