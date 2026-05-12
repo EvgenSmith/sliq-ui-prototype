@@ -65,7 +65,7 @@ function LandingNav() {
 function Hero() {
   return (
     <section className="border-b border-gray-100 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-16 md:py-24 grid md:grid-cols-[1.5fr_1fr] gap-8 md:gap-10 items-center">
+      <div className="mx-auto max-w-7xl px-4 py-12 md:py-16 grid md:grid-cols-[1.5fr_1fr] gap-8 md:gap-10 items-center">
         {/* LEFT — H1 + sub + CTAs + trust */}
         <div className="order-1 text-left">
           <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight">
@@ -79,7 +79,7 @@ function Hero() {
             Liquidity providers earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
           </p>
           <p className="mt-3 text-sm md:text-base text-gray-400 leading-relaxed">
-            No funding rate. No oracle. ~4 sec settlement on Arbitrum.
+            No funding rate. No oracle. Open and exit any time — settles in ~4 sec on Arbitrum.
           </p>
 
           {/* CTAs */}
@@ -208,14 +208,17 @@ function Benefits() {
   )
 }
 
-// Compact stat strip — Hyperliquid-style: dark bg, big numbers, minimal label.
+// Compact stat strip — inline horizontal layout: label · value · label · value
+// Smaller than hero-stat treatment, reads as a single credibility bar.
 function StatStrip() {
   return (
     <section className="border-b border-gray-100 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-10 md:py-12">
-        <div className="grid grid-cols-3 gap-4 md:gap-8">
+      <div className="mx-auto max-w-7xl px-4 py-5 md:py-6">
+        <div className="grid grid-cols-3 md:flex md:items-center md:justify-around gap-3 md:gap-10">
           <Stat label="Traders" value="1K" />
+          <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
           <Stat label="Open interest" value="$2M" />
+          <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
           <Stat
             label="Total volume"
             value="$3M"
@@ -228,30 +231,26 @@ function StatStrip() {
 }
 
 function Stat({ label, value, href }: { label: string; value: string; href?: string }) {
-  const labelEl = (
-    <span className="text-sm md:text-base text-gray-400 inline-flex items-center gap-1">
-      {label}
-      {href && <span aria-hidden className="text-xs">↗</span>}
-    </span>
-  )
-  return (
-    <div>
-      {href ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-white transition"
-        >
-          {labelEl}
-        </a>
-      ) : (
-        labelEl
-      )}
-      <div className="mt-2 md:mt-3 text-4xl md:text-6xl font-bold tracking-tight leading-none">
-        {value}
-      </div>
+  const inner = (
+    <div className="flex items-baseline gap-2">
+      <span className="text-xl md:text-2xl font-bold tracking-tight text-white leading-none">{value}</span>
+      <span className="text-xs md:text-sm text-gray-400 inline-flex items-center gap-1">
+        {label}
+        {href && <span aria-hidden className="text-[10px]">↗</span>}
+      </span>
     </div>
+  )
+  return href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:opacity-90 transition"
+    >
+      {inner}
+    </a>
+  ) : (
+    inner
   )
 }
 
