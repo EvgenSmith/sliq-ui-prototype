@@ -69,8 +69,8 @@ function Hero() {
         {/* LEFT — H1 + sub + CTAs + trust */}
         <div className="order-1 text-left">
           <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight">
-            The leverage layer on{' '}
-            <span className="text-lime-300">Uniswap V3</span>
+            Rent out your <span className="text-lime-300">Uniswap LP</span>.<br />
+            Take leveraged views on any pool.
           </h1>
           <p className="mt-6 text-base md:text-xl text-gray-300 leading-relaxed">
             Open up to <strong className="text-white">1000×</strong> leveraged positions on any Uniswap V3 pool.
@@ -168,20 +168,20 @@ function Benefits() {
       ),
     },
     {
-      stat: <>100× <span className="text-gray-400">/</span> 1000×</>,
-      title: 'Use liquidity efficiently',
+      stat: <>Up to 1000×</>,
+      title: 'No funding · No oracle',
       body: (
         <>
-          Liquidity providers amplify earnings up to <strong>100×</strong> via Provider Leverage. Traders open leveraged views up to <strong>1000×</strong> on the same pair.
+          Traders open up to <strong>1000×</strong> on real Uniswap pools. Liquidity providers earn carry up to <strong>100×</strong> via Provider Leverage. Leverage cap is set per market.
         </>
       ),
     },
     {
-      stat: <>IL <span className="text-gray-400">→</span> profit</>,
-      title: 'Earn from impermanent loss',
+      stat: 'No idle yield',
+      title: 'Base Uniswap APY never pauses',
       body: (
         <>
-          Short your LP exposure on sLiq while keeping Uniswap fees. Redefine DeFi: from impermanent loss to <strong>impermanent profit</strong> when the pool moves.
+          Your Uniswap fees keep accruing at all times — pre-listing, listed-but-not-taken, listed-and-active. No dead-time window. Premium APY is <strong>on top</strong>, not instead.
         </>
       ),
     },
@@ -214,14 +214,16 @@ function StatStrip() {
   return (
     <section className="border-b border-gray-100 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
       <div className="mx-auto max-w-7xl px-4 py-5 md:py-6">
-        <div className="grid grid-cols-3 md:flex md:items-center md:justify-around gap-3 md:gap-10">
-          <Stat label="Traders" value="1K" />
+        <div className="grid grid-cols-2 md:flex md:items-center md:justify-around gap-3 md:gap-8">
+          <Stat label="Liquidity providers" value="47" />
           <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
-          <Stat label="Open interest" value="$2M" />
+          <Stat label="Active markets" value="12" />
+          <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
+          <Stat label="Open interest" value="$84K" />
           <span aria-hidden className="hidden md:block w-px h-8 bg-gray-700" />
           <Stat
-            label="Total volume"
-            value="$3M"
+            label="Top trade today"
+            value="+$2.4K"
             href="https://dune.com/"
           />
         </div>
@@ -266,8 +268,9 @@ function ForWhom() {
           <ForWhomCard
             tag="Liquidity providers"
             tagColor="lime"
-            heading="Plug in your existing Uniswap V3 NFT"
+            heading="Your IL is now someone else's trade"
             chips={['Conservative 1× · no liq risk', 'Advanced up to 100×']}
+            visual={<LPDashboardSnippet />}
             steps={[
               'Connect wallet, import an existing V3 LP NFT',
               'Set minimum Premium APY (or accept the auction)',
@@ -283,8 +286,9 @@ function ForWhom() {
           <ForWhomCard
             tag="Traders"
             tagColor="lime"
-            heading="Leveraged views on real Uniswap pools"
-            chips={['Up to 1000×', 'No funding · No oracle']}
+            heading="1000× leverage on real pools. No funding. No oracle."
+            chips={['Up to 1000×', 'Carry, not funding']}
+            visual={<TraderMarketsSnippet />}
             steps={[
               'Browse live markets — pair, fee tier, leverage available',
               'Open long, short, or volatility with margin',
@@ -333,7 +337,7 @@ function ForWhom() {
 }
 
 function ForWhomCard({
-  tag, tagColor, badge, heading, chips, steps, stepsLabel, stepsStyle, cta, micro,
+  tag, tagColor, badge, heading, chips, steps, stepsLabel, stepsStyle, cta, micro, visual,
 }: {
   tag: string
   tagColor: 'lime' | 'amber'
@@ -345,6 +349,7 @@ function ForWhomCard({
   stepsStyle?: 'numbered' | 'prompt'
   cta: { label: string; to: string; kind: 'primary' | 'secondary' }
   micro: React.ReactNode
+  visual?: React.ReactNode
 }) {
   const isPrompt = stepsStyle === 'prompt'
   const tagCls =
@@ -383,6 +388,7 @@ function ForWhomCard({
           ))}
         </div>
       )}
+      {visual && <div className="mt-4">{visual}</div>}
       {stepsLabel && (
         <div className="mt-5 flex items-start justify-between gap-2">
           <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">{stepsLabel}</span>
@@ -416,6 +422,59 @@ function ForWhomCard({
           <Link to={cta.to} className={`${ctaBase} ${ctaCls}`}>{cta.label} <span aria-hidden>→</span></Link>
         )}
       </div>
+    </div>
+  )
+}
+
+// Inline mini-visuals — placeholder snippets that hint at app UI without being heroic screenshots.
+
+function LPDashboardSnippet() {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-3 text-[11px] font-mono">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-gray-500">USDC/ETH 0.05%</span>
+        <span className="text-lime-600 font-semibold">In range</span>
+      </div>
+      <div className="flex items-baseline gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400">Uniswap APY</div>
+          <div className="text-base font-bold text-gray-900">+14.2%</div>
+        </div>
+        <div className="text-gray-300">+</div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400">Premium APY</div>
+          <div className="text-base font-bold text-lime-700">+5.8%</div>
+        </div>
+        <div className="text-gray-300">=</div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400">Total</div>
+          <div className="text-base font-bold text-gray-900">+20.0%</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TraderMarketsSnippet() {
+  const rows = [
+    { pair: 'ETH/USDC', lev: '1000×', carry: '4.2%' },
+    { pair: 'WBTC/USDC', lev: '500×', carry: '6.1%' },
+    { pair: 'ETH/wstETH', lev: '250×', carry: '2.8%' },
+  ]
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-3 text-[11px]">
+      <div className="grid grid-cols-3 text-[10px] uppercase tracking-wide text-gray-400 pb-1 border-b border-gray-200">
+        <span>Market</span>
+        <span className="text-right">Max lev</span>
+        <span className="text-right">Carry</span>
+      </div>
+      {rows.map(r => (
+        <div key={r.pair} className="grid grid-cols-3 py-1 font-mono text-gray-700">
+          <span className="font-medium text-gray-900">{r.pair}</span>
+          <span className="text-right">{r.lev}</span>
+          <span className="text-right text-amber-700">{r.carry}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -497,6 +556,7 @@ function UseCases() {
         <div className="mt-10 space-y-4">
           <UseCaseRow
             num="①"
+            audience="lp"
             title="Retail LP — earn extra yield on your existing position"
             body="You provide V3 liquidity on a major pair. Uniswap shows your fees, but not idle range time. List your NFT on sLiq Conservative 1× and pick up a Premium APY on top."
             example={
@@ -510,6 +570,7 @@ function UseCases() {
           />
           <UseCaseRow
             num="②"
+            audience="lp"
             title="High-conviction LP — leverage your view"
             badge="Advanced"
             warning={
@@ -529,6 +590,7 @@ function UseCases() {
           />
           <UseCaseRow
             num="③"
+            audience="trader"
             title="Directional trader — long or short a real pair"
             body="You think ETH breaks $5,000 next week. Open a long on the USDC/ETH market with up to 1000× leverage. PnL follows the real Uniswap pool — no funding rate, no oracle."
             example={
@@ -541,17 +603,21 @@ function UseCases() {
           />
           <UseCaseRow
             num="④"
-            title="Volatility trader — bet on movement, not direction"
-            body="You don't have a directional view but you think the pair will move. Open a vol position — pay LPs carry for the right to profit on either direction."
+            audience="trader"
+            title="Long-tail trader — trade pairs no options market will ever list"
+            body="You think a long-tail token will pump or dump hard. Lyra and Deribit don't list it — but Uniswap does, so sLiq does. Open a leveraged position on any V3 pool."
             example={
               <>
-                ETH at <strong>$4,800</strong>. You open <strong>$1,000 margin</strong> vol on USDC/ETH. Carry rate 8% annualized → ~$0.22/hour cost.
-                Breakeven: price moves <strong>&gt;±$96 (±2%)</strong> within the market window. If ETH hits $5,000 or $4,600, you profit. If it stays in [$4,704–$4,896], you pay carry until expiry. No funding rate.
+                <strong>$PEPE/USDC</strong> at $0.000012. You open <strong>$200 margin, 100× long</strong> → notional $20,000.
+                PEPE pumps <strong>+30%</strong> in 8 hours → notional gain <strong>+$6,000</strong> (30× return on margin).
+                Settle on-chain, no funding rate, no oracle. If price reverses past your liquidation, a keeper auto-closes.
+                Works on any pair Uniswap V3 supports — including the ones no centralized vol-market will ever touch.
               </>
             }
           />
           <UseCaseRow
             num="⑤"
+            audience="lp"
             title="IL hedger — neutralize impermanent loss on a Uniswap LP"
             body="You hold a V3 LP NFT outside sLiq and want to hedge IL exposure. Open a short on the same pair via sLiq — when the pool moves and your LP suffers IL, your sLiq short pays for it."
             example={
@@ -569,7 +635,7 @@ function UseCases() {
 }
 
 function UseCaseRow({
-  num, title, body, example, badge, warning,
+  num, title, body, example, badge, warning, audience,
 }: {
   num: string
   title: string
@@ -577,8 +643,16 @@ function UseCaseRow({
   example: React.ReactNode
   badge?: string
   warning?: React.ReactNode
+  audience?: 'lp' | 'trader'
 }) {
   const [open, setOpen] = useState(false)
+  const audienceCls =
+    audience === 'lp'
+      ? 'bg-lime-50 text-lime-700 border-lime-200'
+      : audience === 'trader'
+        ? 'bg-blue-50 text-blue-700 border-blue-200'
+        : ''
+  const audienceLabel = audience === 'lp' ? 'For LPs' : audience === 'trader' ? 'For Traders' : null
   return (
     <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
       <div className="px-6 py-5 md:px-8 md:py-6 grid md:grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-start">
@@ -586,6 +660,11 @@ function UseCaseRow({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            {audienceLabel && (
+              <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${audienceCls}`}>
+                {audienceLabel}
+              </span>
+            )}
             {badge && (
               <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                 {badge}
@@ -661,7 +740,7 @@ function WhySliq() {
 // ─── 8. Comparison ───────────────────────────────────────────────────────
 
 function ComparisonTable() {
-  const rows = [
+  const lpRows = [
     ['LP fees from swaps', '✓', '✓ (keep accruing)'],
     ['Carry from traders (Premium APY)¹', '—', '+3–7% APR typical'],
     ['In-range / out-of-range alerts', 'manual', '✓ Telegram + email'],
@@ -669,36 +748,77 @@ function ComparisonTable() {
     ['Exit', 'manual remove + collect', '2-click, ~4 sec on Arbitrum'],
     ['Provider Leverage (Advanced)', '—', 'up to 100×'],
     ['Liquidation risk', 'none', 'none on Conservative · yes on Advanced'],
-    ['Agent-callable (MCP)', '—', 'Soon'],
+  ]
+  const traderRows = [
+    ['Max leverage', '50–100×', '50–100×', '1000× per market'],
+    ['Funding rate', 'yes, periodic', 'yes, periodic', 'no'],
+    ['Price source', 'oracle', 'oracle', 'real Uniswap V3 pool'],
+    ['Underlying liquidity', 'protocol vault', 'protocol vault', 'individual LP NFT'],
+    ['Long-tail pairs', 'limited', 'limited', 'any Uniswap V3 pool'],
+    ['Buyout / outbid existing position', '—', '—', '✓'],
+    ['Margin assets', 'USDC only', 'USDC only', 'two-token (USDC + position)'],
   ]
   return (
     <section className="border-b border-gray-100">
-      <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <SectionHeader eyebrow="Comparison" title="Uniswap alone vs Uniswap + sLiq" />
-        <div className="mt-10 overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-200">
-                <th className="py-3 pr-4 font-medium"></th>
-                <th className="py-3 px-4 font-medium">Uniswap V3 alone</th>
-                <th className="py-3 px-4 font-medium text-gray-900">Uniswap V3 + sLiq</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className="border-b border-gray-100">
-                  <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
-                  <td className="py-3 px-4 text-gray-500">{r[1]}</td>
-                  <td className="py-3 px-4 text-gray-900 font-medium">{r[2]}</td>
+      <div className="mx-auto max-w-7xl px-4 py-14 md:py-20 space-y-14">
+        {/* LP axis */}
+        <div>
+          <SectionHeader eyebrow="For liquidity providers" title="Uniswap alone vs Uniswap + sLiq" />
+          <div className="mt-10 overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-200">
+                  <th className="py-3 pr-4 font-medium"></th>
+                  <th className="py-3 px-4 font-medium">Uniswap V3 alone</th>
+                  <th className="py-3 px-4 font-medium text-gray-900">Uniswap V3 + sLiq</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {lpRows.map((r, i) => (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
+                    <td className="py-3 px-4 text-gray-500">{r[1]}</td>
+                    <td className="py-3 px-4 text-gray-900 font-medium">{r[2]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
+            ¹ Based on backtest of major Uniswap V3 pairs (USDC/ETH, USDC/WBTC, ETH/WBTC) over 12 months
+            + simulated Premium APY auction with realistic trader demand. Range, not guarantee. See methodology in White Paper.
+          </p>
         </div>
-        <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
-          ¹ Based on backtest of major Uniswap V3 pairs (USDC/ETH, USDC/WBTC, ETH/WBTC) over 12 months
-          + simulated Premium APY auction with realistic trader demand. Range, not guarantee. See methodology in White Paper.
-        </p>
+
+        {/* Trader axis */}
+        <div>
+          <SectionHeader eyebrow="For traders" title="sLiq vs perpetual DEXs" />
+          <div className="mt-10 overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-200">
+                  <th className="py-3 pr-4 font-medium"></th>
+                  <th className="py-3 px-4 font-medium">Hyperliquid</th>
+                  <th className="py-3 px-4 font-medium">GMX</th>
+                  <th className="py-3 px-4 font-medium text-gray-900">sLiq</th>
+                </tr>
+              </thead>
+              <tbody>
+                {traderRows.map((r, i) => (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
+                    <td className="py-3 px-4 text-gray-500">{r[1]}</td>
+                    <td className="py-3 px-4 text-gray-500">{r[2]}</td>
+                    <td className="py-3 px-4 text-gray-900 font-medium">{r[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
+            Perp DEXs trade index price via oracle. sLiq settles against the actual Uniswap V3 pool — every market wraps a real LP position, including long-tail pairs that no centralized venue lists.
+          </p>
+        </div>
       </div>
     </section>
   )
@@ -816,51 +936,110 @@ function SvgChain() {
 // ─── 10. FAQ ─────────────────────────────────────────────────────────────
 
 function FAQ() {
-  const items = [
+  const groups: { heading: string; items: { q: string; a: string }[] }[] = [
     {
-      q: 'What is sLiq?',
-      a: 'A protocol that lets Uniswap V3 liquidity providers earn extra yield from leveraged traders. Traders get exposure to real Uniswap pools without owning the LP NFT.',
+      heading: 'General',
+      items: [
+        {
+          q: 'What is sLiq?',
+          a: 'A protocol that lets Uniswap V3 liquidity providers earn extra yield from leveraged traders. Traders get exposure to real Uniswap pools without owning the LP NFT.',
+        },
+        {
+          q: 'How is this different from Uniswap?',
+          a: 'Uniswap is the underlying AMM. sLiq sits on top: wraps LP NFTs into markets, runs a Premium APY auction, lets traders take leveraged views without touching the actual liquidity.',
+        },
+        {
+          q: 'How is sLiq different from Panoptic or perp DEXs?',
+          a: 'Panoptic aggregates LPs into a shared pool with formula-based premium; sLiq keeps LPs as individual NFTs with auction-priced premium. Perp DEXs (Hyperliquid, GMX) settle against an oracle index — sLiq settles against the actual Uniswap pool. Long-tail pairs unavailable on perps work on sLiq because Uniswap V3 supports them.',
+        },
+        {
+          q: 'Can AI agents use sLiq?',
+          a: 'Yes — by design. sLiq\'s protocol surface (open auctions, public formulas, on-chain settlement) is machine-readable. Subgraph and REST endpoints are live today. A dedicated MCP server launches soon so any AI agent (Claude Desktop, custom, ops bot) can browse markets, simulate, and execute in one MCP call.',
+        },
+        {
+          q: 'Is it audited?',
+          a: 'Audited by Pessimistic — full report at the link in the footer.',
+        },
+      ],
     },
     {
-      q: 'How is this different from Uniswap?',
-      a: 'Uniswap is the underlying AMM. sLiq sits on top: wraps LP NFTs into markets, runs a Premium APY auction, lets traders take leveraged views without touching the actual liquidity.',
+      heading: 'For liquidity providers',
+      items: [
+        {
+          q: 'What is Premium APY?',
+          a: 'The carry rate traders pay liquidity providers for hosting their leveraged exposure. Set by a continuous auction — providers set a minimum, traders bid above.',
+        },
+        {
+          q: 'What are Reference Fees?',
+          a: 'The synthetic fee stream liquidity providers earn from sLiq traders: Reference Fees = realized Uniswap fees × Provider Leverage.',
+        },
+        {
+          q: 'What is Provider Leverage?',
+          a: 'In Advanced mode, liquidity providers can amplify their exposure (and Reference Fee earnings) up to 100×. Liquidation risk applies if the pool moves against the provider\'s range. Conservative mode (1×, default) has no liquidation risk.',
+        },
+        {
+          q: 'What happens if a trader runs out of margin before settling?',
+          a: 'The trader\'s position is auto-closed by a keeper. The LP receives Uniswap fees + accrued Premium APY + Reference Fees up to the available margin. If margin is insufficient, partial payment is paid pro-rata — this is the explicit LP-side risk on sLiq (no insurance fund). Mitigation: the underlying Uniswap LP position is always restored at close.',
+        },
+        {
+          q: 'How fast can I exit?',
+          a: 'Two clicks to request close + a 2-block guard (~4 seconds on Arbitrum) for settlement. Uniswap fees keep accruing right up to the moment your NFT is returned.',
+        },
+        {
+          q: 'Can I cancel a listing if no trader has taken it?',
+          a: 'Yes. As long as your listing is in idle state (not bought), withdrawal is instant — your NFT returns immediately, no penalty, no fee.',
+        },
+      ],
     },
     {
-      q: 'Who is this for?',
-      a: 'Liquidity providers already running V3 ranges who want extra yield on idle range time. Traders who want directional or vol exposure without perp funding or oracle risk. AI agents — sLiq is built MCP-native (server launching soon).',
+      heading: 'For traders',
+      items: [
+        {
+          q: 'What carry rate will I pay?',
+          a: 'Carry rate = Premium APY × position size × time. Typical ranges 4–12% APR for major pairs in Beta. The number you bid in the auction is the only ongoing cost — no separate funding rate.',
+        },
+        {
+          q: 'What is the minimum position size?',
+          a: 'Minimum margin starts at $50 USDC on Beta. Caps lift as the protocol matures and liquidity deepens.',
+        },
+        {
+          q: 'How does liquidation work?',
+          a: 'When the underlying Uniswap pool price moves past your liquidation level (a function of your leverage and margin), a permissionless keeper auto-closes your position by restoring the LP via Uniswap SwapRouter. You receive the residual margin after the close.',
+        },
+        {
+          q: 'What is the swap cost / slippage?',
+          a: 'sLiq performs swaps on close via Uniswap SwapRouter against the real pool. Slippage is bounded by tick-spacing for the listed range — typically <0.1% on major pairs, more on long-tail. Visible in the close preview before you confirm.',
+        },
+        {
+          q: 'Why no oracle?',
+          a: 'sLiq settles at the actual Uniswap V3 pool price at the block of close. The pool itself is the price source — there\'s no off-chain feed, no Chainlink dependency, no oracle attack surface.',
+        },
+      ],
     },
     {
-      q: 'What is Premium APY?',
-      a: 'The carry rate traders pay liquidity providers for hosting their leveraged exposure. Set by a continuous auction — providers set a minimum, traders bid above.',
-    },
-    {
-      q: 'What are Reference Fees?',
-      a: 'The synthetic fee stream liquidity providers earn from sLiq traders: Reference Fees = realized Uniswap fees × Provider Leverage.',
-    },
-    {
-      q: 'What is Provider Leverage?',
-      a: 'In Advanced mode, liquidity providers can amplify their exposure (and Reference Fee earnings) up to 100×. Liquidation risk applies if the pool moves against the provider\'s range. Conservative mode (1×, default) has no liquidation risk.',
-    },
-    {
-      q: 'Can AI agents use sLiq?',
-      a: 'Yes — by design. sLiq\'s protocol surface (open auctions, public formulas, on-chain settlement) is machine-readable. Subgraph and REST endpoints are live today. A dedicated MCP server launches soon so any AI agent (Claude Desktop, custom, ops bot) can browse markets, simulate, and execute in one MCP call.',
-    },
-    {
-      q: 'Is it audited?',
-      a: 'Yes. Audited by Pessimistic — full report at the link in the footer. sLiq is in Beta with a TVL cap.',
-    },
-    {
-      q: 'What are the risks?',
-      a: 'Standard DeFi risks: smart contract bugs, pool-dependent settlement, liquidation in Advanced LP mode, market gaps. Read the white paper and the audit before using.',
+      heading: 'Risk',
+      items: [
+        {
+          q: 'What are the risks?',
+          a: 'Standard DeFi risks: smart contract bugs (pending mainnet audit), partial payment in extreme drawdown scenarios, liquidation in Advanced LP mode, swap slippage during settlement on thin liquidity. Read the white paper and audit report before using.',
+        },
+      ],
     },
   ]
   return (
     <section id="faq" className="border-b border-gray-100">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="FAQ" title="Frequently asked questions" />
-        <div className="mt-10 max-w-3xl mx-auto divide-y divide-gray-200 border-y border-gray-200">
-          {items.map((it, i) => (
-            <FaqItem key={i} q={it.q} a={it.a} />
+        <div className="mt-10 max-w-3xl mx-auto space-y-10">
+          {groups.map(g => (
+            <div key={g.heading}>
+              <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 mb-2">{g.heading}</div>
+              <div className="divide-y divide-gray-200 border-y border-gray-200">
+                {g.items.map((it, i) => (
+                  <FaqItem key={i} q={it.q} a={it.a} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
