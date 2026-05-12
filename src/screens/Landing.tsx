@@ -35,9 +35,11 @@ function LandingNav() {
   return (
     <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-100">
       <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between">
-        <Link to="/" className="font-bold text-lg tracking-tight flex items-center gap-2">
-          <span className="text-gray-900">sLiq</span>
-          <span className="text-xs font-normal text-gray-400">powered by EarnPark</span>
+        <Link to="/" className="flex flex-col leading-tight hover:opacity-90 transition flex-shrink-0">
+          <span className="font-semibold tracking-tight text-base text-gray-900">sLiq Protocol</span>
+          <span className="text-[10px] text-gray-500 -mt-0.5">
+            powered by <span className="font-medium text-gray-700">EarnPark</span>
+          </span>
         </Link>
         <div className="flex items-center gap-2">
           <a href="#built-for" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Built for</a>
@@ -854,7 +856,12 @@ function LandingFooter() {
       <div className="mx-auto max-w-7xl px-4 py-12 md:py-16">
         <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-8">
           <div>
-            <div className="text-white font-bold text-lg mb-3">sLiq</div>
+            <div className="flex flex-col leading-tight mb-4">
+              <span className="text-white font-semibold tracking-tight text-base">sLiq Protocol</span>
+              <span className="text-[10px] text-gray-400 -mt-0.5">
+                powered by <span className="font-medium text-gray-200">EarnPark</span>
+              </span>
+            </div>
             <p className="text-sm leading-relaxed max-w-md">
               Extra yield for liquidity providers. Leveraged exposure for traders.
             </p>
