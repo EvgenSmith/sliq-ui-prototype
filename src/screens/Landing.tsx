@@ -62,7 +62,7 @@ function LandingNav() {
 function Hero() {
   return (
     <section className="border-b border-gray-100 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-16 md:py-24 grid md:grid-cols-[1.1fr_1fr] gap-10 md:gap-12 items-center">
+      <div className="mx-auto max-w-7xl px-4 py-16 md:py-24 grid md:grid-cols-[1.5fr_1fr] gap-8 md:gap-10 items-center">
         {/* LEFT — H1 + sub + CTAs + trust */}
         <div className="order-1 text-left">
           <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight">
@@ -117,7 +117,7 @@ function Hero() {
 // Conveys «layer on top of Uniswap» metaphor via 3 stacked rounded planes.
 function HeroVisual() {
   return (
-    <div className="relative aspect-square max-w-md mx-auto md:mx-0 select-none">
+    <div className="relative aspect-square max-w-sm mx-auto md:ml-auto md:mr-0 select-none">
       {/* Base layer — Uniswap */}
       <div className="absolute inset-x-[12%] bottom-0 top-[40%] rounded-3xl bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600 shadow-xl flex items-end justify-between px-6 py-4">
         <span className="text-[10px] uppercase tracking-widest text-gray-400">Layer 0</span>
@@ -147,13 +147,17 @@ function HeroVisual() {
 // ─── 2. Benefits — 3 cards with numbers ──────────────────────────────────
 
 function Benefits() {
-  const cards = [
+  const cards: {
+    stat: React.ReactNode
+    title: string
+    body: React.ReactNode
+  }[] = [
     {
       stat: 'Since 2022',
       title: 'Backed by EarnPark',
       body: (
         <>
-          Production fintech with multi-year track record. <strong>Qualified market maker on Binance.</strong> sLiq is built and operated by the EarnPark team.
+          Production fintech with multi-year track record. <strong>Qualified market maker on Binance.</strong>
         </>
       ),
     },
@@ -170,13 +174,43 @@ function Benefits() {
     {
       stat: '$3M',
       title: 'Total volume',
-      body: 'Cumulative settled notional since Beta launch.',
+      body: (
+        <>
+          Cumulative settled notional since Beta launch.{' '}
+          <a
+            href="https://dune.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-0.5 text-gray-900 font-medium underline decoration-gray-300 hover:decoration-gray-700"
+          >
+            Verify on Dune <span aria-hidden className="text-[10px]">↗</span>
+          </a>
+        </>
+      ),
+    },
+    {
+      stat: <>100× <span className="text-gray-400">/</span> 1000×</>,
+      title: 'Use liquidity efficiently',
+      body: (
+        <>
+          Liquidity providers amplify earnings up to <strong>100×</strong> via Provider Leverage. Traders open leveraged views up to <strong>1000×</strong> on the same pair.
+        </>
+      ),
+    },
+    {
+      stat: <>IL <span className="text-gray-400">→</span> profit</>,
+      title: 'Earn from impermanent loss',
+      body: (
+        <>
+          Short your LP exposure on sLiq while keeping Uniswap fees. Redefine DeFi: from impermanent loss to <strong>impermanent profit</strong> when the pool moves.
+        </>
+      ),
     },
   ]
   return (
     <section className="border-b border-gray-100">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {cards.map(c => (
             <div
               key={c.title}
