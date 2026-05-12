@@ -13,7 +13,15 @@ import { Link } from 'react-router-dom'
 
 export function Landing() {
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div
+      data-theme="night"
+      className="min-h-screen"
+      style={{
+        background: 'var(--bg-1)',
+        color: 'var(--fg-1)',
+        fontFamily: 'var(--font-body)',
+      }}
+    >
       <LandingNav />
       <Hero />
       <Benefits />
@@ -33,23 +41,38 @@ export function Landing() {
 
 function LandingNav() {
   return (
-    <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-100">
+    <nav
+      className="sticky top-0 z-30 backdrop-blur"
+      style={{
+        background: 'rgba(16, 24, 28, 0.85)',
+        borderBottom: '1px solid var(--border-1)',
+      }}
+    >
       <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between">
-        <Link to="/" className="flex flex-col leading-tight hover:opacity-90 transition flex-shrink-0">
-          <span className="font-semibold tracking-tight text-base text-gray-900">sLiq Protocol</span>
-          <span className="text-[10px] text-gray-500 -mt-0.5">
-            powered by <span className="font-medium text-gray-700">EarnPark</span>
-          </span>
+        <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition flex-shrink-0">
+          <img src={`${import.meta.env.BASE_URL}logo-mark.svg`} alt="" className="w-7 h-7" />
+          <div className="flex flex-col leading-tight">
+            <span
+              className="font-medium tracking-tight text-base"
+              style={{ fontFamily: 'var(--font-header)', color: 'var(--fg-1)' }}
+            >
+              sLiq Protocol
+            </span>
+            <span className="text-[10px] -mt-0.5" style={{ color: 'var(--fg-3)' }}>
+              powered by <span style={{ color: 'var(--fg-2)', fontWeight: 500 }}>EarnPark</span>
+            </span>
+          </div>
         </Link>
         <div className="flex items-center gap-2">
-          <a href="#built-for" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Built for</a>
-          <a href="#how" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">How it works</a>
-          <a href="#use-cases" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Use cases</a>
-          <a href="#safety" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">Safety</a>
-          <a href="#faq" className="hidden md:inline text-sm text-gray-600 hover:text-gray-900 px-3">FAQ</a>
+          <a href="#built-for" className="hidden md:inline text-sm px-3 hover:opacity-80 transition" style={{ color: 'var(--fg-2)' }}>Built for</a>
+          <a href="#how" className="hidden md:inline text-sm px-3 hover:opacity-80 transition" style={{ color: 'var(--fg-2)' }}>How it works</a>
+          <a href="#use-cases" className="hidden md:inline text-sm px-3 hover:opacity-80 transition" style={{ color: 'var(--fg-2)' }}>Use cases</a>
+          <a href="#safety" className="hidden md:inline text-sm px-3 hover:opacity-80 transition" style={{ color: 'var(--fg-2)' }}>Safety</a>
+          <a href="#faq" className="hidden md:inline text-sm px-3 hover:opacity-80 transition" style={{ color: 'var(--fg-2)' }}>FAQ</a>
           <Link
             to="/listings"
-            className="ml-2 inline-flex items-center rounded-md bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-800"
+            className="ml-2 inline-flex items-center rounded-xl px-4 py-2 text-sm font-medium transition hover:opacity-90"
+            style={{ background: 'var(--primary-lime-0)', color: 'var(--black)' }}
           >
             Launch app
           </Link>
@@ -63,18 +86,21 @@ function LandingNav() {
 
 function Hero() {
   return (
-    <section className="border-b border-gray-100 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 text-white">
+    <section style={{ borderBottom: '1px solid var(--border-1)' }}>
       <div className="mx-auto max-w-7xl px-4 py-12 md:py-16 grid md:grid-cols-[1.5fr_1fr] gap-8 md:gap-10 items-center">
         {/* LEFT — H1 + sub + CTAs + trust */}
         <div className="order-1 text-left">
-          <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight">
-            Rent out your <span className="text-lime-300">Uniswap LP</span>.<br />
+          <h1
+            className="text-4xl md:text-6xl leading-[1.1] tracking-tight"
+            style={{ font: 'var(--h2m)', fontFamily: 'var(--font-header)', letterSpacing: '-0.01em', color: 'var(--fg-1)' }}
+          >
+            Rent out your <span style={{ color: 'var(--primary-lime-0)' }}>Uniswap LP</span>.<br />
             Take leveraged views on any pool.
           </h1>
-          <p className="mt-6 text-base md:text-xl text-gray-300 leading-relaxed">
-            Up to <strong className="text-white">1000×</strong> leverage for traders.{' '}
+          <p className="mt-6 leading-relaxed" style={{ font: 'var(--b6)', color: 'var(--fg-2)' }}>
+            Up to <strong style={{ color: 'var(--fg-1)' }}>1000×</strong> leverage for traders.{' '}
             <span className="md:inline block">
-              <strong className="text-lime-300">+3–7% APR</strong> extra carry for liquidity providers.
+              <strong style={{ color: 'var(--primary-lime-0)' }}>+3–7% APR</strong> extra carry for liquidity providers.
             </span>
           </p>
 
@@ -82,27 +108,29 @@ function Hero() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               to="/listings"
-              className="inline-flex items-center gap-2 rounded-md bg-lime-400 hover:bg-lime-300 text-gray-900 px-6 py-3 text-sm md:text-base font-semibold"
+              className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm md:text-base font-medium hover:opacity-90 transition"
+              style={{ background: 'var(--primary-lime-0)', color: 'var(--black)' }}
             >
               Browse markets <span aria-hidden>→</span>
             </Link>
             <Link
               to="/lp/deposit"
-              className="inline-flex items-center gap-2 rounded-md border border-gray-600 hover:border-gray-400 text-gray-200 px-6 py-3 text-sm md:text-base font-medium"
+              className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm md:text-base font-medium transition hover:opacity-80"
+              style={{ border: '1px solid var(--primary-black-30)', color: 'var(--fg-1)' }}
             >
               Import your NFT <span aria-hidden>→</span>
             </Link>
           </div>
 
-          {/* Trust line (sliq.finance pattern) */}
-          <div className="mt-8 text-xs md:text-sm text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span>Live on <span className="text-gray-200 font-medium">Arbitrum</span></span>
-            <span className="text-gray-700">·</span>
-            <span>Built on <span className="text-gray-200 font-medium">Uniswap V3</span></span>
-            <span className="text-gray-700">·</span>
-            <span>Non-custodial · <span className="text-gray-200 font-medium">Metamask</span></span>
-            <span className="text-gray-700">·</span>
-            <span>Audited by <span className="text-gray-200 font-medium">Pessimistic</span></span>
+          {/* Trust line */}
+          <div className="mt-8 text-xs md:text-sm flex flex-wrap items-center gap-x-3 gap-y-2" style={{ color: 'var(--fg-3)' }}>
+            <span>Live on <span style={{ color: 'var(--fg-1)', fontWeight: 500 }}>Arbitrum</span></span>
+            <span style={{ color: 'var(--primary-black-50)' }}>·</span>
+            <span>Built on <span style={{ color: 'var(--fg-1)', fontWeight: 500 }}>Uniswap V3</span></span>
+            <span style={{ color: 'var(--primary-black-50)' }}>·</span>
+            <span>Non-custodial · <span style={{ color: 'var(--fg-1)', fontWeight: 500 }}>Metamask</span></span>
+            <span style={{ color: 'var(--primary-black-50)' }}>·</span>
+            <span>Audited by <span style={{ color: 'var(--fg-1)', fontWeight: 500 }}>Pessimistic</span></span>
           </div>
         </div>
 
@@ -121,25 +149,40 @@ function HeroVisual() {
   return (
     <div className="relative aspect-square max-w-sm mx-auto md:ml-auto md:mr-0 select-none">
       {/* Base layer — Uniswap */}
-      <div className="absolute inset-x-[12%] bottom-0 top-[40%] rounded-3xl bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600 shadow-xl flex items-end justify-between px-6 py-4">
-        <span className="text-[10px] uppercase tracking-widest text-gray-400">Layer 0</span>
-        <span className="text-sm font-medium text-gray-300">Uniswap V3</span>
+      <div
+        className="absolute inset-x-[12%] bottom-0 top-[40%] rounded-3xl shadow-xl flex items-end justify-between px-6 py-4"
+        style={{ background: 'var(--bg-3)', border: '1px solid var(--border-1)' }}
+      >
+        <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--fg-3)' }}>Layer 0</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--fg-2)' }}>Uniswap V3</span>
       </div>
       {/* Mid layer — Markets */}
-      <div className="absolute inset-x-[6%] top-[20%] bottom-[30%] rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600 shadow-2xl flex items-center justify-between px-6">
-        <span className="text-[10px] uppercase tracking-widest text-gray-400">Layer 1</span>
-        <span className="text-sm font-medium text-gray-200">Synthetic markets</span>
+      <div
+        className="absolute inset-x-[6%] top-[20%] bottom-[30%] rounded-3xl shadow-2xl flex items-center justify-between px-6"
+        style={{ background: 'var(--bg-2)', border: '1px solid var(--border-1)' }}
+      >
+        <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--fg-3)' }}>Layer 1</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--fg-1)' }}>Synthetic markets</span>
       </div>
       {/* Top layer — sLiq leverage */}
-      <div className="absolute inset-x-0 top-0 bottom-[60%] rounded-3xl bg-lime-400 shadow-2xl shadow-lime-400/20 flex items-center justify-between px-6 ring-1 ring-lime-300/40">
-        <span className="text-[10px] uppercase tracking-widest text-gray-900/70">Layer 2</span>
-        <span className="text-sm font-semibold text-gray-900">sLiq · up to 1000×</span>
+      <div
+        className="absolute inset-x-0 top-0 bottom-[60%] rounded-3xl shadow-2xl flex items-center justify-between px-6"
+        style={{ background: 'var(--primary-lime-0)', boxShadow: '0 20px 50px rgba(184, 244, 0, 0.25)' }}
+      >
+        <span className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(16, 17, 26, 0.7)' }}>Layer 2</span>
+        <span className="text-sm font-semibold" style={{ color: 'var(--black)' }}>sLiq · up to 1000×</span>
       </div>
       {/* Floating chips */}
-      <div className="absolute -bottom-3 -right-2 text-[10px] font-medium text-lime-300 bg-gray-900/80 border border-lime-400/40 rounded-full px-2.5 py-1 backdrop-blur">
+      <div
+        className="absolute -bottom-3 -right-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur"
+        style={{ color: 'var(--primary-lime-0)', background: 'rgba(16, 24, 28, 0.85)', border: '1px solid rgba(184, 244, 0, 0.4)' }}
+      >
         +3–7% APR
       </div>
-      <div className="absolute -top-3 -left-2 text-[10px] font-medium text-gray-300 bg-gray-900/80 border border-gray-600 rounded-full px-2.5 py-1 backdrop-blur">
+      <div
+        className="absolute -top-3 -left-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur"
+        style={{ color: 'var(--fg-2)', background: 'rgba(16, 24, 28, 0.85)', border: '1px solid var(--border-1)' }}
+      >
         No oracle
       </div>
     </div>
@@ -154,7 +197,7 @@ function HeroVisual() {
 // Card anatomy matches Security: icon box + eyebrow + stat + title + body.
 function Benefits() {
   return (
-    <section className="border-b border-gray-100">
+    <section className="border-b border-[var(--border-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <div className="grid md:grid-cols-3 gap-5">
           {/* A — Trust */}
@@ -175,7 +218,7 @@ function Benefits() {
             wide
             icon={<SvgLightning />}
             eyebrow="Max leverage"
-            stat={<>Up to <span className="text-lime-600">1000×</span></>}
+            stat={<>Up to <span className="text-[var(--primary-lime-0)]">1000×</span></>}
             title="Leverage on real Uniswap pools"
             body={
               <>
@@ -242,22 +285,22 @@ function BenefitCard({
   wide?: boolean
 }) {
   return (
-    <div className={`rounded-2xl bg-white border border-gray-200 p-6 md:p-7 hover:border-gray-300 transition ${wide ? 'md:col-span-2' : ''}`}>
-      <div className="w-11 h-11 rounded-xl bg-lime-100 text-lime-700 flex items-center justify-center mb-5">
+    <div className={`rounded-2xl bg-[var(--bg-2)] border border-[var(--border-1)] p-6 md:p-7 hover:border-[var(--border-1)] transition ${wide ? 'md:col-span-2' : ''}`}>
+      <div className="w-11 h-11 rounded-xl bg-[var(--primary-lime-80)] text-[var(--primary-lime-0)] flex items-center justify-center mb-5">
         {icon}
       </div>
-      <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">{eyebrow}</div>
+      <div className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)]">{eyebrow}</div>
       {stat && (
-        <div className={`mt-1 ${wide ? 'text-4xl md:text-5xl' : 'text-2xl md:text-3xl'} font-bold text-gray-900 leading-none tracking-tight`}>
+        <div className={`mt-1 ${wide ? 'text-4xl md:text-5xl' : 'text-2xl md:text-3xl'} font-bold text-[var(--fg-1)] leading-none tracking-tight`}>
           {stat}
         </div>
       )}
       {title && (
-        <div className={`${stat ? 'mt-3' : 'mt-1'} text-base md:text-lg font-bold text-gray-900`}>
+        <div className={`${stat ? 'mt-3' : 'mt-1'} text-base md:text-lg font-bold text-[var(--fg-1)]`}>
           {title}
         </div>
       )}
-      {body && <p className="mt-2 text-sm text-gray-600 leading-relaxed">{body}</p>}
+      {body && <p className="mt-2 text-sm text-[var(--fg-2)] leading-relaxed">{body}</p>}
       {customBody}
     </div>
   )
@@ -266,11 +309,11 @@ function BenefitCard({
 function MiniStat({ value, label, href }: { value: string; label: string; href?: string }) {
   const inner = (
     <div>
-      <div className="text-2xl md:text-3xl font-bold text-gray-900 leading-none tracking-tight">
+      <div className="text-2xl md:text-3xl font-bold text-[var(--fg-1)] leading-none tracking-tight">
         {value}
-        {href && <span aria-hidden className="text-xs text-gray-500 ml-1">↗</span>}
+        {href && <span aria-hidden className="text-xs text-[var(--fg-3)] ml-1">↗</span>}
       </div>
-      <div className="mt-1 text-[11px] uppercase tracking-wide font-medium text-gray-500">{label}</div>
+      <div className="mt-1 text-[11px] uppercase tracking-wide font-medium text-[var(--fg-3)]">{label}</div>
     </div>
   )
   return href ? (
@@ -324,7 +367,7 @@ function SvgPulse() {
 
 function ForWhom() {
   return (
-    <section id="built-for" className="border-b border-gray-100 bg-gray-50/60">
+    <section id="built-for" className="border-b border-[var(--border-1)] bg-[var(--bg-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="Built for" title="Who sLiq is built for" />
 
@@ -384,7 +427,7 @@ function ForWhom() {
                   href="https://teletype.in/@exitsexist/agent-led-growth"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-gray-900"
+                  className="underline hover:text-[var(--fg-1)]"
                 >
                   Agent-Led Growth
                 </a>{' '}
@@ -416,34 +459,34 @@ function ForWhomCard({
   const isPrompt = stepsStyle === 'prompt'
   const tagCls =
     tagColor === 'lime'
-      ? 'text-lime-700 bg-lime-50 border-lime-200'
-      : 'text-amber-700 bg-amber-50 border-amber-200'
+      ? 'text-[var(--primary-lime-0)] bg-[rgba(184,244,0,0.08)] border-[rgba(184,244,0,0.3)]'
+      : 'text-[var(--critical)] bg-[rgba(255,190,24,0.08)] border-[rgba(255,190,24,0.3)]'
   const isExt = cta.to.startsWith('mailto:') || cta.to.startsWith('http')
   const ctaCls =
     cta.kind === 'primary'
-      ? 'bg-gray-900 hover:bg-gray-800 text-white'
-      : 'border border-gray-300 hover:border-gray-500 text-gray-800'
+      ? 'bg-[var(--bg-3)] hover:opacity-90 text-white'
+      : 'border border-[var(--border-1)] hover:border-[var(--primary-black-30)] text-[var(--fg-1)]'
   const ctaBase = 'inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium'
 
   return (
-    <div className="rounded-xl bg-white border border-gray-200 p-6 md:p-7 flex flex-col">
+    <div className="rounded-xl bg-[var(--bg-2)] border border-[var(--border-1)] p-6 md:p-7 flex flex-col">
       <div className="flex items-center gap-2">
         <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${tagCls}`}>
           {tag}
         </span>
         {badge && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[rgba(255,190,24,0.08)] text-[var(--critical)] border border-[rgba(255,190,24,0.3)]">
             {badge}
           </span>
         )}
       </div>
-      <h3 className="mt-3 text-xl font-bold text-gray-900 leading-snug">{heading}</h3>
+      <h3 className="mt-3 text-xl font-bold text-[var(--fg-1)] leading-snug">{heading}</h3>
       {chips && chips.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {chips.map(c => (
             <span
               key={c}
-              className="text-[11px] font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
+              className="text-[11px] font-medium text-[var(--fg-2)] bg-[var(--bg-2)] border border-[var(--border-1)] rounded-full px-2.5 py-1"
             >
               {c}
             </span>
@@ -453,11 +496,11 @@ function ForWhomCard({
       {visual && <div className="mt-4">{visual}</div>}
       {stepsLabel && (
         <div className="mt-5 flex items-start justify-between gap-2">
-          <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">{stepsLabel}</span>
+          <span className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)]">{stepsLabel}</span>
           {isPrompt && (
             <span
               aria-hidden
-              className="text-5xl text-amber-400 font-serif leading-[0.4] select-none -mt-1"
+              className="text-5xl text-[var(--critical)] font-serif leading-[0.4] select-none -mt-1"
             >
               {'“'}
             </span>
@@ -468,15 +511,15 @@ function ForWhomCard({
         {steps.map((s, i) => (
           <li key={i} className="flex gap-2.5 text-sm">
             {!isPrompt && (
-              <span className="shrink-0 w-5 h-5 rounded-full bg-gray-900 text-white text-[10px] font-semibold flex items-center justify-center mt-0.5">
+              <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--bg-3)] text-white text-[10px] font-semibold flex items-center justify-center mt-0.5">
                 {i + 1}
               </span>
             )}
-            <span className={isPrompt ? 'italic text-gray-700' : 'text-gray-700'}>{s}</span>
+            <span className={isPrompt ? 'italic text-[var(--fg-2)]' : 'text-[var(--fg-2)]'}>{s}</span>
           </li>
         ))}
       </ol>
-      <p className="mt-5 text-xs text-gray-500 leading-relaxed">{micro}</p>
+      <p className="mt-5 text-xs text-[var(--fg-3)] leading-relaxed">{micro}</p>
       <div className="mt-5">
         {isExt ? (
           <a href={cta.to} className={`${ctaBase} ${ctaCls}`}>{cta.label} <span aria-hidden>→</span></a>
@@ -498,46 +541,46 @@ function HowItWorks() {
     { n: 'Settle', body: 'Positions close on-chain. Liquidity providers receive Uniswap fees + carry. Traders receive PnL — or get auto-closed by a permissionless keeper.' },
   ]
   return (
-    <section id="how" className="border-b border-gray-100">
+    <section id="how" className="border-b border-[var(--border-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="Mechanism" title="How sLiq works" />
         <div className="grid md:grid-cols-4 gap-5 mt-10">
           {steps.map((s, i) => (
             <div key={i} className="relative">
-              <div className="text-xs text-gray-400 font-mono">0{i + 1}</div>
-              <div className="mt-2 text-lg font-semibold text-gray-900">{s.n}</div>
-              <p className="mt-2 text-sm text-gray-600 leading-relaxed">{s.body}</p>
+              <div className="text-xs text-[var(--fg-3)] font-mono">0{i + 1}</div>
+              <div className="mt-2 text-lg font-semibold text-[var(--fg-1)]">{s.n}</div>
+              <p className="mt-2 text-sm text-[var(--fg-2)] leading-relaxed">{s.body}</p>
               {i < steps.length - 1 && (
-                <div className="hidden md:block absolute top-0 -right-3 text-gray-300 text-xl">→</div>
+                <div className="hidden md:block absolute top-0 -right-3 text-[var(--fg-3)] text-xl">→</div>
               )}
             </div>
           ))}
         </div>
 
         {/* Keepers callout — 4th party in sLiq economy */}
-        <div className="mt-10 rounded-2xl border border-gray-200 bg-gray-50/60 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4">
-          <div className="shrink-0 w-11 h-11 rounded-xl bg-gray-900 text-lime-300 flex items-center justify-center">
+        <div className="mt-10 rounded-2xl border border-[var(--border-1)] bg-[var(--bg-1)] p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4">
+          <div className="shrink-0 w-11 h-11 rounded-xl bg-[var(--bg-3)] text-[var(--primary-lime-0)] flex items-center justify-center">
             <SvgBolt />
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Fourth party</span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)]">Fourth party</span>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[rgba(255,190,24,0.08)] text-[var(--critical)] border border-[rgba(255,190,24,0.3)]">
                 Beta: sLiq team only
               </span>
             </div>
-            <div className="mt-1 text-base font-semibold text-gray-900">Settlement & liquidations run by permissionless keepers</div>
-            <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+            <div className="mt-1 text-base font-semibold text-[var(--fg-1)]">Settlement & liquidations run by permissionless keepers</div>
+            <p className="mt-1 text-sm text-[var(--fg-2)] leading-relaxed">
               Anyone can run a keeper node — monitor positions, execute liquidations on price moves,
               settle expired markets — and earn keeper fees for each successful action. No central operator. No allowlist.
             </p>
-            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+            <p className="mt-2 text-xs text-[var(--fg-3)] leading-relaxed">
               <strong>In Beta:</strong> keeper infrastructure is operated by the sLiq team only. Permissionless opens after mainnet audit + 3rd-party keeper SDK release.
             </p>
           </div>
           <Link
             to="/keeper/positions"
-            className="shrink-0 inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-4 py-2 text-sm font-medium"
+            className="shrink-0 inline-flex items-center gap-2 rounded-md border border-[var(--border-1)] hover:border-[var(--primary-black-30)] text-[var(--fg-1)] px-4 py-2 text-sm font-medium"
           >
             Run a keeper <span aria-hidden>→</span>
           </Link>
@@ -559,7 +602,7 @@ function SvgBolt() {
 
 function UseCases() {
   return (
-    <section id="use-cases" className="border-b border-gray-100 bg-gray-50/60">
+    <section id="use-cases" className="border-b border-[var(--border-1)] bg-[var(--bg-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="Use cases" title="How people use sLiq" />
         <div className="mt-10 space-y-4">
@@ -657,44 +700,44 @@ function UseCaseRow({
   const [open, setOpen] = useState(false)
   const audienceCls =
     audience === 'lp'
-      ? 'bg-lime-50 text-lime-700 border-lime-200'
+      ? 'bg-[rgba(184,244,0,0.08)] text-[var(--primary-lime-0)] border-[rgba(184,244,0,0.3)]'
       : audience === 'trader'
-        ? 'bg-blue-50 text-blue-700 border-blue-200'
+        ? 'bg-[rgba(92,76,255,0.08)] text-[var(--indigo-0)] border-[rgba(92,76,255,0.3)]'
         : ''
   const audienceLabel = audience === 'lp' ? 'For LPs' : audience === 'trader' ? 'For Traders' : null
   return (
-    <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
+    <div className="rounded-xl bg-[var(--bg-2)] border border-[var(--border-1)] overflow-hidden">
       <div className="px-6 py-5 md:px-8 md:py-6 grid md:grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-start">
-        <div className="text-2xl font-bold text-gray-300 leading-none">{num}</div>
+        <div className="text-2xl font-bold text-[var(--fg-3)] leading-none">{num}</div>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <h3 className="text-lg font-semibold text-[var(--fg-1)]">{title}</h3>
             {audienceLabel && (
               <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${audienceCls}`}>
                 {audienceLabel}
               </span>
             )}
             {badge && (
-              <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded bg-[rgba(255,190,24,0.08)] text-[var(--critical)] border border-[rgba(255,190,24,0.3)]">
                 {badge}
               </span>
             )}
           </div>
           {warning && (
-            <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <p className="mt-2 text-xs text-[var(--critical)] bg-[rgba(255,190,24,0.08)] border border-[rgba(255,190,24,0.3)] rounded px-3 py-2">
               {warning}
             </p>
           )}
-          <p className="mt-2 text-sm text-gray-700 leading-relaxed">{body}</p>
+          <p className="mt-2 text-sm text-[var(--fg-2)] leading-relaxed">{body}</p>
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
-            className="mt-3 text-xs font-medium text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"
+            className="mt-3 text-xs font-medium text-[var(--fg-2)] hover:text-[var(--fg-1)] inline-flex items-center gap-1"
           >
             Example {open ? '▴' : '▾'}
           </button>
           {open && (
-            <div className="mt-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-4 py-3 leading-relaxed">
+            <div className="mt-3 text-sm text-[var(--fg-2)] bg-[var(--bg-2)] border border-[var(--border-1)] rounded-md px-4 py-3 leading-relaxed">
               {example}
             </div>
           )}
@@ -726,14 +769,14 @@ function WhySliq() {
     },
   ]
   return (
-    <section className="border-b border-gray-100">
+    <section className="border-b border-[var(--border-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="Why sLiq" title="What makes sLiq different" />
         <div className="grid md:grid-cols-2 gap-5 mt-10">
           {pillars.map(p => (
-            <div key={p.title} className="rounded-xl border border-gray-200 bg-white p-6">
-              <h3 className="text-base font-semibold text-gray-900">{p.title}</h3>
-              <p className="mt-2 text-sm text-gray-600 leading-relaxed">{p.body}</p>
+            <div key={p.title} className="rounded-xl border border-[var(--border-1)] bg-[var(--bg-2)] p-6">
+              <h3 className="text-base font-semibold text-[var(--fg-1)]">{p.title}</h3>
+              <p className="mt-2 text-sm text-[var(--fg-2)] leading-relaxed">{p.body}</p>
             </div>
           ))}
         </div>
@@ -769,19 +812,19 @@ function ComparisonTable() {
     ['Margin assets', 'USDC only', 'USDC only', 'two-token (USDC + position)'],
   ]
   return (
-    <section className="border-b border-gray-100">
+    <section className="border-b border-[var(--border-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="Comparison" title="How sLiq compares" />
 
         {/* Tab switcher */}
-        <div className="mt-8 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+        <div className="mt-8 inline-flex rounded-lg border border-[var(--border-1)] bg-[var(--bg-2)] p-1">
           <button
             type="button"
             onClick={() => setTab('lp')}
             className={`px-4 py-2 text-sm font-medium rounded-md transition ${
               tab === 'lp'
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                : 'text-gray-500 hover:text-gray-800'
+                ? 'bg-[var(--bg-2)] text-[var(--fg-1)] shadow-sm border border-[var(--border-1)]'
+                : 'text-[var(--fg-3)] hover:text-[var(--fg-1)]'
             }`}
           >
             For liquidity providers
@@ -791,8 +834,8 @@ function ComparisonTable() {
             onClick={() => setTab('trader')}
             className={`px-4 py-2 text-sm font-medium rounded-md transition ${
               tab === 'trader'
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                : 'text-gray-500 hover:text-gray-800'
+                ? 'bg-[var(--bg-2)] text-[var(--fg-1)] shadow-sm border border-[var(--border-1)]'
+                : 'text-[var(--fg-3)] hover:text-[var(--fg-1)]'
             }`}
           >
             For traders
@@ -804,24 +847,24 @@ function ComparisonTable() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="text-left text-gray-500 border-b border-gray-200">
+                  <tr className="text-left text-[var(--fg-3)] border-b border-[var(--border-1)]">
                     <th className="py-3 pr-4 font-medium"></th>
                     <th className="py-3 px-4 font-medium">Uniswap V3 alone</th>
-                    <th className="py-3 px-4 font-medium text-gray-900">Uniswap V3 + sLiq</th>
+                    <th className="py-3 px-4 font-medium text-[var(--fg-1)]">Uniswap V3 + sLiq</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lpRows.map((r, i) => (
-                    <tr key={i} className="border-b border-gray-100">
-                      <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
-                      <td className="py-3 px-4 text-gray-500">{r[1]}</td>
-                      <td className="py-3 px-4 text-gray-900 font-medium">{r[2]}</td>
+                    <tr key={i} className="border-b border-[var(--border-1)]">
+                      <td className="py-3 pr-4 text-[var(--fg-2)]">{r[0]}</td>
+                      <td className="py-3 px-4 text-[var(--fg-3)]">{r[1]}</td>
+                      <td className="py-3 px-4 text-[var(--fg-1)] font-medium">{r[2]}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
+            <p className="mt-4 text-xs text-[var(--fg-3)] max-w-3xl leading-relaxed">
               ¹ Based on backtest of major Uniswap V3 pairs (USDC/ETH, USDC/WBTC, ETH/WBTC) over 12 months
               + simulated Premium APY auction with realistic trader demand. Range, not guarantee. See methodology in White Paper.
             </p>
@@ -833,26 +876,26 @@ function ComparisonTable() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="text-left text-gray-500 border-b border-gray-200">
+                  <tr className="text-left text-[var(--fg-3)] border-b border-[var(--border-1)]">
                     <th className="py-3 pr-4 font-medium"></th>
                     <th className="py-3 px-4 font-medium">Hyperliquid</th>
                     <th className="py-3 px-4 font-medium">GMX</th>
-                    <th className="py-3 px-4 font-medium text-gray-900">sLiq</th>
+                    <th className="py-3 px-4 font-medium text-[var(--fg-1)]">sLiq</th>
                   </tr>
                 </thead>
                 <tbody>
                   {traderRows.map((r, i) => (
-                    <tr key={i} className="border-b border-gray-100">
-                      <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
-                      <td className="py-3 px-4 text-gray-500">{r[1]}</td>
-                      <td className="py-3 px-4 text-gray-500">{r[2]}</td>
-                      <td className="py-3 px-4 text-gray-900 font-medium">{r[3]}</td>
+                    <tr key={i} className="border-b border-[var(--border-1)]">
+                      <td className="py-3 pr-4 text-[var(--fg-2)]">{r[0]}</td>
+                      <td className="py-3 px-4 text-[var(--fg-3)]">{r[1]}</td>
+                      <td className="py-3 px-4 text-[var(--fg-3)]">{r[2]}</td>
+                      <td className="py-3 px-4 text-[var(--fg-1)] font-medium">{r[3]}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
+            <p className="mt-4 text-xs text-[var(--fg-3)] max-w-3xl leading-relaxed">
               Perp DEXs trade index price via oracle. sLiq settles against the actual Uniswap V3 pool — every market wraps a real LP position, including long-tail pairs that no centralized venue lists.
             </p>
           </div>
@@ -874,7 +917,7 @@ function Security() {
         <>
           sLiq is a non-custodial protocol. Your wallet signs every action. sLiq core contracts hold{' '}
           <strong>no admin keys</strong> over user funds — neither EarnPark nor anyone else can move your assets.
-          Contracts live on Arbitrum (<a href="#" className="underline hover:text-gray-900">addresses</a>).
+          Contracts live on Arbitrum (<a href="#" className="underline hover:text-[var(--fg-1)]">addresses</a>).
         </>
       ),
     },
@@ -884,7 +927,7 @@ function Security() {
       title: 'Audited by Pessimistic',
       body: (
         <>
-          Full audit by <a href="#" className="underline hover:text-gray-900">Pessimistic Security</a> covering{' '}
+          Full audit by <a href="#" className="underline hover:text-[var(--fg-1)]">Pessimistic Security</a> covering{' '}
           <strong>SLIQCore + margin module + liquidator + listing module</strong>. Report published with the codebase.
           All sLiq contracts are open source and verifiable on GitHub.
         </>
@@ -913,28 +956,28 @@ function Security() {
     },
   ]
   return (
-    <section id="safety" className="border-b border-gray-100 bg-gray-50/60">
+    <section id="safety" className="border-b border-[var(--border-1)] bg-[var(--bg-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="Security" title="Safety" />
         <div className="grid md:grid-cols-3 gap-5 mt-10">
           {primary.map(it => (
-            <div key={it.title} className="rounded-2xl bg-white border border-gray-200 p-6 md:p-7 hover:border-gray-300 transition">
-              <div className="w-11 h-11 rounded-xl bg-lime-100 text-lime-700 flex items-center justify-center mb-5">
+            <div key={it.title} className="rounded-2xl bg-[var(--bg-2)] border border-[var(--border-1)] p-6 md:p-7 hover:border-[var(--border-1)] transition">
+              <div className="w-11 h-11 rounded-xl bg-[var(--primary-lime-80)] text-[var(--primary-lime-0)] flex items-center justify-center mb-5">
                 {it.icon}
               </div>
-              <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">{it.eyebrow}</div>
-              <div className="mt-1 text-xl font-bold text-gray-900">{it.title}</div>
-              <p className="mt-3 text-sm text-gray-600 leading-relaxed">{it.body}</p>
+              <div className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)]">{it.eyebrow}</div>
+              <div className="mt-1 text-xl font-bold text-[var(--fg-1)]">{it.title}</div>
+              <p className="mt-3 text-sm text-[var(--fg-2)] leading-relaxed">{it.body}</p>
             </div>
           ))}
         </div>
         <div className="grid md:grid-cols-2 gap-4 mt-5">
           {secondary.map(it => (
-            <div key={it.title} className="rounded-xl bg-white border border-gray-200 p-5 flex items-start gap-3">
-              <span className="text-lime-500 text-lg mt-0.5">✓</span>
+            <div key={it.title} className="rounded-xl bg-[var(--bg-2)] border border-[var(--border-1)] p-5 flex items-start gap-3">
+              <span className="text-[var(--primary-lime-0)] text-lg mt-0.5">✓</span>
               <div>
-                <div className="text-sm font-semibold text-gray-900">{it.title}</div>
-                <p className="text-sm text-gray-600 mt-1 leading-relaxed">{it.body}</p>
+                <div className="text-sm font-semibold text-[var(--fg-1)]">{it.title}</div>
+                <p className="text-sm text-[var(--fg-2)] mt-1 leading-relaxed">{it.body}</p>
               </div>
             </div>
           ))}
@@ -1065,14 +1108,14 @@ function FAQ() {
     },
   ]
   return (
-    <section id="faq" className="border-b border-gray-100">
+    <section id="faq" className="border-b border-[var(--border-1)]">
       <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
         <SectionHeader eyebrow="FAQ" title="Frequently asked questions" />
         <div className="mt-10 max-w-3xl mx-auto space-y-10">
           {groups.map(g => (
             <div key={g.heading}>
-              <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 mb-2">{g.heading}</div>
-              <div className="divide-y divide-gray-200 border-y border-gray-200">
+              <div className="text-[11px] uppercase tracking-wide font-semibold text-[var(--fg-3)] mb-2">{g.heading}</div>
+              <div className="divide-y divide-[var(--border-1)] border-y border-[var(--border-1)]">
                 {g.items.map((it, i) => (
                   <FaqItem key={i} q={it.q} a={it.a} />
                 ))}
@@ -1094,10 +1137,10 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       className="w-full text-left py-4 px-1 group"
     >
       <div className="flex items-center justify-between gap-4">
-        <span className="text-base font-medium text-gray-900">{q}</span>
-        <span className="text-gray-400 group-hover:text-gray-700 text-sm">{open ? '−' : '+'}</span>
+        <span className="text-base font-medium text-[var(--fg-1)]">{q}</span>
+        <span className="text-[var(--fg-3)] group-hover:text-[var(--fg-2)] text-sm">{open ? '−' : '+'}</span>
       </div>
-      {open && <p className="mt-2 text-sm text-gray-600 leading-relaxed">{a}</p>}
+      {open && <p className="mt-2 text-sm text-[var(--fg-2)] leading-relaxed">{a}</p>}
     </button>
   )
 }
@@ -1106,13 +1149,13 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 function LandingFooter() {
   return (
-    <footer className="bg-gray-900 text-gray-400">
+    <footer className="bg-[var(--bg-3)] text-[var(--fg-3)]">
       <div className="mx-auto max-w-7xl px-4 py-12 md:py-16">
         <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-8">
           <div>
             <div className="flex flex-col leading-tight mb-4">
               <span className="text-white font-semibold tracking-tight text-base">sLiq Protocol</span>
-              <span className="text-[10px] text-gray-400 -mt-0.5">
+              <span className="text-[10px] text-[var(--fg-3)] -mt-0.5">
                 powered by <span className="font-medium text-gray-200">EarnPark</span>
               </span>
             </div>
@@ -1135,18 +1178,18 @@ function LandingFooter() {
             ['MCP spec', '#'],
           ]} />
           <div>
-            <div className="text-xs uppercase tracking-wide font-semibold text-gray-300 mb-3">Community</div>
+            <div className="text-xs uppercase tracking-wide font-semibold text-[var(--fg-3)] mb-3">Community</div>
             <div className="flex items-center gap-3">
-              <a href="#" aria-label="X" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+              <a href="#" aria-label="X" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
                 <SvgX />
               </a>
-              <a href="#" aria-label="Discord" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+              <a href="#" aria-label="Discord" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
                 <SvgDiscord />
               </a>
-              <a href="#" aria-label="Telegram" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+              <a href="#" aria-label="Telegram" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
                 <SvgTelegram />
               </a>
-              <a href="https://github.com/" aria-label="GitHub" className="w-9 h-9 rounded-md border border-gray-700 hover:border-gray-500 hover:bg-gray-800 flex items-center justify-center text-gray-300 hover:text-white transition">
+              <a href="https://github.com/" aria-label="GitHub" className="w-9 h-9 rounded-md border border-gray-700 hover:border-[var(--primary-black-30)] hover:opacity-90 flex items-center justify-center text-[var(--fg-3)] hover:text-white transition">
                 <SvgGithub />
               </a>
             </div>
@@ -1196,7 +1239,7 @@ function SvgGithub() {
 function FooterCol({ title, items }: { title: string; items: [string, string][] }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide font-semibold text-gray-300 mb-3">{title}</div>
+      <div className="text-xs uppercase tracking-wide font-semibold text-[var(--fg-3)] mb-3">{title}</div>
       <ul className="space-y-2 text-sm">
         {items.map(([label, href]) => (
           <li key={label}>
@@ -1217,8 +1260,13 @@ function FooterCol({ title, items }: { title: string; items: [string, string][] 
 function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide font-semibold text-gray-500">{eyebrow}</div>
-      <h2 className="mt-1 text-3xl md:text-4xl font-bold text-gray-900 leading-tight">{title}</h2>
+      <div className="text-xs uppercase tracking-wide font-semibold text-[var(--fg-3)]">{eyebrow}</div>
+      <h2
+        className="mt-1 text-3xl md:text-4xl leading-tight text-[var(--fg-1)]"
+        style={{ fontFamily: 'var(--font-header)', fontWeight: 500, letterSpacing: '-0.01em' }}
+      >
+        {title}
+      </h2>
     </div>
   )
 }

@@ -1,0 +1,323 @@
+/* ============================================================
+   EarnPark — Design tokens: colors, type, spacing, fonts
+   Sourced from: packages/libs/ui/components/src/lib/styles/
+   Two themes: Night (default, dark) and Day (light).
+   ============================================================ */
+
+/* ---------- Fonts ------------------------------------------- */
+@font-face {
+    font-family: 'Brutal Type';
+    src: url('/fonts/BrutalType-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Brutal Type';
+    src: url('/fonts/BrutalType-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Brutal Type';
+    src: url('/fonts/BrutalType-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'At Aero';
+    src: url('/fonts/AtAero-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'At Aero';
+    src: url('/fonts/AtAero-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-display: swap;
+}
+
+/* ---------- Night (default) theme --------------------------- */
+:root,
+[data-theme="night"] {
+    /* === Primary scale (Components 2.0) === */
+    --primary-text: #ebebeb;                /* Primary body text on dark */
+    --primary-lime-0: #b8f400;              /* Core brand — "EarnPark green" */
+    --primary-lime-20: #caff2b;              /* Hover / brighter lime */
+    --primary-lime-50: #638500;              /* Muted lime (dark) */
+    --primary-lime-80: #263300;              /* Deep lime surface */
+    --primary-green-0: #b8f400;              /* alias */
+
+    /* Black ramp (on Night, Black80+ is near-black; Black80- is near-white) */
+    --primary-black-95: #10181c;             /* App background — near black */
+    --primary-black-90: #131b21;             /* Card background */
+    --primary-black-80: #1b242a;             /* Surface */
+    --primary-black-70: #1f2a32;             /* Elevated surface */
+    --primary-black-50: #2a363f;             /* Dividers on dark */
+    --primary-black-30: #36444f;             /* Border on dark */
+    --primary-black-0:  #84919a;             /* Mid gray */
+    --primary-black-10-minus: #6b7984;       /* Secondary text on dark */
+    --primary-black-20-minus: #7d8a94;       /* Tertiary text on dark */
+    --primary-black-30-minus: #8d99a2;       /* Muted */
+    --primary-black-60-minus: #333a3f;
+    --primary-black-70-minus: #272c2f;
+    --primary-black-80-minus: #e1e5e7;       /* Near-white */
+
+    /* Indigo accent */
+    --indigo-0:  #5c4cff;
+    --indigo-10: #5c50e5;
+    --indigo-70: #36325b;
+
+    /* Semantic */
+    --secondary-negative:    #d6384d;        /* error / loss */
+    --secondary-negative-90: #1f1517;
+    --error:                 #cb3833;
+    --error-transparent:     #cb33331a;
+    --critical:              #ffbe18;        /* warning */
+    --critical-transparent:  #ffbe181a;
+    --success:               #a3f400;
+
+    /* Legacy (Components 1.1) semantic aliases */
+    --main-bg:             #0a0f12;
+    --main-bg-transparent: #10111a99;
+    --header-bg:           rgba(16, 17, 26, 0.8);
+    --main-text:           #ebebeb;
+    --main-high-contrast:  #666;
+    --white: #ebebeb;
+    --black: #10111a;
+    --gray:  #a5b4c0;
+    --secondary-active:    #5835ff;
+    --secondary-tapped:    #462bca;
+    --secondary-disabled:  #413c5d;
+    --secondary-small-elements: #1f1f1f;
+    --secondary-border:    #352877;
+    --secondary-error:     #6e4b49;
+    --primary-active:      #b8f400;          /* CTA fill */
+    --primary-active-80:   #f2ffca;
+    --primary-active-dark: #6b8e00;
+    --primary-hover:       #cef656;          /* CTA hover */
+    --primary-tapped:      #b2e517;          /* CTA pressed */
+    --primary-accented:    #b8f400;
+    --primary-accented-transparent: #b8f4001a;
+    --link:        #7266ff;
+    --link-hover:  #9d95f4;
+    --disabled-small: #353242;
+    --soft-highlight: #b8f4004d;
+    --landing5: #545744;
+    --landing6: #9ea092;
+
+    /* Shadow / blur */
+    --shadow-color:   0, 0, 0;
+    --shadow-opacity: 0.45;
+    --shadow: 10px 10px 32px rgba(var(--shadow-color), var(--shadow-opacity));
+    --blur-radius: 24px;
+
+    /* Semantic foreground/background shortcuts */
+    --fg-1: var(--primary-text);             /* Primary text */
+    --fg-2: var(--primary-black-0);          /* Secondary text */
+    --fg-3: var(--primary-black-10-minus);   /* Tertiary text */
+    --fg-accent: var(--primary-lime-0);      /* Brand accent text */
+    --bg-1: var(--primary-black-95);         /* Page bg */
+    --bg-2: var(--primary-black-90);         /* Card bg */
+    --bg-3: var(--primary-black-80);         /* Inset / elevated */
+    --border-1: var(--primary-black-70);     /* Hairline on dark */
+}
+
+/* ---------- Day (light) theme ------------------------------- */
+[data-theme="day"] {
+    --primary-text: #0f0f0f;
+    --primary-lime-0: #b8f400;
+    --primary-lime-20: #93c400;
+    --primary-lime-50: #deff7a;
+    --primary-lime-80: #f2ffca;
+    --primary-green-0: #1ec624;
+
+    --primary-black-95: #f9fafb;
+    --primary-black-90: #edf0f2;
+    --primary-black-80: #e4e9ec;
+    --primary-black-70: #dbe1e6;
+    --primary-black-50: #c9d2d9;
+    --primary-black-30: #b7c3cd;
+    --primary-black-0:  #84919a;
+    --primary-black-10-minus: #74838d;
+    --primary-black-20-minus: #67757e;
+    --primary-black-30-minus: #5a666e;
+    --primary-black-60-minus: #c1c9ce;
+    --primary-black-70-minus: #d4dade;
+    --primary-black-80-minus: #1a1d1f;
+
+    --indigo-0:  #5835ff;
+    --indigo-10: #6a4cff;
+    --indigo-70: #ccc2ff;
+
+    --secondary-negative:    #c5283d;
+    --secondary-negative-90: #fff1f3;
+    --error:                 #cb3333;
+    --error-transparent:     #cb33331a;
+    --critical:              #ff9500;
+    --critical-transparent:  #ff95001a;
+    --success:               #42d06a;
+
+    --main-bg:             #ffffff;
+    --main-bg-transparent: #ffffff99;
+    --header-bg:           rgba(255, 255, 255, 0.9);
+    --main-text:           #10111a;
+    --main-high-contrast:  #999;
+    --white: #ffffff;
+    --black: #10111a;
+    --gray:  #a5b4c0;
+    --secondary-active:    #5835ff;
+    --secondary-tapped:    #472bcc;
+    --secondary-disabled:  #dad7eb;
+    --secondary-small-elements: #f5f3ff;
+    --secondary-border:    #cdc3ff;
+    --secondary-error:     #ecd1cd;
+    --primary-active:      #b8f400;
+    --primary-active-80:   #f2ffca;
+    --primary-active-dark: #9acc00;
+    --primary-hover:       #cef656;
+    --primary-tapped:      #b2e517;
+    --primary-accented:    #1ec624;
+    --primary-accented-transparent: #1ec6241a;
+    --link:        #5835ff;
+    --link-hover:  #8067f9;
+    --disabled-small: #b1a7e2;
+    --soft-highlight: #b8f4004d;
+    --landing5: #d1d4c4;
+    --landing6: #9ea092;
+
+    --shadow-color:   17, 24, 28;
+    --shadow-opacity: 0.08;
+    --shadow: 10px 10px 32px rgba(var(--shadow-color), var(--shadow-opacity));
+    --blur-radius: 24px;
+
+    /* Landing-specific light tones */
+    --landing-1: #e4e9ec;
+    --landing-2: #545744;
+    --landing-3: #2e2e2e;
+    --landing-4: #1f1f1f;
+    --landing-5-transparent: rgba(184, 244, 0, 0.3);
+
+    --fg-1: var(--primary-text);
+    --fg-2: var(--primary-black-30-minus);
+    --fg-3: var(--primary-black-0);
+    --fg-accent: var(--primary-black-80-minus);
+    --bg-1: #ffffff;
+    --bg-2: var(--primary-black-95);
+    --bg-3: var(--primary-black-90);
+    --border-1: var(--primary-black-70);
+}
+
+/* ---------- Type families ----------------------------------- */
+:root {
+    /* Headers use At Aero; body uses Brutal Type. */
+    --font-header: 'At Aero', 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-header-medium: 'At Aero', 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-body:   'Brutal Type', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-mono:   'SF Mono', 'JetBrains Mono', 'Roboto Mono', ui-monospace, Menlo, monospace;
+}
+
+/* ---------- Type scale (Components 2.0 / fonts.scss) --------
+   Headings use At Aero. Body uses Brutal Type. Shorthand:
+       font: <size> / <line-height> <family>;
+   ----------------------------------------------------------- */
+:root {
+    /* Headers */
+    --h1:  400 72px/100% var(--font-header);
+    --h1m: 500 72px/100% var(--font-header-medium);
+    --h2:  400 64px/120% var(--font-header);
+    --h2m: 500 64px/120% var(--font-header-medium);
+    --h3:  400 48px/120% var(--font-header);
+    --h3m: 500 48px/120% var(--font-header-medium);
+    --h4:  400 40px/120% var(--font-header);
+    --h4m: 500 40px/120% var(--font-header-medium);
+    --h5:  400 36px/120% var(--font-header);
+    --h5m: 500 36px/120% var(--font-header-medium);
+    --h6:  400 32px/120% var(--font-header);
+    --h6m: 500 32px/120% var(--font-header-medium);
+    --h7:  400 24px/120% var(--font-header);
+    --h7m: 500 24px/120% var(--font-header-medium);
+
+    /* Body */
+    --b5:  400 24px/130% var(--font-body);
+    --b5m: 500 24px/130% var(--font-body);
+    --b6:  400 20px/140% var(--font-body);
+    --b6m: 500 20px/140% var(--font-body);
+    --b7:  400 16px/150% var(--font-body);       /* Default body */
+    --b7m: 500 16px/150% var(--font-body);
+    --b8:  400 14px/150% var(--font-body);
+    --b8m: 500 14px/150% var(--font-body);
+    --b9:  400 12px/160% var(--font-body);
+    --b9m: 500 12px/160% var(--font-body);
+}
+
+/* ---------- Spacing scale (4px base) ------------------------ */
+:root {
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-17: 68px;   /* --content-indent */
+    --space-20: 80px;
+    --space-24: 96px;
+
+    /* Semantic */
+    --controls-gap-sm: var(--space-2);
+    --controls-gap:    var(--space-3);
+    --controls-gap-lg: var(--space-4);
+    --fields-gap:      var(--space-6);
+    --inner-pad-v:     var(--space-5);
+    --inner-pad-h:     var(--space-4);
+    --inner-pad-lg:    var(--space-6);
+    --section-gap-sm:  var(--space-5);
+    --section-gap:     var(--space-8);
+    --section-gap-lg:  var(--space-12);
+    --content-indent:  var(--space-17);
+
+    /* Radii (observed across the file) */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-2xl: 24px;
+    --radius-pill: 999px;
+
+    /* Max widths */
+    --form-max-width:    420px;
+    --context-max-width: 520px;
+    --title-max-width:   766px;
+    --modal-max-width:   500px;
+}
+
+/* ---------- Semantic element styles ------------------------- */
+/* Scoped to [data-theme] containers in our project (avoids breaking light-themed app routes).
+   Original was: html, body { background: var(--bg-1); color: var(--fg-1); } */
+[data-theme="night"], [data-theme="day"] { background: var(--bg-1); color: var(--fg-1); }
+
+[data-theme="night"], [data-theme="day"] { -webkit-font-smoothing: antialiased; }
+
+h1 { font: var(--h2m); letter-spacing: -0.01em; }
+h2 { font: var(--h3m); letter-spacing: -0.01em; }
+h3 { font: var(--h5m); }
+h4 { font: var(--h7m); }
+
+p  { font: var(--b7); color: var(--fg-1); }
+small, .caption { font: var(--b9); color: var(--fg-2); }
+
+code, pre, kbd, .mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+a { color: var(--link); text-decoration: none; }
+a:hover { color: var(--link-hover); }
+
+hr { border: 0; border-top: 1px solid var(--border-1); margin: var(--space-6) 0; }
+
+::selection { background: var(--primary-lime-0); color: var(--black); }
