@@ -541,15 +541,14 @@ function NFTOption({
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200 num">
             {fmtFeeTier(nft.feeTierBps)}
           </span>
-          {nft.inRange ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium">
-              in range
-            </span>
-          ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-              out of range
-            </span>
-          )}
+          <span className={
+            'text-[10px] px-1.5 py-0.5 rounded-full font-medium ' +
+            (nft.inRange
+              ? 'bg-gray-50 text-gray-700 border border-gray-200'
+              : 'bg-amber-50 text-amber-900 border border-amber-300')
+          }>
+            {nft.inRange ? 'in range' : 'out of range'}
+          </span>
         </div>
         <div className="text-right num text-xs">
           <div className="font-semibold text-gray-900">{fmtUSD(nft.liquidityUSD)}</div>

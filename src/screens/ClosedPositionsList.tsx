@@ -338,7 +338,7 @@ function FeedTable({ rows, myAddress, onTraderClick }: { rows: ClosedPosition[];
                     <p className="font-semibold mb-2">Чем закончилась позиция</p>
                     <ul className="space-y-2 text-[11px] leading-snug">
                       <li>
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 mr-1.5">clean close</span>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-50 text-gray-700 border border-gray-200 mr-1.5">clean close</span>
                         Trader закрылся сам (или его перекупили), все carry-debt был выплачен LP из reserve. <strong>Standard happy path.</strong>
                       </li>
                       <li>
@@ -435,7 +435,7 @@ function FeedTable({ rows, myAddress, onTraderClick }: { rows: ClosedPosition[];
                         💥 liquidated
                       </span>
                     ) : c.paidInFull ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium whitespace-nowrap">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 border border-gray-200 font-medium whitespace-nowrap">
                         clean close
                       </span>
                     ) : (
@@ -510,7 +510,7 @@ function FeedTable({ rows, myAddress, onTraderClick }: { rows: ClosedPosition[];
                     💥 liquidated
                   </span>
                 ) : c.paidInFull ? (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 border border-gray-200 font-medium">
                     clean close
                   </span>
                 ) : (

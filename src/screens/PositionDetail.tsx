@@ -734,7 +734,7 @@ function PriceChart({
 
 function PositionStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string; tip: string }> = {
-    OPEN: { label: 'open', cls: 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border-[var(--color-role-lp)]/30', tip: 'Активна, начисляет PnL и carry' },
+    OPEN: { label: 'open', cls: 'bg-gray-50 text-gray-700 border-gray-200', tip: 'Активна, начисляет PnL и carry' },
     CLOSE_REQUESTED: { label: 'awaiting keeper', cls: 'bg-blue-50 text-blue-800 border-blue-200', tip: 'Ждёт keeper для закрытия' },
     CLOSING: { label: 'settling…', cls: 'bg-blue-50 text-blue-800 border-blue-200', tip: 'Keeper считает финальный residual' },
     OUTBID_PENDING: { label: 'forced close', cls: 'bg-amber-50 text-amber-900 border-amber-300', tip: 'Перекуплена другим трейдером' },

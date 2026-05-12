@@ -58,7 +58,7 @@ export function ClosedPositionDetail() {
         </div>
         <div className="flex flex-col items-end gap-1">
           {closed.paidInFull ? (
-            <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-gray-50 text-gray-700 border border-gray-200 font-medium">
               Closed · paid in full
             </span>
           ) : (

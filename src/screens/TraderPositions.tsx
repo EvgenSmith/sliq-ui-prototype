@@ -655,7 +655,7 @@ function ClosedTable({
                 </td>
                 <td className="px-3 py-3">
                   {c.paidInFull ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 border border-gray-200 font-medium">
                       paid in full
                     </span>
                   ) : (
@@ -1008,9 +1008,10 @@ function PositionStatusChip({ status, tiny }: { status: PositionStatus; tiny?: b
 
   switch (status) {
     case 'OPEN':
+      // Default state — no color noise. Show small dot only.
       return (
         <span
-          className={baseCls + ' bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30'}
+          className={baseCls + ' bg-gray-50 text-gray-700 border border-gray-200'}
           title="Position is open and accruing APY. Tap to manage margin or request close."
         >
           open
@@ -1072,20 +1073,16 @@ export function PairIcons({ pair, compact }: { pair: { token0: string; token1: s
 }
 
 function DexChip({ dex }: { dex: DexProtocol }) {
-  const map: Record<DexProtocol, { name: string; version: string; versionBg: string; versionText: string }> = {
-    'uniswap-v3': { name: 'Uniswap', version: 'v3', versionBg: 'bg-[#bef264] border-[#a3e635]/60', versionText: 'text-gray-900' },
-    'uniswap-v4': { name: 'Uniswap', version: 'v4', versionBg: 'bg-pink-200 border-pink-300/60', versionText: 'text-pink-900' },
-    'pancakeswap-v3': { name: 'PancakeSwap', version: 'v3', versionBg: 'bg-amber-200 border-amber-300/60', versionText: 'text-amber-900' },
-    gmx: { name: 'GMX', version: '', versionBg: '', versionText: '' },
-    other: { name: 'Other', version: '', versionBg: '', versionText: '' },
+  const labelMap: Record<DexProtocol, string> = {
+    'uniswap-v3': 'Uniswap v3',
+    'uniswap-v4': 'Uniswap v4',
+    'pancakeswap-v3': 'PancakeSwap v3',
+    gmx: 'GMX',
+    other: 'Other DEX',
   }
-  const m = map[dex]
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-medium">
-      <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200">{m.name}</span>
-      {m.version && (
-        <span className={'px-1.5 py-0.5 rounded font-semibold ' + m.versionBg + ' ' + m.versionText}>{m.version}</span>
-      )}
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200">
+      {labelMap[dex]}
     </span>
   )
 }

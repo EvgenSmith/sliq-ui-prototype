@@ -46,8 +46,8 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
                   <HelpPopover label="Все статусы листингов" width="w-80">
                     <p className="font-semibold mb-2">Какие бывают статусы</p>
                     <ul className="space-y-1.5 text-[11px] leading-snug">
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 mr-1">open · in range</span> — цена внутри range LP, Uniswap fees начисляются, IP convex. Можно зайти.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-600 border border-gray-300 mr-1">open · out of range</span> — цена вышла за range, fees не идут. Зайти можно если ждёшь возврата.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-700 border border-gray-200 mr-1">open · in range</span> — цена внутри range LP, Uniswap fees начисляются, IP convex. Можно зайти.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200 mr-1">open · out of range</span> — цена вышла за range, fees не идут. Зайти можно если ждёшь возврата.</li>
                       <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">full · outbid only</span> — capacity занята. Зайти можно только перекупив incumbent'а.</li>
                       <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">closing · LP exit</span> — LP попросил вывод. Позиции принудительно закрываются.</li>
                       <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-700 border border-gray-300 mr-1">paused</span> — LP временно остановил новые входы.</li>
@@ -193,7 +193,7 @@ function DesktopRow({
         </div>
       </td>
 
-      {/* LP risk (was Leverage) */}
+      {/* LP risk — color только когда есть actionable signal (at-risk) */}
       <td className="px-3 py-3">
         {isAdvanced ? (
           <span
@@ -204,7 +204,7 @@ function DesktopRow({
           </span>
         ) : (
           <span
-            className="text-xs whitespace-nowrap px-2 py-0.5 rounded bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium cursor-help"
+            className="text-xs whitespace-nowrap text-gray-600 num cursor-help"
             title="NFT владельца защищён. Для тебя: стабильно, listing-level force-close невозможен."
           >
             safe · 1×
@@ -324,11 +324,11 @@ function MobileRow({
         <FeeChip feeTierBps={listing.feeTierBps} />
         {isAdvanced ? (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-            {listing.providerLeverage}× advanced
+            at-risk · {listing.providerLeverage}×
           </span>
         ) : (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium">
-            1× conservative
+          <span className="text-[10px] px-1.5 py-0.5 rounded text-gray-600 border border-gray-200 font-medium">
+            safe · 1×
           </span>
         )}
         <StatusChip status={listing.status} rangeStatus={rangeStatus} tiny />
@@ -377,52 +377,17 @@ function MobileRow({
 }
 
 function DexChip({ dex }: { dex: DexProtocol }) {
-  const map: Record<DexProtocol, { name: string; version: string; bg: string; versionBg: string; versionText: string }> = {
-    'uniswap-v3': {
-      name: 'Uniswap',
-      version: 'v3',
-      bg: 'bg-gray-50 text-gray-700 border border-gray-200',
-      versionBg: 'bg-[#bef264] border-[#a3e635]/60', // Uniswap-green chip
-      versionText: 'text-gray-900',
-    },
-    'uniswap-v4': {
-      name: 'Uniswap',
-      version: 'v4',
-      bg: 'bg-gray-50 text-gray-700 border border-gray-200',
-      versionBg: 'bg-pink-200 border-pink-300/60',
-      versionText: 'text-pink-900',
-    },
-    'pancakeswap-v3': {
-      name: 'PancakeSwap',
-      version: 'v3',
-      bg: 'bg-gray-50 text-gray-700 border border-gray-200',
-      versionBg: 'bg-amber-200 border-amber-300/60',
-      versionText: 'text-amber-900',
-    },
-    gmx: {
-      name: 'GMX',
-      version: '',
-      bg: 'bg-gray-50 text-gray-700 border border-gray-200',
-      versionBg: '',
-      versionText: '',
-    },
-    other: {
-      name: 'Other DEX',
-      version: '',
-      bg: 'bg-gray-50 text-gray-700 border border-gray-200',
-      versionBg: '',
-      versionText: '',
-    },
+  // Single neutral chip "Uniswap v3" — no bright DEX-brand colors
+  const labelMap: Record<DexProtocol, string> = {
+    'uniswap-v3': 'Uniswap v3',
+    'uniswap-v4': 'Uniswap v4',
+    'pancakeswap-v3': 'PancakeSwap v3',
+    gmx: 'GMX',
+    other: 'Other DEX',
   }
-  const m = map[dex]
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-medium">
-      <span className={'px-1.5 py-0.5 rounded ' + m.bg}>{m.name}</span>
-      {m.version && (
-        <span className={'px-1.5 py-0.5 rounded font-semibold ' + m.versionBg + ' ' + m.versionText}>
-          {m.version}
-        </span>
-      )}
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200">
+      {labelMap[dex]}
     </span>
   )
 }
@@ -485,16 +450,16 @@ function StatusChip({
         cls: 'bg-amber-50 text-amber-900 border border-amber-300',
         tip: 'Вся capacity занята. Чтобы зайти — предложи Premium APY выше текущего трейдера (перекуп).',
       }
-    // ACTIVE — derived range
+    // ACTIVE — derived range. Default state = neutral (no color noise)
     if (rangeStatus === 'in-range')
       return {
         label: 'open · in range',
-        cls: 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30',
+        cls: 'bg-gray-50 text-gray-700 border border-gray-200',
         tip: 'Листинг активен, цена внутри range. Uniswap fees начисляются, IP convex. Заходи трейдером.',
       }
     return {
       label: 'open · out of range',
-      cls: 'bg-gray-50 text-gray-600 border border-gray-300',
+      cls: 'bg-gray-50 text-gray-500 border border-gray-200',
       tip: 'Листинг активен, но цена вне range. Fees не начисляются сейчас. Заходить можно — если ждёшь возврата цены в диапазон.',
     }
   })()

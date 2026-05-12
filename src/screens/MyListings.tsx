@@ -460,9 +460,10 @@ function ListingStatusChip({ status, rangeStatus, tiny }: { status: string; rang
     if (status === 'WITHDRAWAL_REQUESTED') return { label: 'withdrawing', cls: 'bg-amber-50 text-amber-900 border border-amber-300', tip: 'Withdrawal requested' }
     if (status === 'WITHDRAWN') return { label: 'closed', cls: 'bg-gray-100 text-gray-500 border border-gray-300', tip: 'NFT забран' }
     if (status === 'PAUSED') return { label: 'paused', cls: 'bg-gray-50 text-gray-700 border border-gray-300', tip: 'New lessees blocked, existing continue' }
-    if (status === 'FULL') return { label: 'earning · full', cls: 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30', tip: 'Capacity занята; existing lessees платят' }
-    if (rangeStatus === 'in-range') return { label: 'earning · in range', cls: 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30', tip: 'Uniswap fees начисляются' }
-    return { label: 'earning · out of range', cls: 'bg-gray-50 text-gray-600 border border-gray-300', tip: 'Цена вне range — Uniswap fees не идут. Все остальные доходы (Reference / Premium) — продолжают.' }
+    // Earning states — default LP good case. Neutral (no color noise).
+    if (status === 'FULL') return { label: 'earning · full', cls: 'bg-gray-50 text-gray-700 border border-gray-200', tip: 'Capacity занята; existing lessees платят' }
+    if (rangeStatus === 'in-range') return { label: 'earning · in range', cls: 'bg-gray-50 text-gray-700 border border-gray-200', tip: 'Uniswap fees начисляются' }
+    return { label: 'earning · out of range', cls: 'bg-gray-50 text-gray-500 border border-gray-200', tip: 'Цена вне range — Uniswap fees не идут. Все остальные доходы (Reference / Premium) — продолжают.' }
   })()
 
   return <span className={baseCls + ' ' + data.cls} title={data.tip}>{data.label}</span>

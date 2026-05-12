@@ -84,15 +84,11 @@ export function ListingDetail() {
             </span>
           </h1>
           <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
-            {inRange ? (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30">
-                in range
-              </span>
-            ) : (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-300">
-                out of range
-              </span>
-            )}
+            <span className={'text-xs px-2 py-0.5 rounded-full ' + (inRange
+              ? 'bg-gray-50 text-gray-700 border border-gray-200'
+              : 'bg-gray-50 text-gray-500 border border-gray-200')}>
+              {inRange ? 'in range' : 'out of range'}
+            </span>
             <span className="text-xs text-gray-400">·</span>
             <span className="text-xs num">NFT #{listing.tokenId}</span>
             <span className="text-xs text-gray-400">·</span>
@@ -104,11 +100,11 @@ export function ListingDetail() {
         <div className="flex items-center gap-2">
           {isAdvanced ? (
             <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-              Advanced · {listing.providerLeverage}×
+              At-risk · {listing.providerLeverage}×
             </span>
           ) : (
-            <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium">
-              Conservative · 1×
+            <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md text-gray-600 border border-gray-200 font-medium">
+              Safe · 1×
             </span>
           )}
           {isSubsidized && (
@@ -166,7 +162,7 @@ export function ListingDetail() {
                     at-risk · {listing.providerLeverage}×
                   </span>
                 ) : (
-                  <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-medium">
+                  <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded text-gray-600 border border-gray-200 font-medium">
                     safe · 1×
                   </span>
                 )
