@@ -35,7 +35,7 @@ export const SORT_OPTIONS = [
 
 export type SortId = typeof SORT_OPTIONS[number]['id']
 
-// Chain registry — V3 only. Arbitrum active (sLiq deployed here), остальные L2 + Ethereum ждут (disabled in Alpha UI).
+// Chain registry — V3 only. Arbitrum active (sLiq deployed here), остальные L2 + Ethereum ждут (disabled in Beta UI).
 export interface ChainOption {
   id: ChainId
   shortLabel: string
@@ -60,7 +60,7 @@ export const LOCKED_STRINGS = {
   switchPending: 'Switching network…',
   switchFailed: "Couldn't switch network. Check your wallet and try again.",
   wrongNetworkBanner: (detected: string) =>
-    `Your wallet is on ${detected}. sLiq Alpha runs on Arbitrum One.`,
+    `Your wallet is on ${detected}. sLiq Beta version runs on Arbitrum One.`,
   switchNetworkCta: 'Switch network',
   // Marketplace
   emptyFiltered: {

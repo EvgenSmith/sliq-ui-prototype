@@ -70,7 +70,7 @@ export function TraderOpen() {
   const apyBps = Math.round(apyPct * 100)
   const minApy = listing.minPremiumApyBps
   const apyValid = apyBps >= minApy
-  const apyStepValid = apyBps % 100 === 0 // 1% step on Alpha
+  const apyStepValid = apyBps % 100 === 0 // 1% step on Beta
   const isAdvancedListing = listing.providerMode === 'advanced'
   const subsidizedListing = listing.minPremiumApyBps < 0
   const traderReceivesCarry = apyBps < 0

@@ -46,7 +46,7 @@ export function Onboarding() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">Welcome to sLiq Alpha</h1>
+        <h1 className="text-3xl font-semibold tracking-tight mb-2">Welcome to sLiq Beta version</h1>
         <p className="text-sm text-gray-600 leading-relaxed">
           A market for Uniswap V3 liquidity. LP NFT owners list their position; traders bid APY to take impermanent-profit
           exposure. No oracle. No insurance fund. Settlement via market liquidators.
@@ -115,14 +115,14 @@ export function Onboarding() {
       {/* Step 3 — Risk attestation */}
       <section className="mb-8">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-          3. Alpha acknowledgements
+          3. Beta acknowledgements
         </h2>
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 leading-relaxed">
           <p className="mb-2 font-medium">By continuing you acknowledge:</p>
           <ul className="space-y-1.5 text-sm">
             <li className="flex gap-2">
               <span className="text-amber-700">•</span>
-              <span>sLiq is in <strong>closed Alpha</strong>. Smart contracts are <strong>audit-pending</strong>.</span>
+              <span>sLiq is in <strong>closed Beta</strong>. Smart contracts are <strong>audit-pending</strong>.</span>
             </li>
             <li className="flex gap-2">
               <span className="text-amber-700">•</span>

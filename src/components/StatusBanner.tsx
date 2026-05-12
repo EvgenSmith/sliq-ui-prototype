@@ -1,5 +1,5 @@
 // StatusBanner — design spec §9.7 + §11.1
-// Always-on Alpha context, persistent header. Canonical wording locked.
+// Always-on Beta context, persistent header. Canonical wording locked.
 
 import { useState } from 'react'
 
@@ -19,7 +19,7 @@ export function StatusBanner({ variant = 'global' }: Props) {
       }
     >
       <div className="mx-auto max-w-7xl px-4 py-2 text-sm flex items-center gap-3">
-        <span className="font-semibold tracking-tight">Alpha. Audit pending. Whitelist-only.</span>
+        <span className="font-semibold tracking-tight">Beta version. Audit pending. Whitelist-only.</span>
         <span className="hidden sm:inline">Don't deposit more than you can afford to lose.</span>
         <button
           onClick={() => setExpanded(e => !e)}
@@ -33,7 +33,7 @@ export function StatusBanner({ variant = 'global' }: Props) {
         <div className="mx-auto max-w-7xl px-4 pb-3 text-xs leading-relaxed border-t border-[var(--color-beta-border)]/60 pt-2">
           No insurance fund. No oracle. Settlement uses live pool price. Reference Fees and Premium APY can settle partial if trader margin runs out.
           <br />
-          v1: Uniswap V3 only. Permissioned liquidators during Alpha.
+          v1: Uniswap V3 only. Permissioned liquidators during Beta.
         </div>
       )}
     </div>

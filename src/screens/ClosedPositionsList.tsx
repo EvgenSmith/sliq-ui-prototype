@@ -8,6 +8,7 @@ import { closedPositions, connectedWallet } from '@/mocks/data'
 import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD, shortAddr } from '@/lib/format'
 import type { ClosedPosition } from '@/lib/types'
 import { CopyAddress } from '@/components/CopyAddress'
+import { HelpPopover } from '@/components/HelpPopover'
 
 type OutcomeFilter = 'all' | 'clean' | 'margin-call' | 'liquidated' | 'profit' | 'loss'
 type SortId = 'closed-desc' | 'closed-asc' | 'pnl-desc' | 'pnl-asc' | 'notional-desc' | 'move-desc'
@@ -316,12 +317,45 @@ function FeedTable({ rows, myAddress, onTraderClick }: { rows: ClosedPosition[];
             <tr>
               <th className="text-left font-medium px-4 py-2.5">Pair</th>
               <th className="text-left font-medium px-3 py-2.5">Trader</th>
-              <th className="text-right font-medium px-3 py-2.5">Notional</th>
+              <th className="text-right font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  Notional
+                  <HelpPopover label="Что такое Notional" width="w-80">
+                    <p className="font-semibold mb-1">Virtual notional position size</p>
+                    <p className="mb-1.5">Размер виртуальной позиции = margin × leverage. Это <strong>не</strong> реальные деньги, которые trader положил — это amount on which IP / carry начисляются.</p>
+                    <p className="text-[11px] text-gray-500">Например: trader положил $1K margin × 100× плечо = $100K virtual notional. 1% движение цены → $1K IP. Carry платится годовых на этот $100K.</p>
+                  </HelpPopover>
+                </span>
+              </th>
               <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">Entry → Exit</th>
               <th className="text-right font-medium px-3 py-2.5">% move</th>
               <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">Held</th>
               <th className="text-right font-medium px-3 py-2.5">Net PnL</th>
-              <th className="text-left font-medium px-3 py-2.5">Result</th>
+              <th className="text-left font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1">
+                  Result
+                  <HelpPopover label="Какие бывают исходы" width="w-96">
+                    <p className="font-semibold mb-2">Чем закончилась позиция</p>
+                    <ul className="space-y-2 text-[11px] leading-snug">
+                      <li>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 mr-1.5">clean close</span>
+                        Trader закрылся сам (или его перекупили), все carry-debt был выплачен LP из reserve. <strong>Standard happy path.</strong>
+                      </li>
+                      <li>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1.5">margin call</span>
+                        Reserve иссяк во время close — accrued Premium/Reference не полностью покрыли из margin. LP недополучил часть carry (нет insurance fund — это design choice). Trader получил остаток residual. Не ликвидация, но messy ending.
+                      </li>
+                      <li>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40 mr-1.5">💥 liquidated</span>
+                        Reserve упал ниже 10% от initial во время holding (adverse price move + carry burn). Keeper triggered ликвидацию — margin полностью потеряна. Самый плохой исход для trader.
+                      </li>
+                    </ul>
+                    <p className="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-500">
+                      Net PnL может быть positive даже на margin call (если IP &gt; carry до момента когда reserve иссяк). На liquidated — Net PnL = −margin.
+                    </p>
+                  </HelpPopover>
+                </span>
+              </th>
               <th className="text-right font-medium px-3 py-2.5">Closed</th>
             </tr>
           </thead>

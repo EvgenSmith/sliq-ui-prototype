@@ -475,7 +475,7 @@ function OpenPositionForm({
   if (!apyValid) errors.push(`APY must be ≥ ${(minApyBps / 100).toFixed(2)}%`)
   if (outbidPossible && apyBps <= weakestActiveApyBps) errors.push(`Outbid requires APY > ${(weakestActiveApyBps / 100).toFixed(2)}% (weakest active)`)
   if (marginUSD < 10) errors.push('Min margin $10')
-  if (apyBps % 100 !== 0) errors.push('APY step = 1% in Alpha')
+  if (apyBps % 100 !== 0) errors.push('APY step = 1% in Beta')
 
   const isOutbidMode = isFull || !!outbidTargetId
   const ctaLabel = isOutbidMode
@@ -634,7 +634,7 @@ function OpenPositionForm({
             <HelpPopover label="Что такое Premium APY bid" width="w-80">
               <p className="font-semibold mb-1">Premium APY auction</p>
               <p className="mb-1.5">Ставка carry, которую <strong>ты обещаешь платить</strong> LP'у годовых на virtual notional.</p>
-              <p className="mb-1.5">Минимум — задан LP. Шаг 1% (Alpha constraint). Чем выше bid — тем меньше шанс что тебя перекупят, но тем больше carry платишь.</p>
+              <p className="mb-1.5">Минимум — задан LP. Шаг 1% (Beta constraint). Чем выше bid — тем меньше шанс что тебя перекупят, но тем больше carry платишь.</p>
               <p className="text-[11px] text-gray-500">Если listing FULL — bid должен быть выше weakest incumbent чтобы зайти.</p>
             </HelpPopover>
           </label>

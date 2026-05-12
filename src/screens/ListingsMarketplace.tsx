@@ -507,7 +507,7 @@ function OnboardingBanner() {
             <span className="font-medium">4.</span> Платишь LP carry (Premium APY) + Reference Fees (~Uniswap baseline × leverage) пока сидишь.
           </p>
           <p className="text-[10px] text-gray-500 pt-1">
-            ⚠️ Если твоя маржа просядет ниже 10% от начальной — позиция ликвидируется, маржа потеряна. Stop Loss / Take Profit в Alpha пока нет — закрытие всегда по текущей цене Uniswap на следующем блоке.
+            ⚠️ Если твоя маржа просядет ниже 10% от начальной — позиция ликвидируется, маржа потеряна. Stop Loss / Take Profit в Beta пока нет — закрытие всегда по текущей цене Uniswap на следующем блоке.
           </p>
         </div>
 

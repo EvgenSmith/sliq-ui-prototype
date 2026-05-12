@@ -44,7 +44,7 @@ export interface Listing {
   tokenId: number
   owner: string
   chain: ChainId                 // V3 protocol, multi-chain ready
-  dex: DexProtocol               // architecture multi-DEX ready (Alpha: uniswap-v3 only)
+  dex: DexProtocol               // architecture multi-DEX ready (Beta: uniswap-v3 only)
   pair: { token0: string; token1: string }
   feeTierBps: number          // e.g. 5 = 0.05%, 30 = 0.3%
   rangeLow: number

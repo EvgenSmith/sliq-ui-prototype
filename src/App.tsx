@@ -78,7 +78,7 @@ function Footer() {
   return (
     <footer className="border-t border-gray-200 bg-gray-50 text-xs text-gray-500 mt-auto">
       <div className="mx-auto max-w-7xl px-4 py-4 flex flex-wrap gap-x-6 gap-y-2 justify-between">
-        <span>sLiq Alpha · v2.1 prototype</span>
+        <span>sLiq Beta version · v2.1 prototype</span>
         <span>v1: Uniswap V3 only · No insurance fund · No oracle</span>
       </div>
     </footer>

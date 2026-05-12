@@ -15,10 +15,10 @@ export function WhitelistGate() {
           </div>
 
           <h1 className="text-2xl font-semibold tracking-tight mb-2">
-            This wallet isn't on the Alpha whitelist
+            This wallet isn't on the Beta whitelist
           </h1>
           <p className="text-sm text-gray-600 leading-relaxed mb-6">
-            sLiq is in closed Alpha. Access is granted per wallet. If you were invited,
+            sLiq is in closed Beta. Access is granted per wallet. If you were invited,
             connect the wallet you submitted for whitelisting. If not, request access —
             we read every form.
           </p>
@@ -28,7 +28,7 @@ export function WhitelistGate() {
               href="#"
               className="text-sm font-semibold px-4 py-2.5 rounded-md bg-gray-900 text-white hover:opacity-90 transition"
             >
-              Request Alpha access
+              Request Beta access
             </a>
             <button
               type="button"
@@ -40,7 +40,7 @@ export function WhitelistGate() {
               to="/onboarding"
               className="text-xs text-gray-500 underline mt-2"
             >
-              Read what Alpha means →
+              Read what Beta means →
             </Link>
           </div>
 
