@@ -219,11 +219,7 @@ function Benefits() {
             icon={<SvgBuilding />}
             eyebrow="Trusted operator"
             title="Since 2022 · Backed by EarnPark"
-            body={
-              <>
-                Production fintech with multi-year track record. <strong>Qualified market maker on Binance.</strong>
-              </>
-            }
+            body={<>Multi-year track record from <strong>Pro Binance market makers.</strong></>}
           />
 
           {/* C — No friction */}
