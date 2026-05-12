@@ -74,9 +74,12 @@ function Hero() {
           </h1>
           <p className="mt-6 text-base md:text-xl text-gray-300 leading-relaxed">
             Open up to <strong className="text-white">1000×</strong> leveraged positions on any Uniswap V3 pool.
+          </p>
+          <p className="mt-3 text-base md:text-xl text-gray-300 leading-relaxed">
             Liquidity providers earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
-            <br className="hidden md:block" />
-            <span className="text-gray-400">No funding rate. No oracle. ~4 sec settlement on Arbitrum.</span>
+          </p>
+          <p className="mt-3 text-sm md:text-base text-gray-400 leading-relaxed">
+            No funding rate. No oracle. ~4 sec settlement on Arbitrum.
           </p>
 
           {/* CTAs */}
