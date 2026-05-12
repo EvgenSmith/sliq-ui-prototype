@@ -72,10 +72,10 @@ function Hero() {
             Take leveraged views on any pool.
           </h1>
           <p className="mt-6 text-base md:text-xl text-gray-300 leading-relaxed">
-            Open up to <strong className="text-white">1000×</strong> leveraged positions on any Uniswap V3 pool.
-          </p>
-          <p className="mt-3 text-base md:text-xl text-gray-300 leading-relaxed">
-            Liquidity providers earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from traders hosting the trades.
+            Up to <strong className="text-white">1000×</strong> leverage for traders.{' '}
+            <span className="md:inline block">
+              <strong className="text-lime-300">+3–7% APR</strong> extra carry for liquidity providers.
+            </span>
           </p>
 
           {/* CTAs */}
@@ -334,7 +334,6 @@ function ForWhom() {
             tagColor="lime"
             heading="Your IL is now someone else's trade"
             chips={['Conservative 1× · no liq risk', 'Advanced up to 100×']}
-            visual={<LPDashboardSnippet />}
             steps={[
               'Connect wallet, import an existing V3 LP NFT',
               'Set minimum Premium APY (or accept the auction)',
@@ -350,9 +349,8 @@ function ForWhom() {
           <ForWhomCard
             tag="Traders"
             tagColor="lime"
-            heading="1000× leverage on real pools. No funding. No oracle."
-            chips={['Up to 1000×', 'Carry, not funding']}
-            visual={<TraderMarketsSnippet />}
+            heading="Leveraged views on any Uniswap V3 pool"
+            chips={['Up to 1000× per market', 'Two-token margin']}
             steps={[
               'Browse live markets — pair, fee tier, leverage available',
               'Open long, short, or volatility with margin',
@@ -486,59 +484,6 @@ function ForWhomCard({
           <Link to={cta.to} className={`${ctaBase} ${ctaCls}`}>{cta.label} <span aria-hidden>→</span></Link>
         )}
       </div>
-    </div>
-  )
-}
-
-// Inline mini-visuals — placeholder snippets that hint at app UI without being heroic screenshots.
-
-function LPDashboardSnippet() {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-3 text-[11px] font-mono">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-gray-500">USDC/ETH 0.05%</span>
-        <span className="text-lime-600 font-semibold">In range</span>
-      </div>
-      <div className="flex items-baseline gap-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-gray-400">Uniswap APY</div>
-          <div className="text-base font-bold text-gray-900">+14.2%</div>
-        </div>
-        <div className="text-gray-300">+</div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-gray-400">Premium APY</div>
-          <div className="text-base font-bold text-lime-700">+5.8%</div>
-        </div>
-        <div className="text-gray-300">=</div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-gray-400">Total</div>
-          <div className="text-base font-bold text-gray-900">+20.0%</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function TraderMarketsSnippet() {
-  const rows = [
-    { pair: 'ETH/USDC', lev: '1000×', carry: '4.2%' },
-    { pair: 'WBTC/USDC', lev: '500×', carry: '6.1%' },
-    { pair: 'ETH/wstETH', lev: '250×', carry: '2.8%' },
-  ]
-  return (
-    <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-3 text-[11px]">
-      <div className="grid grid-cols-3 text-[10px] uppercase tracking-wide text-gray-400 pb-1 border-b border-gray-200">
-        <span>Market</span>
-        <span className="text-right">Max lev</span>
-        <span className="text-right">Carry</span>
-      </div>
-      {rows.map(r => (
-        <div key={r.pair} className="grid grid-cols-3 py-1 font-mono text-gray-700">
-          <span className="font-medium text-gray-900">{r.pair}</span>
-          <span className="text-right">{r.lev}</span>
-          <span className="text-right text-amber-700">{r.carry}</span>
-        </div>
-      ))}
     </div>
   )
 }
@@ -804,6 +749,7 @@ function WhySliq() {
 // ─── 8. Comparison ───────────────────────────────────────────────────────
 
 function ComparisonTable() {
+  const [tab, setTab] = useState<'lp' | 'trader'>('lp')
   const lpRows = [
     ['LP fees from swaps', '✓', '✓ (keep accruing)'],
     ['Carry from traders (Premium APY)¹', '—', '+3–7% APR typical'],
@@ -824,65 +770,93 @@ function ComparisonTable() {
   ]
   return (
     <section className="border-b border-gray-100">
-      <div className="mx-auto max-w-7xl px-4 py-14 md:py-20 space-y-14">
-        {/* LP axis */}
-        <div>
-          <SectionHeader eyebrow="For liquidity providers" title="Uniswap alone vs Uniswap + sLiq" />
-          <div className="mt-10 overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-200">
-                  <th className="py-3 pr-4 font-medium"></th>
-                  <th className="py-3 px-4 font-medium">Uniswap V3 alone</th>
-                  <th className="py-3 px-4 font-medium text-gray-900">Uniswap V3 + sLiq</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lpRows.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-100">
-                    <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
-                    <td className="py-3 px-4 text-gray-500">{r[1]}</td>
-                    <td className="py-3 px-4 text-gray-900 font-medium">{r[2]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
-            ¹ Based on backtest of major Uniswap V3 pairs (USDC/ETH, USDC/WBTC, ETH/WBTC) over 12 months
-            + simulated Premium APY auction with realistic trader demand. Range, not guarantee. See methodology in White Paper.
-          </p>
+      <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
+        <SectionHeader eyebrow="Comparison" title="How sLiq compares" />
+
+        {/* Tab switcher */}
+        <div className="mt-8 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+          <button
+            type="button"
+            onClick={() => setTab('lp')}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition ${
+              tab === 'lp'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            For liquidity providers
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('trader')}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition ${
+              tab === 'trader'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            For traders
+          </button>
         </div>
 
-        {/* Trader axis */}
-        <div>
-          <SectionHeader eyebrow="For traders" title="sLiq vs perpetual DEXs" />
-          <div className="mt-10 overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-200">
-                  <th className="py-3 pr-4 font-medium"></th>
-                  <th className="py-3 px-4 font-medium">Hyperliquid</th>
-                  <th className="py-3 px-4 font-medium">GMX</th>
-                  <th className="py-3 px-4 font-medium text-gray-900">sLiq</th>
-                </tr>
-              </thead>
-              <tbody>
-                {traderRows.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-100">
-                    <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
-                    <td className="py-3 px-4 text-gray-500">{r[1]}</td>
-                    <td className="py-3 px-4 text-gray-500">{r[2]}</td>
-                    <td className="py-3 px-4 text-gray-900 font-medium">{r[3]}</td>
+        {tab === 'lp' && (
+          <div className="mt-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b border-gray-200">
+                    <th className="py-3 pr-4 font-medium"></th>
+                    <th className="py-3 px-4 font-medium">Uniswap V3 alone</th>
+                    <th className="py-3 px-4 font-medium text-gray-900">Uniswap V3 + sLiq</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {lpRows.map((r, i) => (
+                    <tr key={i} className="border-b border-gray-100">
+                      <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
+                      <td className="py-3 px-4 text-gray-500">{r[1]}</td>
+                      <td className="py-3 px-4 text-gray-900 font-medium">{r[2]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
+              ¹ Based on backtest of major Uniswap V3 pairs (USDC/ETH, USDC/WBTC, ETH/WBTC) over 12 months
+              + simulated Premium APY auction with realistic trader demand. Range, not guarantee. See methodology in White Paper.
+            </p>
           </div>
-          <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
-            Perp DEXs trade index price via oracle. sLiq settles against the actual Uniswap V3 pool — every market wraps a real LP position, including long-tail pairs that no centralized venue lists.
-          </p>
-        </div>
+        )}
+
+        {tab === 'trader' && (
+          <div className="mt-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b border-gray-200">
+                    <th className="py-3 pr-4 font-medium"></th>
+                    <th className="py-3 px-4 font-medium">Hyperliquid</th>
+                    <th className="py-3 px-4 font-medium">GMX</th>
+                    <th className="py-3 px-4 font-medium text-gray-900">sLiq</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {traderRows.map((r, i) => (
+                    <tr key={i} className="border-b border-gray-100">
+                      <td className="py-3 pr-4 text-gray-700">{r[0]}</td>
+                      <td className="py-3 px-4 text-gray-500">{r[1]}</td>
+                      <td className="py-3 px-4 text-gray-500">{r[2]}</td>
+                      <td className="py-3 px-4 text-gray-900 font-medium">{r[3]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-4 text-xs text-gray-500 max-w-3xl leading-relaxed">
+              Perp DEXs trade index price via oracle. sLiq settles against the actual Uniswap V3 pool — every market wraps a real LP position, including long-tail pairs that no centralized venue lists.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   )
