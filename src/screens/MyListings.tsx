@@ -517,17 +517,14 @@ function AllListedOnListTab() {
           mint a new position on Uniswap — sLiq will detect it automatically.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center gap-2 rounded-md bg-gray-900/30 text-white px-5 py-2.5 text-sm font-medium cursor-not-allowed"
-            title="Direct LP minting from sLiq — coming after Beta"
+          <a
+            href="https://app.uniswap.org/positions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
           >
-            Provide liquidity
-            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/20 text-white/90">
-              Coming soon
-            </span>
-          </button>
+            Mint LP on Uniswap <span aria-hidden>↗</span>
+          </a>
           <Link
             to="/lp/positions"
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
@@ -535,16 +532,8 @@ function AllListedOnListTab() {
             View my positions →
           </Link>
         </div>
-        <p className="mt-4 text-xs text-gray-500">
-          Or mint another LP on{' '}
-          <a
-            href="https://app.uniswap.org/positions"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-700 underline decoration-gray-300 hover:decoration-gray-600 hover:no-underline"
-          >
-            Uniswap ↗
-          </a>
+        <p className="mt-4 text-[11px] text-gray-400">
+          🔒 Provide liquidity &amp; mint NFT directly from sLiq — coming after Beta
         </p>
       </div>
     </div>
@@ -591,7 +580,7 @@ function GuestState() {
           Earn extra yield on your Uniswap V3 LP
         </h1>
         <p className="mt-4 text-gray-300 leading-relaxed max-w-2xl mx-auto">
-          Plug in your existing LP NFT. Earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from sLiq traders on top of your normal Uniswap fees. <strong className="text-white">2-click exit, ~4 sec on Arbitrum.</strong>
+          Plug in your existing LP NFT. Earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from sLiq traders on top of your normal Uniswap fees. <strong className="text-white">2-click exit.</strong>
         </p>
         <div className="mt-8">
           <button
@@ -644,18 +633,15 @@ function NoNFTsState() {
           no V3 LP positions found yet. Mint one on Uniswap and sLiq will detect it automatically.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          {/* Primary CTA: native sLiq path (disabled until contract supports direct LP mint) */}
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center gap-2 rounded-md bg-gray-900/30 text-white px-5 py-2.5 text-sm font-medium cursor-not-allowed"
-            title="Direct LP minting from sLiq — coming after Beta"
+          {/* Primary CTA: practical path — mint LP on Uniswap, sLiq will detect it */}
+          <a
+            href="https://app.uniswap.org/positions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
           >
-            Provide liquidity & mint NFT
-            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/20 text-white/90">
-              Coming soon
-            </span>
-          </button>
+            Mint LP on Uniswap <span aria-hidden>↗</span>
+          </a>
           <button
             type="button"
             onClick={() => { /* prototype no-op */ }}
@@ -665,17 +651,9 @@ function NoNFTsState() {
             Re-scan wallet
           </button>
         </div>
-        <p className="mt-4 text-xs text-gray-500">
-          For now, mint LP on{' '}
-          <a
-            href="https://app.uniswap.org/positions"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-700 underline decoration-gray-300 hover:decoration-gray-600 hover:no-underline"
-          >
-            Uniswap ↗
-          </a>{' '}
-          and sLiq will detect it.
+        {/* Low-emphasis future-state hint */}
+        <p className="mt-4 text-[11px] text-gray-400">
+          🔒 Provide liquidity &amp; mint NFT directly from sLiq — coming after Beta
         </p>
         <p className="mt-3 text-xs text-gray-500">
           Supported: Uniswap V3 on Arbitrum · Ethereum · Base · Optimism · Polygon
