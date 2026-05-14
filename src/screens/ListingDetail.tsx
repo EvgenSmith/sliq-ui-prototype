@@ -1557,7 +1557,8 @@ function OwnerPanel({
 
       {/* === Modals === */}
 
-      {/* Update Leverage */}
+      {/* Update Leverage — topSlot has the actual slider/ticks so user can SET
+          newLeverage / newMode; the before/after comparison reflects what they picked. */}
       <HighStakesConfirmModal
         open={leverageOpen}
         title="Update Provider Leverage — confirm"
@@ -1566,8 +1567,80 @@ function OwnerPanel({
             ? 'Switching to Advanced. NFT becomes collateral — listing-level liquidation possible at vol-event.'
             : newLeverage > listing.providerLeverage
             ? 'Higher leverage → tighter liquidation distance. Reference Fees pool amplified.'
-            : 'Lower leverage → safer но Reference Fees pool сокращается.'
+            : newLeverage < listing.providerLeverage
+            ? 'Lower leverage → safer но Reference Fees pool сокращается.'
+            : 'Adjust leverage below, then confirm.'
         }
+        topSlot={(() => {
+          const liqDistancePct = newLeverage > 1 ? (2 / newLeverage) * 100 : null
+          return (
+            <div className="space-y-3">
+              {/* Mode toggle — only shown when current is Conservative (1×); lets the
+                  LP opt into Advanced from the same surface, no separate modal. */}
+              {!isAdvanced && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-600">Mode:</span>
+                  <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => { setNewMode('conservative'); setNewLeverage(1) }}
+                      className={'px-3 py-1 transition ' + (newMode === 'conservative' ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
+                    >Safe · 1×</button>
+                    <button
+                      type="button"
+                      onClick={() => { setNewMode('advanced'); if (newLeverage === 1) setNewLeverage(2) }}
+                      className={'px-3 py-1 transition ' + (newMode === 'advanced' ? 'bg-[var(--color-status-danger)] text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
+                    >At-risk · N×</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Leverage slider — disabled in Safe mode, active when At-risk. */}
+              <div>
+                <div className="flex items-baseline justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
+                  <span className="text-sm font-semibold num text-gray-900">{newLeverage}×</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={newLeverage}
+                  onChange={e => setNewLeverage(Number(e.target.value))}
+                  disabled={newMode === 'conservative'}
+                  className="w-full accent-[var(--color-role-lp)] disabled:opacity-50"
+                />
+                <div className="grid grid-cols-5 gap-0.5 mt-1.5">
+                  {[1, 25, 50, 75, 100].map(tick => (
+                    <button
+                      key={tick}
+                      type="button"
+                      onClick={() => { setNewLeverage(tick); if (tick > 1) setNewMode('advanced'); else setNewMode('conservative') }}
+                      className={
+                        'text-[10px] num py-0.5 rounded transition ' +
+                        (newLeverage === tick
+                          ? 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] font-semibold'
+                          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100')
+                      }
+                    >
+                      {tick}×
+                    </button>
+                  ))}
+                </div>
+                {newLeverage > 1 && liqDistancePct !== null && (
+                  <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex items-start gap-2">
+                    <span>⚠️</span>
+                    <div>
+                      <strong>Liquidation risk applies.</strong> At {newLeverage}× listing-level liquidation
+                      triggers when the pool moves ~<span className="num">{liqDistancePct.toFixed(1)}%</span> against your range.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
         currentState={[
           { label: 'Mode', value: listing.providerMode === 'advanced' ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×' },
           { label: 'NFT at risk', value: isAdvanced ? 'Yes' : 'No' },
@@ -1589,7 +1662,8 @@ function OwnerPanel({
         onCancel={() => setLeverageOpen(false)}
       />
 
-      {/* Update Min APY */}
+      {/* Update Min APY — topSlot lets user actually set the new value via
+          +/- buttons, number input, and preset chips (same pattern as ListNFTModal Pro). */}
       <HighStakesConfirmModal
         open={updateApyOpen}
         title="Update Min Premium APY — confirm"
@@ -1597,6 +1671,57 @@ function OwnerPanel({
           ? `⚠️ Negative APY — ты будешь платить ${Math.abs(newMinApyPct)}% годовых traders. Use только если знаешь что делаешь.`
           : 'Changes the floor для auction. Existing lessees keep their carry rate.'
         }
+        topSlot={(
+          <div>
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="text-xs font-medium text-gray-700">New Min Premium APY</label>
+              <span className="text-[10px] text-gray-500">
+                Current: {fmtPct(listing.minPremiumApyBps, { signed: true })}
+              </span>
+            </div>
+            <div className="flex items-stretch gap-2">
+              <button
+                type="button"
+                onClick={() => setNewMinApyPct(v => Math.max(1, v - 1))}
+                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                aria-label="Decrease by 1%"
+              >−</button>
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={newMinApyPct}
+                  onChange={e => setNewMinApyPct(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition text-center"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewMinApyPct(v => v + 1)}
+                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                aria-label="Increase by 1%"
+              >+</button>
+            </div>
+            {/* Presets */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[10, 20, 30, 50, 100].map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setNewMinApyPct(p)}
+                  className={
+                    'px-2.5 py-1 text-[11px] font-medium rounded border transition ' +
+                    (newMinApyPct === p
+                      ? 'bg-[var(--color-role-lp-bg)] border-[var(--color-role-lp)] text-[var(--color-role-lp)]'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900')
+                  }
+                >{p}%</button>
+              ))}
+            </div>
+          </div>
+        )}
         currentState={[
           { label: 'Current Min APY', value: fmtPct(listing.minPremiumApyBps, { signed: true }) },
         ]}

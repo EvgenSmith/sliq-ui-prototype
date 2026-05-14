@@ -26,6 +26,12 @@ export interface HighStakesConfirmModalProps {
   confirmButtonLabel: string             // e.g. "Confirm — Switch to Advanced"
   onConfirm: () => void | Promise<void>
   onCancel: () => void
+  // Optional pre-comparison slot — for actions where the user must ACTUALLY
+  // configure the new value (slider / input) before the before/after preview
+  // makes sense. Used by Update Leverage + Update Min Premium APY where the
+  // generic confirm modal alone is insufficient (Eugene 2026-05-15: «тут
+  // нельзя настроить плечо… нельзя поменять Premium APY»).
+  topSlot?: React.ReactNode
 }
 
 export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
@@ -42,6 +48,7 @@ export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
     confirmButtonLabel,
     onConfirm,
     onCancel,
+    topSlot,
   } = props
 
   const [checkbox, setCheckbox] = useState(false)
@@ -103,6 +110,14 @@ export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
 
         {/* Body */}
         <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Optional inputs — slider / number-input for actions that need the
+              user to set the new value before the comparison reads correctly. */}
+          {topSlot && (
+            <div className="pb-2 border-b border-gray-100">
+              {topSlot}
+            </div>
+          )}
+
           {/* Current vs After */}
           <div className="grid grid-cols-2 gap-3">
             <KvBlock title="Current state" entries={currentState} tone="neutral" />
