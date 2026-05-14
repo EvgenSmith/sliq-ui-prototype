@@ -1441,7 +1441,7 @@ function poolTokenAmounts(nft: WalletNFT, multiplier = 1) {
 
 // Pool info card — shown in both Lite and Pro modes.
 // Lite: full breakdown incl. Pool size + Provider Leverage default + APY.
-// Pro: Protocol / Range + APY breakdown only. Pool size moves to preview at bottom as Real backing.
+// Pro: Protocol / Range + APY breakdown only. Pool size moves to ProPreview at bottom (alongside Trader market).
 function PoolInfoCard({
   nft,
   mode,
@@ -1470,7 +1470,7 @@ function PoolInfoCard({
         small
       />
 
-      {/* Pool size — Lite only (Pro shows it in bottom preview as Real backing) */}
+      {/* Pool size — Lite only (Pro shows it in bottom ProPreview alongside Trader market) */}
       {isLite && (
         <ParamRow
           label="Pool size"
@@ -1547,8 +1547,9 @@ function PoolInfoCard({
   )
 }
 
-// Pro-mode preview — Virtual market (leveraged token amounts) + Real backing (pool size in tokens) + Liq price.
-// Pool size info isn't duplicated above (PoolInfoCard hides it in Pro mode).
+// Pro-mode preview — Pool size (real, what's in the NFT) + Trader market (leveraged, what traders trade against) + Liq price.
+// Order is real → derived, matching Lite's «Pool size» term for consistency.
+// PoolInfoCard hides Pool size in Pro mode (lives here instead, no duplication).
 function ProPreview({
   nft,
   leverage,
@@ -1563,20 +1564,7 @@ function ProPreview({
   return (
     <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
       <ParamRow
-        label="Virtual market"
-        value={
-          <span>
-            {fmtTokenAmount(virt.amount0)} {nft.pair.token0}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
-            <span className="text-gray-400 font-normal mx-1">·</span>
-            {fmtTokenAmount(virt.amount1)} {nft.pair.token1}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
-          </span>
-        }
-        small
-      />
-      <ParamRow
-        label="Real backing"
+        label="Pool size"
         value={
           <span>
             {fmtTokenAmount(real.amount0)} {nft.pair.token0}{' '}
@@ -1584,6 +1572,29 @@ function ProPreview({
             <span className="text-gray-400 font-normal mx-1">·</span>
             {fmtTokenAmount(real.amount1)} {nft.pair.token1}{' '}
             <span className="text-gray-500 font-normal">({fmtUSD(real.halfUsd)})</span>
+          </span>
+        }
+        small
+      />
+      <ParamRow
+        label={
+          <span className="inline-flex items-center gap-1">
+            Trader market
+            <HelpPopover label="What is Trader market" width="w-72">
+              <div className="font-semibold mb-1">Trader market = Pool size × Leverage</div>
+              The leveraged exposure traders compete for. Your NFT backs it at the
+              Pool-size amount; traders pay Premium APY on the full Trader-market size.
+              At 1× leverage Trader market = Pool size (no liquidation).
+            </HelpPopover>
+          </span>
+        }
+        value={
+          <span>
+            {fmtTokenAmount(virt.amount0)} {nft.pair.token0}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
+            <span className="text-gray-400 font-normal mx-1">·</span>
+            {fmtTokenAmount(virt.amount1)} {nft.pair.token1}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
           </span>
         }
         small
