@@ -318,7 +318,9 @@ function ListingsView() {
 
 // ───────── /lp/list — Listing flow page ─────────
 // States 1.3 + 1.5: wallet has eligible NFTs (and maybe also has listings).
-// Renders header banner + eligible NFTs grid (with protocol tabs) + inline Lite/Pro form on card click.
+// State 1.3: green "fresh" banner + cards
+// State 1.5: ListedSummaryCard (existing positions with statuses, clickable → /lp/positions)
+//           + "More NFTs ready to list" cards section below
 function ListFlowPage({
   walletNFTs,
   nonEligibleNFTs,
@@ -329,30 +331,31 @@ function ListFlowPage({
   hasListings: boolean
 }) {
   const [selectedNFT, setSelectedNFT] = useState<WalletNFT | null>(null)
+  const myListings = useMemo(
+    () => listings.filter(l => l.owner === connectedWallet.address),
+    []
+  )
+
   return (
     <div>
       <header className="mb-6">
-        <div className="rounded-lg border border-lime-200 bg-lime-50/50 px-4 py-3 flex items-start gap-3">
-          <span className="text-lime-700 text-xl leading-none mt-0.5">✓</span>
-          <div className="flex-1">
-            <div className="text-sm font-semibold text-gray-900">
-              {hasListings
-                ? `${walletNFTs.length} more eligible Uniswap V3 NFT${walletNFTs.length === 1 ? '' : 's'} ready to list`
-                : `Wallet connected · ${walletNFTs.length} eligible Uniswap V3 NFT${walletNFTs.length === 1 ? '' : 's'} found`}
+        {hasListings ? (
+          // State 1.5 — show summary of existing listings with statuses
+          <ListedSummaryCard listings={myListings} />
+        ) : (
+          // State 1.3 — fresh user banner
+          <div className="rounded-lg border border-lime-200 bg-lime-50/50 px-4 py-3 flex items-start gap-3">
+            <span className="text-lime-700 text-xl leading-none mt-0.5">✓</span>
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-gray-900">
+                Wallet connected · {walletNFTs.length} eligible Uniswap V3 NFT{walletNFTs.length === 1 ? '' : 's'} found
+              </div>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Pick a position. Lite mode: 1-click with Conservative 1× and 1% Premium APY floor — no liquidation risk.
+              </p>
             </div>
-            <p className="text-xs text-gray-600 mt-0.5">
-              Pick a position. Lite mode: 1-click with Conservative 1× and 1% Premium APY floor — no liquidation risk.
-            </p>
           </div>
-          {hasListings && (
-            <Link
-              to="/lp/positions"
-              className="shrink-0 text-xs text-gray-600 hover:text-gray-900 underline decoration-dotted hover:no-underline"
-            >
-              View my positions →
-            </Link>
-          )}
-        </div>
+        )}
       </header>
 
       <EligibleNFTsSection
@@ -367,6 +370,103 @@ function ListFlowPage({
         <ListNFTModal nft={selectedNFT} onClose={() => setSelectedNFT(null)} />
       )}
     </div>
+  )
+}
+
+// ───────── Summary card of existing sLiq positions on /lp/list ─────────
+// Shown in state 1.5 (partial). Compact rows per listing with status badge.
+// Each row clickable → /lp/listings/:id ; footer link → /lp/positions.
+function ListedSummaryCard({ listings: myListings }: { listings: Listing[] }) {
+  // Mini-stats: count breakdown by status
+  const earningCount = myListings.filter(l => l.status === 'ACTIVE' || l.status === 'FULL').length
+  const pausedCount = myListings.filter(l => l.status === 'PAUSED' || l.status === 'WITHDRAWAL_REQUESTED').length
+  const attentionCount = myListings.filter(l => l.providerMode === 'advanced' && (l.distanceToLiqPct ?? 100) < 30).length
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] text-sm">
+          ◈
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-gray-900">
+            Already listed on sLiq · <span className="num">{myListings.length}</span> position{myListings.length === 1 ? '' : 's'}
+          </div>
+          <div className="text-[11px] text-gray-500 mt-0.5 num">
+            {earningCount > 0 && <>{earningCount} earning</>}
+            {pausedCount > 0 && <> · {pausedCount} paused</>}
+            {attentionCount > 0 && <> · <span className="text-[var(--color-status-danger)]">{attentionCount} attention</span></>}
+          </div>
+        </div>
+        <Link
+          to="/lp/positions"
+          className="shrink-0 text-xs font-medium text-[var(--color-role-lp)] hover:opacity-80 transition"
+        >
+          View all →
+        </Link>
+      </div>
+
+      <div className="divide-y divide-gray-100">
+        {myListings.slice(0, 4).map(l => (
+          <ListedSummaryRow key={l.id} listing={l} />
+        ))}
+        {myListings.length > 4 && (
+          <Link
+            to="/lp/positions"
+            className="block px-4 py-2 text-center text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition"
+          >
+            + {myListings.length - 4} more →
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ListedSummaryRow({ listing }: { listing: Listing }) {
+  const rangeStatus = getRangeStatus(listing)
+  const inRange = rangeStatus === 'in-range'
+  const isPaused = listing.status === 'PAUSED' || listing.status === 'WITHDRAWAL_REQUESTED'
+  const needsAttention = listing.providerMode === 'advanced' && (listing.distanceToLiqPct ?? 100) < 30
+
+  // Status dot color
+  const dotColor = needsAttention
+    ? 'bg-[var(--color-status-danger)]'
+    : isPaused
+      ? 'bg-gray-400'
+      : inRange
+        ? 'bg-[var(--color-status-success)]'
+        : 'bg-[var(--color-status-warning)]'
+
+  const statusText = needsAttention
+    ? 'Near liquidation'
+    : isPaused
+      ? 'Paused'
+      : inRange
+        ? 'In range · earning'
+        : 'Out of range'
+
+  // Estimated APR sum from bps
+  const apySumPct = ((listing.uniswapApyBps ?? 0) + (listing.referenceApyBps ?? 0)) / 100
+
+  return (
+    <Link
+      to={`/lp/listings/${listing.id}`}
+      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition"
+    >
+      <span className={`shrink-0 w-2 h-2 rounded-full ${dotColor}`} aria-hidden />
+      <div className="flex-1 min-w-0 flex items-baseline gap-2 flex-wrap">
+        <span className="text-sm font-medium text-gray-900">
+          {pairLabel(listing)}
+        </span>
+        <span className="text-[10px] font-mono text-gray-500">{fmtFeeTier(listing.feeTierBps)}</span>
+        <span className="text-xs text-gray-600">· {statusText}</span>
+      </div>
+      <div className="text-xs text-gray-700 num">
+        {apySumPct > 0 ? fmtPct(apySumPct / 100) : '—'} APR
+      </div>
+      <span className="text-gray-400 text-xs" aria-hidden>→</span>
+    </Link>
   )
 }
 
@@ -560,8 +660,16 @@ function EligibleNFTsSection({
 }) {
   const allNFTs = [...walletNFTs, ...nonEligibleNFTs]
 
-  // Group by protocol, Uniswap V3 first
+  // Group by protocol with explicit display order (Uniswap V3 first, then GMX, then Aerodrome, etc.)
   const protocolGroups = useMemo(() => {
+    const PROTOCOL_ORDER: Record<string, number> = {
+      'uniswap-v3': 0,
+      'gmx': 1,
+      'aerodrome-slipstream': 2,
+      'pancake-v3': 3,
+      'sushi-v3': 4,
+      'maverick': 5,
+    }
     const map = new Map<string, WalletNFT[]>()
     allNFTs.forEach(n => {
       const arr = map.get(n.protocol) ?? []
@@ -569,9 +677,9 @@ function EligibleNFTsSection({
       map.set(n.protocol, arr)
     })
     return Array.from(map.entries()).sort(([a], [b]) => {
-      if (a === 'uniswap-v3') return -1
-      if (b === 'uniswap-v3') return 1
-      return a.localeCompare(b)
+      const oa = PROTOCOL_ORDER[a] ?? 99
+      const ob = PROTOCOL_ORDER[b] ?? 99
+      return oa - ob
     })
   }, [allNFTs])
 
@@ -759,9 +867,6 @@ function EligibleNFTCard({ nft, onSelect }: { nft: WalletNFT; onSelect?: (nft: W
       >
         + List on sLiq
       </button>
-      <p className="mt-1 text-center text-[10px] text-gray-500">
-        Lite (1 click) · Pro settings available
-      </p>
     </div>
   )
 }

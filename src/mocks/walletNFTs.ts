@@ -9,7 +9,7 @@
 
 import type { LPDemoStateId } from '@/lib/lpDemoState'
 
-export type LPProtocol = 'uniswap-v3' | 'aerodrome-slipstream' | 'pancake-v3' | 'sushi-v3' | 'maverick'
+export type LPProtocol = 'uniswap-v3' | 'aerodrome-slipstream' | 'pancake-v3' | 'gmx' | 'sushi-v3' | 'maverick'
 
 export type WalletNFT = {
   tokenId: string
@@ -30,12 +30,13 @@ export type WalletNFT = {
   uniswapAprPct: number
 }
 
-// Human-readable protocol labels for non-Uniswap entries
+// Human-readable protocol labels — simplified per Eugene's UX preference
 export const PROTOCOL_LABELS: Record<LPProtocol, string> = {
   'uniswap-v3': 'Uniswap V3',
-  'aerodrome-slipstream': 'Aerodrome Slipstream',
-  'pancake-v3': 'PancakeSwap V3',
-  'sushi-v3': 'SushiSwap V3',
+  'aerodrome-slipstream': 'Aerodrome',
+  'pancake-v3': 'PancakeSwap',
+  'gmx': 'GMX',
+  'sushi-v3': 'SushiSwap',
   'maverick': 'Maverick',
 }
 
@@ -102,6 +103,18 @@ const ALL_WALLET_NFTS: WalletNFT[] = [
     unclaimedFeesUSD: 12.30,
     ageDays: 16,
     uniswapAprPct: 18.4,
+  },
+  {
+    tokenId: '7041',
+    protocol: 'gmx',
+    pair: { token0: 'GMX', token1: 'ETH' },
+    feeTierBps: 30,
+    priceRange: { lower: '0.0084', upper: '0.0112' },
+    rangeStatus: 'in-range',
+    liquidityUSD: 9_400,
+    unclaimedFeesUSD: 22.10,
+    ageDays: 19,
+    uniswapAprPct: 11.5,
   },
   {
     tokenId: '12390',
