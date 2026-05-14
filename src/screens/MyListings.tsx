@@ -10,7 +10,7 @@ import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD } from '@/lib/format'
 import { capacityFreePct, getRangeStatus, isSubsidized, pairLabel } from '@/lib/derive'
 import { HelpPopover } from '@/components/HelpPopover'
 import { useLPDemoState, deriveLPState } from '@/lib/lpDemoState'
-import { getWalletNFTsForState, showListingsForState, type WalletNFT } from '@/mocks/walletNFTs'
+import { getWalletNFTsForState, getNonEligibleNFTsForState, PROTOCOL_LABELS, showListingsForState, type WalletNFT } from '@/mocks/walletNFTs'
 import type { Listing } from '@/lib/types'
 
 type StatusFilter = 'all' | 'earning' | 'paused' | 'attention'
@@ -22,6 +22,7 @@ export function MyListings() {
   const [lpState] = useLPDemoState()
   const { isConnected, hasListings, hasEligibleNFTs } = deriveLPState(lpState)
   const walletNFTs = useMemo(() => getWalletNFTsForState(lpState), [lpState])
+  const nonEligibleNFTs = useMemo(() => getNonEligibleNFTsForState(lpState), [lpState])
 
   // 1.1 Guest — wallet not connected
   if (!isConnected) {
@@ -35,15 +36,21 @@ export function MyListings() {
 
   // 1.3 Connected · has NFTs · no listings
   if (hasEligibleNFTs && !hasListings) {
-    return <FreshUserState walletNFTs={walletNFTs} />
+    return <FreshUserState walletNFTs={walletNFTs} nonEligibleNFTs={nonEligibleNFTs} />
   }
 
   // 1.4 + 1.5 — connected with listings (table render below)
-  return <ListingsView walletNFTs={hasEligibleNFTs ? walletNFTs : []} allListed={!hasEligibleNFTs} />
+  return (
+    <ListingsView
+      walletNFTs={hasEligibleNFTs ? walletNFTs : []}
+      nonEligibleNFTs={nonEligibleNFTs}
+      allListed={!hasEligibleNFTs}
+    />
+  )
 }
 
 // ───────── Main listings view (used for states 1.4 + 1.5) ─────────
-function ListingsView({ walletNFTs, allListed }: { walletNFTs: WalletNFT[]; allListed: boolean }) {
+function ListingsView({ walletNFTs, nonEligibleNFTs, allListed }: { walletNFTs: WalletNFT[]; nonEligibleNFTs: WalletNFT[]; allListed: boolean }) {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [pairFilter, setPairFilter] = useState<string>('all')
@@ -283,7 +290,7 @@ function ListingsView({ walletNFTs, allListed }: { walletNFTs: WalletNFT[]; allL
       {/* State 1.5 — eligible NFTs section after existing listings */}
       {walletNFTs.length > 0 && (
         <section className="mt-10 pt-8 border-t border-gray-200">
-          <EligibleNFTsSection walletNFTs={walletNFTs} />
+          <EligibleNFTsSection walletNFTs={walletNFTs} nonEligibleNFTs={nonEligibleNFTs} />
         </section>
       )}
 
@@ -387,7 +394,7 @@ function NoNFTsState() {
 }
 
 // ───────── 1.3 Connected, has NFTs, no listings ─────────
-function FreshUserState({ walletNFTs }: { walletNFTs: WalletNFT[] }) {
+function FreshUserState({ walletNFTs, nonEligibleNFTs }: { walletNFTs: WalletNFT[]; nonEligibleNFTs: WalletNFT[] }) {
   return (
     <div>
       <header className="mb-6">
@@ -395,7 +402,7 @@ function FreshUserState({ walletNFTs }: { walletNFTs: WalletNFT[] }) {
           <span className="text-lime-700 text-xl leading-none mt-0.5">✓</span>
           <div className="flex-1">
             <div className="text-sm font-semibold text-gray-900">
-              Wallet connected · {walletNFTs.length} eligible NFT{walletNFTs.length === 1 ? '' : 's'} found
+              Wallet connected · {walletNFTs.length} eligible Uniswap V3 NFT{walletNFTs.length === 1 ? '' : 's'} found
             </div>
             <p className="text-xs text-gray-600 mt-0.5">
               Pick a position to wrap into sLiq. Conservative 1× is default — no liquidation risk.
@@ -403,13 +410,21 @@ function FreshUserState({ walletNFTs }: { walletNFTs: WalletNFT[] }) {
           </div>
         </div>
       </header>
-      <EligibleNFTsSection walletNFTs={walletNFTs} variant="primary" />
+      <EligibleNFTsSection walletNFTs={walletNFTs} nonEligibleNFTs={nonEligibleNFTs} variant="primary" />
     </div>
   )
 }
 
 // ───────── Eligible NFTs section (used in 1.3 & 1.5) ─────────
-function EligibleNFTsSection({ walletNFTs, variant = 'secondary' }: { walletNFTs: WalletNFT[]; variant?: 'primary' | 'secondary' }) {
+function EligibleNFTsSection({
+  walletNFTs,
+  nonEligibleNFTs = [],
+  variant = 'secondary',
+}: {
+  walletNFTs: WalletNFT[]
+  nonEligibleNFTs?: WalletNFT[]
+  variant?: 'primary' | 'secondary'
+}) {
   return (
     <div>
       <div className="flex items-baseline justify-between mb-3">
@@ -428,6 +443,45 @@ function EligibleNFTsSection({ walletNFTs, variant = 'secondary' }: { walletNFTs
           <EligibleNFTCard key={nft.tokenId} nft={nft} />
         ))}
       </div>
+      {nonEligibleNFTs.length > 0 && (
+        <NonEligibleFooter nonEligibleNFTs={nonEligibleNFTs} />
+      )}
+    </div>
+  )
+}
+
+// Transparency footer — surfaces other-protocol LP NFTs detected in the wallet so the user
+// doesn't think we missed them. sLiq Beta = Uniswap V3 only (positioning §1.4 scope-lock);
+// multi-protocol support is After-Beta roadmap.
+function NonEligibleFooter({ nonEligibleNFTs }: { nonEligibleNFTs: WalletNFT[] }) {
+  // Group by protocol for the inline list
+  const byProtocol = nonEligibleNFTs.reduce<Record<string, number>>((acc, n) => {
+    acc[n.protocol] = (acc[n.protocol] ?? 0) + 1
+    return acc
+  }, {})
+  const protocolList = Object.entries(byProtocol)
+    .map(([proto, n]) => `${PROTOCOL_LABELS[proto as keyof typeof PROTOCOL_LABELS]}${n > 1 ? ` (${n})` : ''}`)
+    .join(', ')
+
+  return (
+    <div className="mt-5 rounded-lg border border-dashed border-gray-300 bg-gray-50/60 px-4 py-3 flex items-start gap-3">
+      <span className="text-gray-400 text-base leading-none mt-0.5">+</span>
+      <div className="flex-1 text-xs">
+        <div className="text-gray-700">
+          <span className="font-medium text-gray-900 num">{nonEligibleNFTs.length}</span>{' '}
+          other LP position{nonEligibleNFTs.length === 1 ? '' : 's'} detected — {protocolList}
+        </div>
+        <div className="text-gray-500 mt-0.5">
+          sLiq Beta supports Uniswap V3 only. Multi-protocol support coming after mainnet.
+        </div>
+      </div>
+      <button
+        type="button"
+        className="shrink-0 text-[11px] text-gray-500 hover:text-gray-700 underline decoration-dotted hover:no-underline transition"
+        title="See which positions were detected"
+      >
+        View
+      </button>
     </div>
   )
 }
