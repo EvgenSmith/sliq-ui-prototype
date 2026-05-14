@@ -7,6 +7,7 @@ import { connectedWallet } from '@/mocks/data'
 import { shortAddr } from '@/lib/format'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
 import { LPStateSwitcher } from '@/components/LPStateSwitcher'
+import { StatusBanner } from '@/components/StatusBanner'
 import { useLPDemoState, deriveLPState } from '@/lib/lpDemoState'
 import type { ChainId } from '@/lib/types'
 
@@ -139,7 +140,10 @@ export function AppHeader() {
         </div>
       </div>
 
-      {/* Row 3 — Section nav (Trade / Pools) — under header, not inline with logo */}
+      {/* Row 3 — Beta-version banner (must go between logo block and menus per Eugene) */}
+      <StatusBanner />
+
+      {/* Row 4 — Section nav (Trade / Pools) — uninterrupted with sub-nav below */}
       {!hideNav && (
         <div className="border-b border-gray-200">
           <div className="mx-auto max-w-7xl px-4 h-11 flex items-center gap-1">
@@ -171,18 +175,21 @@ function NavItem({
   onClick: () => void
   accent?: 'default' | 'liquidator'
 }) {
+  // Level-1 section nav uses underline-active style — visually distinct from
+  // chip-style sub-nav (AppSubNav) → clearer hierarchy «section → sub-tab».
+  // Active underline overlaps the row's bottom border via -mb-px.
   const activeColor = accent === 'liquidator' ? 'var(--color-role-liquidator)' : undefined
   return (
     <button
       type="button"
       onClick={onClick}
       className={
-        'px-3 py-1.5 text-sm rounded-md transition font-medium ' +
+        'px-3 h-11 inline-flex items-center text-sm transition font-medium border-b-2 -mb-px ' +
         (active
-          ? 'text-gray-900 bg-gray-100'
-          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50')
+          ? 'text-gray-900 border-gray-900'
+          : 'text-gray-500 border-transparent hover:text-gray-900 hover:border-gray-300')
       }
-      style={active && activeColor ? { color: activeColor } : undefined}
+      style={active && activeColor ? { color: activeColor, borderColor: activeColor } : undefined}
     >
       {label}
     </button>

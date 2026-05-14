@@ -6,7 +6,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppHeader } from '@/components/AppHeader'
 import { AppSubNav } from '@/components/AppSubNav'
-import { StatusBanner } from '@/components/StatusBanner'
+// StatusBanner is now rendered inside AppHeader (between dev-switcher row and section-nav row).
 import { Landing } from '@/screens/Landing'
 import { ListingsMarketplace } from '@/screens/ListingsMarketplace'
 import { ListingDetail } from '@/screens/ListingDetail'
@@ -33,7 +33,6 @@ export default function App() {
   return (
     <div className="min-h-full flex flex-col overflow-x-hidden">
       <AppHeader />
-      <StatusBanner />
       <AppSubNav />
       <main className="flex-1 overflow-x-hidden">
         <Routes>

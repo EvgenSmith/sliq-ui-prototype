@@ -9,7 +9,7 @@
 
 import type { LPDemoStateId } from '@/lib/lpDemoState'
 
-export type LPProtocol = 'uniswap-v3' | 'aerodrome-slipstream' | 'pancake-v3' | 'gmx' | 'sushi-v3' | 'maverick'
+export type LPProtocol = 'uniswap-v3' | 'pancake-v3' | 'gmx' | 'sushi-v3' | 'maverick'
 
 export type WalletNFT = {
   tokenId: string
@@ -33,7 +33,6 @@ export type WalletNFT = {
 // Human-readable protocol labels — simplified per Eugene's UX preference
 export const PROTOCOL_LABELS: Record<LPProtocol, string> = {
   'uniswap-v3': 'Uniswap V3',
-  'aerodrome-slipstream': 'Aerodrome',
   'pancake-v3': 'PancakeSwap',
   'gmx': 'GMX',
   'sushi-v3': 'SushiSwap',

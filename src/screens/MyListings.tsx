@@ -647,10 +647,9 @@ function EligibleNFTsSection({
     const PROTOCOL_ORDER: Record<string, number> = {
       'uniswap-v3': 0,
       'gmx': 1,
-      'aerodrome-slipstream': 2,
-      'pancake-v3': 3,
-      'sushi-v3': 4,
-      'maverick': 5,
+      'pancake-v3': 2,
+      'sushi-v3': 3,
+      'maverick': 4,
     }
     const map = new Map<string, WalletNFT[]>()
     allNFTs.forEach(n => {
