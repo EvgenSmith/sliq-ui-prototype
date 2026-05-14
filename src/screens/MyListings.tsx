@@ -416,92 +416,32 @@ function ListedSummaryCard({ listings: myListings }: { listings: Listing[] }) {
   const attentionCount = myListings.filter(l => l.providerMode === 'advanced' && (l.distanceToLiqPct ?? 100) < 30).length
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] text-sm">
-          ◈
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-gray-900">
-            Already listed on sLiq · <span className="num">{myListings.length}</span> position{myListings.length === 1 ? '' : 's'}
-          </div>
-          <div className="text-[11px] text-gray-500 mt-0.5 num">
-            {earningCount > 0 && <>{earningCount} earning</>}
-            {pausedCount > 0 && <> · {pausedCount} paused</>}
-            {attentionCount > 0 && <> · <span className="text-[var(--color-status-danger)]">{attentionCount} attention</span></>}
-          </div>
+    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-center gap-3">
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] text-sm">
+        ◈
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-gray-900">
+          Already listed on sLiq · <span className="num">{myListings.length}</span> position{myListings.length === 1 ? '' : 's'}
         </div>
-        <Link
-          to="/lp/positions"
-          className="shrink-0 text-xs font-medium text-[var(--color-role-lp)] hover:opacity-80 transition"
-        >
-          View all →
-        </Link>
+        <div className="text-[11px] text-gray-500 mt-0.5 num">
+          {earningCount > 0 && <>{earningCount} earning</>}
+          {pausedCount > 0 && <> · {pausedCount} paused</>}
+          {attentionCount > 0 && <> · <span className="text-[var(--color-status-danger)]">{attentionCount} attention</span></>}
+        </div>
       </div>
-
-      <div className="divide-y divide-gray-100">
-        {myListings.slice(0, 4).map(l => (
-          <ListedSummaryRow key={l.id} listing={l} />
-        ))}
-        {myListings.length > 4 && (
-          <Link
-            to="/lp/positions"
-            className="block px-4 py-2 text-center text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition"
-          >
-            + {myListings.length - 4} more →
-          </Link>
-        )}
-      </div>
+      <Link
+        to="/lp/positions"
+        className="shrink-0 text-xs font-medium text-[var(--color-role-lp)] hover:opacity-80 transition"
+      >
+        View all →
+      </Link>
     </div>
   )
 }
 
-function ListedSummaryRow({ listing }: { listing: Listing }) {
-  const rangeStatus = getRangeStatus(listing)
-  const inRange = rangeStatus === 'in-range'
-  const isPaused = listing.status === 'PAUSED' || listing.status === 'WITHDRAWAL_REQUESTED'
-  const needsAttention = listing.providerMode === 'advanced' && (listing.distanceToLiqPct ?? 100) < 30
-
-  // Status dot color
-  const dotColor = needsAttention
-    ? 'bg-[var(--color-status-danger)]'
-    : isPaused
-      ? 'bg-gray-400'
-      : inRange
-        ? 'bg-[var(--color-status-success)]'
-        : 'bg-[var(--color-status-warning)]'
-
-  const statusText = needsAttention
-    ? 'Near liquidation'
-    : isPaused
-      ? 'Paused'
-      : inRange
-        ? 'In range · earning'
-        : 'Out of range'
-
-  // Estimated APR sum from bps
-  const apySumPct = ((listing.uniswapApyBps ?? 0) + (listing.referenceApyBps ?? 0)) / 100
-
-  return (
-    <Link
-      to={`/lp/listings/${listing.id}`}
-      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition"
-    >
-      <span className={`shrink-0 w-2 h-2 rounded-full ${dotColor}`} aria-hidden />
-      <div className="flex-1 min-w-0 flex items-baseline gap-2 flex-wrap">
-        <span className="text-sm font-medium text-gray-900">
-          {pairLabel(listing)}
-        </span>
-        <span className="text-[10px] font-mono text-gray-500">{fmtFeeTier(listing.feeTierBps)}</span>
-        <span className="text-xs text-gray-600">· {statusText}</span>
-      </div>
-      <div className="text-xs text-gray-700 num">
-        {apySumPct > 0 ? fmtPct(apySumPct / 100) : '—'} APR
-      </div>
-      <span className="text-gray-400 text-xs" aria-hidden>→</span>
-    </Link>
-  )
-}
+// ListedSummaryRow removed — ListedSummaryCard compressed to single-line summary
+// (Eugene: per-listing detail belongs on /lp/positions, not /lp/list).
 
 // State 1.4 on /lp/list tab — all listed; suggest user to mint more on Uniswap.
 function AllListedOnListTab() {
