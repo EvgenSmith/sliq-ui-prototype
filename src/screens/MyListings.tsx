@@ -340,16 +340,25 @@ function ValueChip({ n, label }: { n: string; label: string }) {
 
 // ───────── 1.2 Connected, no NFTs in wallet ─────────
 function NoNFTsState() {
+  const shortAddress = `${connectedWallet.address.slice(0, 6)}…${connectedWallet.address.slice(-4)}`
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
       <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+        {/* Connected-wallet indicator — makes it explicit the empty state is about THIS wallet */}
+        <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] px-3 py-1 text-xs font-medium mb-5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-status-success)]" />
+          Wallet connected · <span className="num">{shortAddress}</span>
+        </div>
+
         <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center text-2xl">
           ∅
         </div>
-        <h2 className="text-lg font-semibold text-gray-900">No Uniswap V3 LP NFTs found</h2>
+        <h2 className="text-lg font-semibold text-gray-900">
+          No Uniswap V3 LP NFTs in your wallet
+        </h2>
         <p className="mt-2 text-sm text-gray-600 leading-relaxed max-w-md mx-auto">
-          sLiq wraps Uniswap V3 LP NFTs to let you earn extra Premium APY on top of Uniswap fees.
-          To get started, mint an LP position on Uniswap first — sLiq will detect it automatically.
+          We scanned <span className="num text-gray-900">{shortAddress}</span> across all supported chains —
+          no V3 LP positions found yet. Mint one on Uniswap and sLiq will detect it automatically.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
@@ -358,7 +367,7 @@ function NoNFTsState() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
           >
-            Open Uniswap <span aria-hidden>↗</span>
+            Mint LP on Uniswap <span aria-hidden>↗</span>
           </a>
           <button
             type="button"
@@ -366,11 +375,11 @@ function NoNFTsState() {
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
             title="Re-scan the connected wallet for V3 LP NFTs"
           >
-            Refresh balance
+            Re-scan wallet
           </button>
         </div>
         <p className="mt-6 text-xs text-gray-500">
-          Supported: Uniswap V3 LP positions on Arbitrum, Ethereum, Base, Optimism, Polygon
+          Supported: Uniswap V3 on Arbitrum · Ethereum · Base · Optimism · Polygon
         </p>
       </div>
     </div>
