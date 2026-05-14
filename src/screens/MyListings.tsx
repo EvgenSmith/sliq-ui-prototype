@@ -9,6 +9,8 @@ import { connectedWallet, listings, positions } from '@/mocks/data'
 import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD } from '@/lib/format'
 import { capacityFreePct, getRangeStatus, isSubsidized, pairLabel } from '@/lib/derive'
 import { HelpPopover } from '@/components/HelpPopover'
+import { useLPDemoState, deriveLPState } from '@/lib/lpDemoState'
+import { getWalletNFTsForState, showListingsForState, type WalletNFT } from '@/mocks/walletNFTs'
 import type { Listing } from '@/lib/types'
 
 type StatusFilter = 'all' | 'earning' | 'paused' | 'attention'
@@ -17,6 +19,31 @@ type SortId = 'pnl-desc' | 'pnl-asc' | 'earnings-desc' | 'tvl-desc' | 'hitrate-d
 const PAGE_SIZES = [25, 50, 100, -1] as const
 
 export function MyListings() {
+  const [lpState] = useLPDemoState()
+  const { isConnected, hasListings, hasEligibleNFTs } = deriveLPState(lpState)
+  const walletNFTs = useMemo(() => getWalletNFTsForState(lpState), [lpState])
+
+  // 1.1 Guest — wallet not connected
+  if (!isConnected) {
+    return <GuestState />
+  }
+
+  // 1.2 Connected · no NFTs in wallet · no listings
+  if (!hasEligibleNFTs && !hasListings) {
+    return <NoNFTsState />
+  }
+
+  // 1.3 Connected · has NFTs · no listings
+  if (hasEligibleNFTs && !hasListings) {
+    return <FreshUserState walletNFTs={walletNFTs} />
+  }
+
+  // 1.4 + 1.5 — connected with listings (table render below)
+  return <ListingsView walletNFTs={hasEligibleNFTs ? walletNFTs : []} allListed={!hasEligibleNFTs} />
+}
+
+// ───────── Main listings view (used for states 1.4 + 1.5) ─────────
+function ListingsView({ walletNFTs, allListed }: { walletNFTs: WalletNFT[]; allListed: boolean }) {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [pairFilter, setPairFilter] = useState<string>('all')
@@ -93,22 +120,7 @@ export function MyListings() {
 
   const attentionTotal = summary.atRisk
 
-  if (mine.length === 0) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h2 className="text-xl font-semibold mb-2">No listings yet</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Принеси свой Uniswap V3 LP NFT — начни зарабатывать extra Premium APY поверх обычных fees.
-        </p>
-        <Link
-          to="/lp/deposit"
-          className="inline-block text-sm font-semibold px-4 py-2 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
-        >
-          + Deposit NFT
-        </Link>
-      </div>
-    )
-  }
+  // (Empty-state early return removed — handled by 1.1-1.3 state branches at the top.)
 
   return (
     <div>
@@ -267,7 +279,224 @@ export function MyListings() {
           )}
         </>
       )}
+
+      {/* State 1.5 — eligible NFTs section after existing listings */}
+      {walletNFTs.length > 0 && (
+        <section className="mt-10 pt-8 border-t border-gray-200">
+          <EligibleNFTsSection walletNFTs={walletNFTs} />
+        </section>
+      )}
+
+      {/* State 1.4 — all deployed footer */}
+      {allListed && walletNFTs.length === 0 && (
+        <AllListedFooter />
+      )}
     </div>
+  )
+}
+
+// ───────── 1.1 Guest state ─────────
+function GuestState() {
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-12">
+      <div className="rounded-2xl bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white p-8 md:p-12 text-center">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-lime-300 mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-lime-400" />
+          For liquidity providers
+        </span>
+        <h1 className="text-3xl md:text-4xl font-bold leading-tight max-w-2xl mx-auto">
+          Earn extra yield on your Uniswap V3 LP
+        </h1>
+        <p className="mt-4 text-gray-300 leading-relaxed max-w-2xl mx-auto">
+          Plug in your existing LP NFT. Earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from sLiq traders on top of your normal Uniswap fees. <strong className="text-white">2-click exit, ~4 sec on Arbitrum.</strong>
+        </p>
+        <div className="mt-8">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md bg-lime-400 hover:bg-lime-300 text-gray-900 px-6 py-3 text-sm font-semibold transition"
+            title="Prototype: flip LP demo state to 1.2-1.5 in the dev switcher"
+          >
+            Connect wallet to start
+          </button>
+        </div>
+        <div className="mt-8 grid sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+          <ValueChip n="+3–7% APR" label="Premium APY carry" />
+          <ValueChip n="Up to 100×" label="Provider Leverage (Advanced)" />
+          <ValueChip n="2-click exit" label="~4 sec on Arbitrum" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ValueChip({ n, label }: { n: string; label: string }) {
+  return (
+    <div className="rounded-lg border border-gray-700 bg-gray-900/60 px-3 py-2 text-left">
+      <div className="text-base font-bold text-white">{n}</div>
+      <div className="text-[11px] text-gray-400 mt-0.5">{label}</div>
+    </div>
+  )
+}
+
+// ───────── 1.2 Connected, no NFTs in wallet ─────────
+function NoNFTsState() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-16">
+      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center text-2xl">
+          ∅
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900">No Uniswap V3 LP NFTs found</h2>
+        <p className="mt-2 text-sm text-gray-600 leading-relaxed max-w-md mx-auto">
+          sLiq wraps Uniswap V3 LP NFTs to let you earn extra Premium APY on top of Uniswap fees.
+          To get started, mint an LP position on Uniswap first — sLiq will detect it automatically.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="https://app.uniswap.org/positions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
+          >
+            Open Uniswap <span aria-hidden>↗</span>
+          </a>
+          <button
+            type="button"
+            onClick={() => { /* prototype no-op */ }}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
+            title="Re-scan the connected wallet for V3 LP NFTs"
+          >
+            Refresh balance
+          </button>
+        </div>
+        <p className="mt-6 text-xs text-gray-500">
+          Supported: Uniswap V3 LP positions on Arbitrum, Ethereum, Base, Optimism, Polygon
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ───────── 1.3 Connected, has NFTs, no listings ─────────
+function FreshUserState({ walletNFTs }: { walletNFTs: WalletNFT[] }) {
+  return (
+    <div>
+      <header className="mb-6">
+        <div className="rounded-lg border border-lime-200 bg-lime-50/50 px-4 py-3 flex items-start gap-3">
+          <span className="text-lime-700 text-xl leading-none mt-0.5">✓</span>
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-gray-900">
+              Wallet connected · {walletNFTs.length} eligible NFT{walletNFTs.length === 1 ? '' : 's'} found
+            </div>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Pick a position to wrap into sLiq. Conservative 1× is default — no liquidation risk.
+            </p>
+          </div>
+        </div>
+      </header>
+      <EligibleNFTsSection walletNFTs={walletNFTs} variant="primary" />
+    </div>
+  )
+}
+
+// ───────── Eligible NFTs section (used in 1.3 & 1.5) ─────────
+function EligibleNFTsSection({ walletNFTs, variant = 'secondary' }: { walletNFTs: WalletNFT[]; variant?: 'primary' | 'secondary' }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-base font-semibold text-gray-900">
+          {variant === 'primary' ? 'Ready to list' : 'More NFTs ready to list'}
+          <span className="ml-2 text-sm text-gray-500 num">({walletNFTs.length})</span>
+        </h2>
+        {variant === 'secondary' && (
+          <span className="text-xs text-gray-500">
+            in your wallet · not yet on sLiq
+          </span>
+        )}
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {walletNFTs.map(nft => (
+          <EligibleNFTCard key={nft.tokenId} nft={nft} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function EligibleNFTCard({ nft }: { nft: WalletNFT }) {
+  const inRange = nft.rangeStatus === 'in-range'
+  return (
+    <Link
+      to="/lp/deposit"
+      className="block rounded-lg border border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm transition p-4"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-gray-900">
+          {nft.pair.token0}/{nft.pair.token1}
+        </span>
+        <span className="text-[10px] font-mono text-gray-500">
+          {fmtFeeTier(nft.feeTierBps)}
+        </span>
+      </div>
+      <div className="mt-1 text-[11px] text-gray-500 num">
+        NFT #{nft.tokenId}
+      </div>
+
+      <div className="mt-3 space-y-1.5 text-xs">
+        <Row label="Price range" value={`${nft.priceRange.lower} – ${nft.priceRange.upper}`} />
+        <Row
+          label="Status"
+          value={
+            <span className={inRange ? 'text-[var(--color-status-success)]' : 'text-[var(--color-status-warning)]'}>
+              {inRange ? 'In range' : 'Out of range'}
+            </span>
+          }
+        />
+        <Row label="Liquidity" value={fmtUSD(nft.liquidityUSD)} mono />
+        <Row label="Unclaimed fees" value={fmtUSD(nft.unclaimedFeesUSD)} mono />
+        <Row label="Uniswap APR (24h)" value={fmtPct(nft.uniswapAprPct / 100)} mono />
+      </div>
+
+      <div className="mt-4 w-full text-center text-sm font-medium bg-[var(--color-role-lp)] hover:opacity-90 text-white rounded-md py-2 transition">
+        + List on sLiq
+      </div>
+    </Link>
+  )
+}
+
+function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-gray-500">{label}</span>
+      <span className={`text-gray-900 ${mono ? 'num' : ''}`}>{value}</span>
+    </div>
+  )
+}
+
+// ───────── 1.4 All listed footer ─────────
+function AllListedFooter() {
+  return (
+    <section className="mt-10 pt-8 border-t border-gray-200">
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-5 py-4 flex items-start gap-3">
+        <span className="text-gray-400 text-lg leading-none mt-0.5">✓</span>
+        <div className="flex-1">
+          <div className="text-sm font-semibold text-gray-900">
+            All eligible NFTs are listed
+          </div>
+          <p className="text-xs text-gray-600 mt-0.5">
+            To add more capacity on sLiq, mint a new LP position on Uniswap — it will appear here automatically.
+          </p>
+        </div>
+        <a
+          href="https://app.uniswap.org/positions"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-3 py-1.5 text-xs font-medium transition"
+        >
+          Open Uniswap <span aria-hidden>↗</span>
+        </a>
+      </div>
+    </section>
   )
 }
 

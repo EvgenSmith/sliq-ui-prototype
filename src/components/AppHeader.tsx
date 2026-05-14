@@ -6,6 +6,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { connectedWallet } from '@/mocks/data'
 import { shortAddr } from '@/lib/format'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
+import { LPStateSwitcher } from '@/components/LPStateSwitcher'
+import { useLPDemoState, deriveLPState } from '@/lib/lpDemoState'
 import type { ChainId } from '@/lib/types'
 
 const SECTIONS = [
@@ -22,6 +24,12 @@ export function AppHeader() {
     if (typeof window === 'undefined') return 'arbitrum'
     return (localStorage.getItem('sliq.activeChain') as ChainId) ?? 'arbitrum'
   })
+  const [lpState] = useLPDemoState()
+  const inPoolsRoute = path.startsWith('/lp')
+  const { isConnected } = deriveLPState(lpState)
+  // When user is on /lp/* and demo state says "guest", visually present as not-connected.
+  // Other routes (Trade, Keeper) continue using the real `connectedWallet` mock unchanged.
+  const renderAsGuest = inPoolsRoute && !isConnected
   const walletRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -75,54 +83,66 @@ export function AppHeader() {
           </nav>
         )}
 
-        {/* Network switcher + Wallet (with copy) */}
+        {/* Network switcher + LP demo state switcher (dev-only) + Wallet (with copy) */}
         <div className="ml-auto flex items-center gap-2">
+          <LPStateSwitcher />
           <NetworkSwitcher value={chain} onChange={setChain} />
-          <div className="relative" ref={walletRef}>
+          {renderAsGuest ? (
             <button
               type="button"
-              onClick={() => setWalletOpen(o => !o)}
-              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-md bg-[var(--color-status-success)] text-white hover:opacity-90 transition"
+              onClick={() => { /* prototype: dev should flip state via LPStateSwitcher */ }}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-md bg-gray-900 text-white hover:opacity-90 transition"
+              title="Prototype: connect via LP state switcher (set state 1.2-1.5)"
             >
-              <span className="inline-block w-2 h-2 rounded-full bg-white/80" />
-              <span className="num">{shortAddr(connectedWallet.address)}</span>
+              Connect wallet
             </button>
-
-            {walletOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg overflow-hidden z-30"
+          ) : (
+            <div className="relative" ref={walletRef}>
+              <button
+                type="button"
+                onClick={() => setWalletOpen(o => !o)}
+                className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-md bg-[var(--color-status-success)] text-white hover:opacity-90 transition"
               >
-                <div className="px-3 py-2.5 border-b border-gray-100">
-                  <div className="num font-medium text-sm">{connectedWallet.label}</div>
-                  <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
-                    {connectedWallet.persona}
-                  </div>
-                </div>
-                {connectedWallet.isPermissionedLiquidator && (
-                  <MenuItem
-                    to="/keeper/positions"
-                    onSelect={() => setWalletOpen(false)}
-                    label="Keeper queue"
-                    hint="Permissioned"
-                  />
-                )}
-                <MenuItem
-                  to="/settings"
-                  onSelect={() => setWalletOpen(false)}
-                  label="Settings"
-                  hint="Network · Core · Dev switcher"
-                />
-                <button
-                  type="button"
-                  onClick={() => setWalletOpen(false)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition border-t border-gray-100 text-[var(--color-status-danger)]"
+                <span className="inline-block w-2 h-2 rounded-full bg-white/80" />
+                <span className="num">{shortAddr(connectedWallet.address)}</span>
+              </button>
+
+              {walletOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg overflow-hidden z-30"
                 >
-                  Disconnect
-                </button>
-              </div>
-            )}
-          </div>
+                  <div className="px-3 py-2.5 border-b border-gray-100">
+                    <div className="num font-medium text-sm">{connectedWallet.label}</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                      {connectedWallet.persona}
+                    </div>
+                  </div>
+                  {connectedWallet.isPermissionedLiquidator && (
+                    <MenuItem
+                      to="/keeper/positions"
+                      onSelect={() => setWalletOpen(false)}
+                      label="Keeper queue"
+                      hint="Permissioned"
+                    />
+                  )}
+                  <MenuItem
+                    to="/settings"
+                    onSelect={() => setWalletOpen(false)}
+                    label="Settings"
+                    hint="Network · Core · Dev switcher"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setWalletOpen(false)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition border-t border-gray-100 text-[var(--color-status-danger)]"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>
