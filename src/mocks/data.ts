@@ -683,6 +683,13 @@ listings.forEach(l => {
   l.netPnLUSD = (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0) + ilProxy
   // HODL delta = how much extra LP earns vs just holding tokens
   l.hodlDeltaUSD = (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0) // simplified — gross income
+  // Claimable now = portion of lifetime fees still pending claim.
+  // Must satisfy claimableNow ≤ totalFees (otherwise the Accrued = Total - Claimable
+  // sub-line goes negative and the breakdown stops making sense, Eugene 2026-05-15).
+  // Seed value from mariaSeedEarnings (if any) gets capped here.
+  const totalFeesNow = (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0)
+  const unclaimedPct = 0.2 + pseudo(3) * 0.4 // 20–60% sitting unclaimed
+  l.claimableNowUSD = Math.max(0, Math.min(l.claimableNowUSD ?? totalFeesNow * unclaimedPct, totalFeesNow))
   // Range hit rate — mock 50-95%, deterministic from seed
   l.rangeHitRatePct = Math.floor(50 + pseudo(2) * 45)
   // Auto-compound default on

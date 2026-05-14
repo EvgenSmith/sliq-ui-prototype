@@ -102,15 +102,8 @@ export function ListingDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isAdvanced ? (
-            <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-              At-risk · {listing.providerLeverage}×
-            </span>
-          ) : (
-            <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md text-gray-600 border border-gray-200 font-medium">
-              Safe · 1×
-            </span>
-          )}
+          {/* Safe/At-risk chip removed per Eugene 2026-05-15 — duplicate of LP stability
+              in Listing summary. Subsidized + Full chips kept (orthogonal signals not in summary). */}
           {isSubsidized && (
             <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] border border-[var(--color-negative-apy)]/30 font-medium">
               Subsidized
@@ -1108,7 +1101,6 @@ function OwnerPanel({
           )}
           <ManageMenu
             isPro={isPro}
-            tokenId={listing.tokenId}
             onUpdateLeverage={() => setLeverageOpen(true)}
             onUpdateApy={() => setUpdateApyOpen(true)}
             onWithdraw={() => setWithdrawOpen(true)}
@@ -1201,11 +1193,30 @@ function OwnerPanel({
                     </ul>
                   </HelpPopover>
                 </dt>
-                <dd>
+                <dd className="flex items-center gap-2 flex-wrap">
                   <span className={'text-[11px] font-semibold px-1.5 py-0.5 rounded ' + stabilityCls}>
                     {stability}
                   </span>
-                  {isAdvanced && <span className="text-[11px] text-gray-500 ml-2 num">{listing.providerLeverage}×</span>}
+                  {/* Always show leverage (incl. 1× for Safe — per Eugene 2026-05-15:
+                      «где safe нужно показывать плечо»). */}
+                  <span className="text-[11px] text-gray-500 num">{listing.providerLeverage}×</span>
+                  {/* HF only when leverage > 1 — at 1× there's no liquidation risk to grade. */}
+                  {isAdvanced && listing.healthFactorPct !== undefined && (
+                    <span className="text-[11px] inline-flex items-center gap-1 num">
+                      <span className="text-gray-400">·</span>
+                      <span className="text-gray-500">HF</span>
+                      <span
+                        className="font-semibold"
+                        style={{
+                          color: (listing.healthFactorPct ?? 0) > 60 ? 'var(--color-status-success)'
+                            : (listing.healthFactorPct ?? 0) > 30 ? 'var(--color-status-warning)'
+                            : 'var(--color-status-danger)',
+                        }}
+                      >
+                        {listing.healthFactorPct}%
+                      </span>
+                    </span>
+                  )}
                 </dd>
               </div>
               <div className="sm:col-span-2">
@@ -1379,7 +1390,8 @@ function OwnerPanel({
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Protocol · fee tier</dt>
             <dd className="font-medium text-gray-900">Uniswap v3 <span className="num">· {fmtFeeTier(listing.feeTierBps)}</span></dd>
-            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5 num">NFT #{listing.tokenId}</dd>
+            {/* NFT #X removed per Eugene 2026-05-15 — already shown in the page header
+                (breadcrumb area). Was duplicated here. */}
           </div>
         </dl>
       </div>
@@ -1413,14 +1425,17 @@ function OwnerPanel({
           <FeeRow label="Premium APY" usd={premiumFeesTotal} listing={listing} />
           <div className="border-t border-gray-200 mt-2 pt-2" />
           <FeeRow label="Total fees" usd={totalFees} listing={listing} bold />
-          {/* Accrued / Claimable breakdown — sub-row under Total */}
-          <div className="ml-3 mt-1.5 grid grid-cols-2 gap-3 text-[11px]">
-            <div className="flex items-baseline justify-between border-l-2 border-gray-200 pl-2">
-              <span className="text-gray-500">Accrued (уже на кошельке)</span>
+          {/* Total fees breakdown — two sub-lines that ALWAYS sum to Total.
+              Indented under Total to read as «split of the number above».
+              Per Eugene 2026-05-15 the old two-column «Accrued | Claimable» layout
+              with vertical bars was confusing — numbers didn't add up visually. */}
+          <div className="mt-2 ml-3 pl-3 border-l border-gray-200 space-y-1 text-[11px]">
+            <div className="flex items-baseline justify-between">
+              <span className="text-gray-500">Already claimed <span className="text-gray-400">(в кошельке)</span></span>
               <span className="num text-gray-700">{fmtUSD(accruedClaimed)}</span>
             </div>
-            <div className="flex items-baseline justify-between border-l-2 pl-2" style={{ borderColor: 'var(--color-role-lp)' }}>
-              <span className="text-gray-500">Claimable now</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-gray-500">Claimable now <span className="text-gray-400">(одной tx)</span></span>
               <span className="num font-semibold" style={{ color: 'var(--color-role-lp)' }}>{fmtUSD(claimableNow)}</span>
             </div>
           </div>
@@ -1779,18 +1794,19 @@ function OwnerPanel({
   )
 }
 
-// ManageMenu — owner-actions dropdown rendered in the OwnerPanel header strip.
-// Pro reveals leverage / min APY editors; both modes get Withdraw + Uniswap link.
-// Destructive item (Withdraw) sits last + danger-coloured.
+// ManageMenu — owner-actions surface in the OwnerPanel header strip.
+//   Lite mode  → no dropdown, single inline «Withdraw NFT» button (only one
+//                action available, dropdown would be needless friction).
+//   Pro mode   → dropdown with Update Leverage / Update Min APY / Withdraw.
+// View-on-Uniswap link removed (Eugene 2026-05-15) — already in Position
+// info card's «View on Uniswap →» header; duplicate.
 function ManageMenu({
   isPro,
-  tokenId,
   onUpdateLeverage,
   onUpdateApy,
   onWithdraw,
 }: {
   isPro: boolean
-  tokenId: number
   onUpdateLeverage: () => void
   onUpdateApy: () => void
   onWithdraw: () => void
@@ -1814,6 +1830,20 @@ function ManageMenu({
     }
   }, [open])
 
+  // Lite: single inline Withdraw button. No dropdown needed.
+  if (!isPro) {
+    return (
+      <button
+        type="button"
+        onClick={onWithdraw}
+        className="text-sm font-semibold px-3.5 py-1.5 rounded-md border border-[var(--color-status-danger)]/40 bg-white text-[var(--color-status-danger)] hover:bg-red-50 transition"
+      >
+        Withdraw NFT
+      </button>
+    )
+  }
+
+  // Pro: dropdown with parameter edits + destructive Withdraw at the bottom.
   return (
     <div className="relative" ref={ref}>
       <button
@@ -1833,34 +1863,16 @@ function ManageMenu({
           role="menu"
           className="absolute right-0 top-full mt-1 w-60 rounded-md border border-gray-200 bg-white shadow-lg overflow-hidden z-30 py-1"
         >
-          {isPro && (
-            <>
-              <MenuRow
-                label="Update leverage"
-                hint="Re-lists slices below new floor"
-                onClick={() => { setOpen(false); onUpdateLeverage() }}
-              />
-              <MenuRow
-                label="Update Min Premium APY"
-                hint="Re-lists slices below new floor"
-                onClick={() => { setOpen(false); onUpdateApy() }}
-              />
-              <div className="border-t border-gray-100 my-1" />
-            </>
-          )}
-          <a
-            href={`https://app.uniswap.org/positions/v3/arbitrum/${tokenId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-sm hover:bg-gray-50 transition"
-            role="menuitem"
-          >
-            <div className="font-medium text-gray-900 inline-flex items-center gap-1">
-              View on Uniswap <span aria-hidden="true" className="text-xs">↗</span>
-            </div>
-            <div className="text-[11px] text-gray-500 mt-0.5">Source NFT on app.uniswap.org</div>
-          </a>
+          <MenuRow
+            label="Update leverage"
+            hint="Re-lists slices below new floor"
+            onClick={() => { setOpen(false); onUpdateLeverage() }}
+          />
+          <MenuRow
+            label="Update Min Premium APY"
+            hint="Re-lists slices below new floor"
+            onClick={() => { setOpen(false); onUpdateApy() }}
+          />
           <div className="border-t border-gray-100 my-1" />
           <button
             type="button"
