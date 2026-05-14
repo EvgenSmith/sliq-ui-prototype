@@ -10,14 +10,14 @@ import { StatusBanner } from '@/components/StatusBanner'
 import { Landing } from '@/screens/Landing'
 import { ListingsMarketplace } from '@/screens/ListingsMarketplace'
 import { ListingDetail } from '@/screens/ListingDetail'
-import { LPDeposit } from '@/screens/LPDeposit'
+// LPDeposit retired — listing flow merged into MyListings (mode='list') with inline Lite/Pro form.
 import { TraderOpen } from '@/screens/TraderOpen'
 import { PositionDetail } from '@/screens/PositionDetail'
 import { TraderPositions } from '@/screens/TraderPositions'
 import { MyListings } from '@/screens/MyListings'
 import { ClosedPositionsList } from '@/screens/ClosedPositionsList'
 import { ClosedPositionDetail } from '@/screens/ClosedPositionDetail'
-import { ClaimableHub } from '@/screens/ClaimableHub'
+// ClaimableHub retired — aggregated «Claimable now» banner inlined on MyListings (mode='positions').
 import { Onboarding } from '@/screens/Onboarding'
 import { WhitelistGate } from '@/screens/WhitelistGate'
 import { Settings } from '@/screens/Settings'
@@ -47,11 +47,17 @@ export default function App() {
           <Route path="/trader/closed" element={<SectionWrap><ClosedPositionsList /></SectionWrap>} />
           <Route path="/trader/closed/:id" element={<ClosedPositionDetail />} />
 
-          {/* Pools section */}
-          <Route path="/lp/listings" element={<SectionWrap><MyListings /></SectionWrap>} />
+          {/* Pools section — 2 logical tabs:
+                /lp/list       = ListNFTPage (onboarding + eligible NFTs + inline Lite/Pro form)
+                /lp/positions  = MyPositionsPage (existing listings table)
+              Old URLs (/lp/listings, /lp/deposit, /lp/claims) preserved as aliases for back-compat. */}
+          <Route path="/lp/list" element={<SectionWrap><MyListings mode="list" /></SectionWrap>} />
+          <Route path="/lp/positions" element={<SectionWrap><MyListings mode="positions" /></SectionWrap>} />
           <Route path="/lp/listings/:id" element={<ListingDetail />} />
-          <Route path="/lp/deposit" element={<LPDeposit />} />
-          <Route path="/lp/claims" element={<ClaimableHub />} />
+          {/* Back-compat aliases */}
+          <Route path="/lp/listings" element={<Navigate to="/lp/positions" replace />} />
+          <Route path="/lp/deposit" element={<SectionWrap><MyListings mode="list" /></SectionWrap>} />
+          <Route path="/lp/claims" element={<Navigate to="/lp/positions" replace />} />
 
           {/* Keeper section (formerly /liquidator) */}
           <Route path="/keeper/positions" element={<LiquidatorPositions />} />

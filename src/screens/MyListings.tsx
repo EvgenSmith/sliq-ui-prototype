@@ -18,39 +18,51 @@ type SortId = 'pnl-desc' | 'pnl-asc' | 'earnings-desc' | 'tvl-desc' | 'hitrate-d
 
 const PAGE_SIZES = [25, 50, 100, -1] as const
 
-export function MyListings() {
+export type MyListingsMode = 'list' | 'positions'
+
+export function MyListings({ mode = 'positions' }: { mode?: MyListingsMode }) {
   const [lpState] = useLPDemoState()
   const { isConnected, hasListings, hasEligibleNFTs } = deriveLPState(lpState)
   const walletNFTs = useMemo(() => getWalletNFTsForState(lpState), [lpState])
   const nonEligibleNFTs = useMemo(() => getNonEligibleNFTsForState(lpState), [lpState])
 
-  // 1.1 Guest — wallet not connected
+  // 1.1 Guest — wallet not connected (same hero on both tabs)
   if (!isConnected) {
     return <GuestState />
   }
 
-  // 1.2 Connected · no NFTs in wallet · no listings
-  if (!hasEligibleNFTs && !hasListings) {
-    return <NoNFTsState />
+  // ── /lp/list tab ── (onboarding + eligible NFTs + inline Lite/Pro form) ──
+  if (mode === 'list') {
+    // 1.2 No NFTs in wallet
+    if (!hasEligibleNFTs) {
+      // 1.4 case: connected with listings but no more eligible NFTs to list
+      if (hasListings) {
+        return <AllListedOnListTab />
+      }
+      // 1.2 pure case: no listings, no eligible NFTs
+      return <NoNFTsState />
+    }
+    // 1.3 / 1.5: eligible NFTs available — inline Lite/Pro form on selection
+    return (
+      <ListFlowPage
+        walletNFTs={walletNFTs}
+        nonEligibleNFTs={nonEligibleNFTs}
+        hasListings={hasListings}
+      />
+    )
   }
 
-  // 1.3 Connected · has NFTs · no listings
-  if (hasEligibleNFTs && !hasListings) {
-    return <FreshUserState walletNFTs={walletNFTs} nonEligibleNFTs={nonEligibleNFTs} />
+  // ── /lp/positions tab ── (existing listings table) ──
+  if (!hasListings) {
+    // 1.2/1.3 case: connected but no positions yet
+    return <NoPositionsState hasEligibleNFTs={hasEligibleNFTs} />
   }
-
-  // 1.4 + 1.5 — connected with listings (table render below)
-  return (
-    <ListingsView
-      walletNFTs={hasEligibleNFTs ? walletNFTs : []}
-      nonEligibleNFTs={nonEligibleNFTs}
-      allListed={!hasEligibleNFTs}
-    />
-  )
+  // 1.4 + 1.5: table view
+  return <ListingsView />
 }
 
-// ───────── Main listings view (used for states 1.4 + 1.5) ─────────
-function ListingsView({ walletNFTs, nonEligibleNFTs, allListed }: { walletNFTs: WalletNFT[]; nonEligibleNFTs: WalletNFT[]; allListed: boolean }) {
+// ───────── Main listings view — table for /lp/positions (states 1.4 + 1.5) ─────────
+function ListingsView() {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [pairFilter, setPairFilter] = useState<string>('all')
@@ -299,17 +311,122 @@ function ListingsView({ walletNFTs, nonEligibleNFTs, allListed }: { walletNFTs: 
         </>
       )}
 
-      {/* State 1.5 — eligible NFTs section after existing listings */}
-      {walletNFTs.length > 0 && (
-        <section className="mt-10 pt-8 border-t border-gray-200">
-          <EligibleNFTsSection walletNFTs={walletNFTs} nonEligibleNFTs={nonEligibleNFTs} />
-        </section>
-      )}
+      {/* Listing-flow content moved to /lp/list tab — this tab is pure positions table */}
+    </div>
+  )
+}
 
-      {/* State 1.4 — all deployed footer */}
-      {allListed && walletNFTs.length === 0 && (
-        <AllListedFooter />
+// ───────── /lp/list — Listing flow page ─────────
+// States 1.3 + 1.5: wallet has eligible NFTs (and maybe also has listings).
+// Renders header banner + eligible NFTs grid (with protocol tabs) + inline Lite/Pro form on card click.
+function ListFlowPage({
+  walletNFTs,
+  nonEligibleNFTs,
+  hasListings,
+}: {
+  walletNFTs: WalletNFT[]
+  nonEligibleNFTs: WalletNFT[]
+  hasListings: boolean
+}) {
+  const [selectedNFT, setSelectedNFT] = useState<WalletNFT | null>(null)
+  return (
+    <div>
+      <header className="mb-6">
+        <div className="rounded-lg border border-lime-200 bg-lime-50/50 px-4 py-3 flex items-start gap-3">
+          <span className="text-lime-700 text-xl leading-none mt-0.5">✓</span>
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-gray-900">
+              {hasListings
+                ? `${walletNFTs.length} more eligible Uniswap V3 NFT${walletNFTs.length === 1 ? '' : 's'} ready to list`
+                : `Wallet connected · ${walletNFTs.length} eligible Uniswap V3 NFT${walletNFTs.length === 1 ? '' : 's'} found`}
+            </div>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Pick a position. Lite mode: 1-click with Conservative 1× and 1% Premium APY floor — no liquidation risk.
+            </p>
+          </div>
+          {hasListings && (
+            <Link
+              to="/lp/positions"
+              className="shrink-0 text-xs text-gray-600 hover:text-gray-900 underline decoration-dotted hover:no-underline"
+            >
+              View my positions →
+            </Link>
+          )}
+        </div>
+      </header>
+
+      <EligibleNFTsSection
+        walletNFTs={walletNFTs}
+        nonEligibleNFTs={nonEligibleNFTs}
+        variant={hasListings ? 'secondary' : 'primary'}
+        onSelectNFT={setSelectedNFT}
+      />
+
+      {/* Inline Lite/Pro form modal */}
+      {selectedNFT && (
+        <ListNFTModal nft={selectedNFT} onClose={() => setSelectedNFT(null)} />
       )}
+    </div>
+  )
+}
+
+// State 1.4 on /lp/list tab — all listed; suggest user to mint more on Uniswap.
+function AllListedOnListTab() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-16">
+      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+        <span className="inline-flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl bg-lime-50 text-lime-700 text-2xl">
+          ✓
+        </span>
+        <h2 className="text-lg font-semibold text-gray-900">All eligible NFTs are listed</h2>
+        <p className="mt-2 text-sm text-gray-600 leading-relaxed max-w-md mx-auto">
+          Your wallet has no more Uniswap V3 LP NFTs available to list. To add capacity,
+          mint a new position on Uniswap — sLiq will detect it automatically.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="https://app.uniswap.org/positions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
+          >
+            Mint LP on Uniswap <span aria-hidden>↗</span>
+          </a>
+          <Link
+            to="/lp/positions"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
+          >
+            View my positions →
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// State 1.2/1.3 on /lp/positions tab — no positions yet.
+function NoPositionsState({ hasEligibleNFTs }: { hasEligibleNFTs: boolean }) {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-16">
+      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+        <span className="inline-flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl bg-gray-100 text-gray-400 text-2xl">
+          ◯
+        </span>
+        <h2 className="text-lg font-semibold text-gray-900">No positions on sLiq yet</h2>
+        <p className="mt-2 text-sm text-gray-600 leading-relaxed max-w-md mx-auto">
+          {hasEligibleNFTs
+            ? 'Your wallet has eligible LP NFTs ready to list. Head to the List NFT tab to start earning Premium APY.'
+            : 'Once you list a Uniswap V3 LP NFT on sLiq, it will appear here with earnings, range status, and claim controls.'}
+        </p>
+        <div className="mt-6">
+          <Link
+            to="/lp/list"
+            className="inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-5 py-2.5 text-sm font-medium transition"
+          >
+            {hasEligibleNFTs ? 'List your first NFT →' : 'Open List NFT tab →'}
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
@@ -427,18 +544,19 @@ function FreshUserState({ walletNFTs, nonEligibleNFTs }: { walletNFTs: WalletNFT
   )
 }
 
-// ───────── Eligible NFTs section (used in 1.3 & 1.5) ─────────
-// When wallet has non-Uniswap-V3 NFTs too, show protocol tabs:
-//   [Uniswap V3 (N) — active]  [Aerodrome (M) · Soon]  [PancakeSwap V3 (K) · Soon]
+// ───────── Eligible NFTs section ─────────
+// When wallet has non-Uniswap-V3 NFTs too, show protocol tabs.
 // Active tab renders eligible cards. «Soon» tabs render detected positions + coming-soon banner.
 function EligibleNFTsSection({
   walletNFTs,
   nonEligibleNFTs = [],
   variant = 'secondary',
+  onSelectNFT,
 }: {
   walletNFTs: WalletNFT[]
   nonEligibleNFTs?: WalletNFT[]
   variant?: 'primary' | 'secondary'
+  onSelectNFT?: (nft: WalletNFT) => void
 }) {
   const allNFTs = [...walletNFTs, ...nonEligibleNFTs]
 
@@ -483,7 +601,7 @@ function EligibleNFTsSection({
       {isUniswapTab ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {activeNFTs.map(nft => (
-            <EligibleNFTCard key={nft.tokenId} nft={nft} />
+            <EligibleNFTCard key={nft.tokenId} nft={nft} onSelect={onSelectNFT} />
           ))}
         </div>
       ) : (
@@ -603,13 +721,10 @@ function DetectedNFTCard({ nft }: { nft: WalletNFT }) {
   )
 }
 
-function EligibleNFTCard({ nft }: { nft: WalletNFT }) {
+function EligibleNFTCard({ nft, onSelect }: { nft: WalletNFT; onSelect?: (nft: WalletNFT) => void }) {
   const inRange = nft.rangeStatus === 'in-range'
   return (
-    <Link
-      to="/lp/deposit"
-      className="block rounded-lg border border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm transition p-4"
-    >
+    <div className="rounded-lg border border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm transition p-4">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-gray-900">
           {nft.pair.token0}/{nft.pair.token1}
@@ -637,10 +752,17 @@ function EligibleNFTCard({ nft }: { nft: WalletNFT }) {
         <Row label="Uniswap APR (24h)" value={fmtPct(nft.uniswapAprPct / 100)} mono />
       </div>
 
-      <div className="mt-4 w-full text-center text-sm font-medium bg-[var(--color-role-lp)] hover:opacity-90 text-white rounded-md py-2 transition">
+      <button
+        type="button"
+        onClick={() => onSelect?.(nft)}
+        className="mt-4 w-full text-center text-sm font-medium bg-[var(--color-role-lp)] hover:opacity-90 text-white rounded-md py-2 transition"
+      >
         + List on sLiq
-      </div>
-    </Link>
+      </button>
+      <p className="mt-1 text-center text-[10px] text-gray-500">
+        Lite (1 click) · Pro settings available
+      </p>
+    </div>
   )
 }
 
@@ -876,6 +998,195 @@ function ListingStatusChip({ status, rangeStatus, tiny }: { status: string; rang
   })()
 
   return <span className={baseCls + ' ' + data.cls} title={data.tip}>{data.label}</span>
+}
+
+// ───────── List NFT modal — Lite + Pro toggle ─────────
+// Lite (default): 1-click, leverage=1×, minPremiumAPY=1%, no controls
+// Pro: leverage slider 1-100×, Min APY input, real-time liquidation price, warnings
+function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void }) {
+  const [mode, setMode] = useState<'lite' | 'pro'>('lite')
+  const [leverage, setLeverage] = useState<number>(1)
+  const [minApy, setMinApy] = useState<string>('1')
+
+  // Compute display values
+  const isPro = mode === 'pro'
+  const effectiveLeverage = isPro ? leverage : 1
+  const effectiveMinApy = isPro ? Number(minApy) || 1 : 1
+  // Mock liq-price: spot ± range/leverage (formula per call @38:50)
+  const liqDistancePct = effectiveLeverage > 1 ? (2 / effectiveLeverage) * 100 : null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-base font-semibold text-gray-900">
+                List {nft.pair.token0}/{nft.pair.token1}
+              </h3>
+              <span className="text-[10px] font-mono text-gray-500">{fmtFeeTier(nft.feeTierBps)}</span>
+            </div>
+            <div className="text-[11px] text-gray-500 num mt-0.5">
+              NFT #{nft.tokenId} · {fmtUSD(nft.liquidityUSD)} liquidity
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 text-xl leading-none transition"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Mode tabs */}
+        <div className="px-5 pt-4">
+          <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 p-0.5 w-full">
+            <button
+              type="button"
+              onClick={() => setMode('lite')}
+              className={
+                'flex-1 px-3 py-1.5 text-xs rounded transition font-medium ' +
+                (mode === 'lite' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800')
+              }
+            >
+              Lite <span className="text-[10px] text-gray-400 ml-1">recommended</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('pro')}
+              className={
+                'flex-1 px-3 py-1.5 text-xs rounded transition font-medium ' +
+                (mode === 'pro' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800')
+              }
+            >
+              Pro <span className="text-[10px] text-gray-400 ml-1">advanced</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4">
+          {mode === 'lite' ? (
+            <div className="space-y-3">
+              <ParamRow label="Provider Leverage" value="1× — no liquidation risk" />
+              <ParamRow label="Min Premium APY" value="1% — default floor" />
+              <ParamRow label="Auto-claim" value="Enabled" />
+              <p className="mt-3 text-xs text-gray-600 leading-relaxed bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                <strong>Lite mode</strong> — sensible defaults, no manual tuning. Conservative 1× means
+                you cannot be liquidated by price moves; you still earn Uniswap fees + a 1% Premium APY
+                floor from any trader who rents your liquidity.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Provider Leverage slider */}
+              <div>
+                <div className="flex items-baseline justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
+                  <span className="text-sm font-semibold num text-gray-900">{leverage}×</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={leverage}
+                  onChange={e => setLeverage(Number(e.target.value))}
+                  className="w-full accent-[var(--color-role-lp)]"
+                />
+                <div className="flex justify-between text-[10px] text-gray-500 num mt-0.5">
+                  <span>1× (safe)</span>
+                  <span>50×</span>
+                  <span>100× (max)</span>
+                </div>
+                {leverage > 1 && (
+                  <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex items-start gap-2">
+                    <span>⚠️</span>
+                    <div>
+                      <strong>Liquidation risk applies.</strong> At {leverage}× your liquidation triggers
+                      when the pool moves ~<span className="num">{liqDistancePct?.toFixed(1)}%</span> against your range.
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Min Premium APY input */}
+              <div>
+                <div className="flex items-baseline justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-700">Min Premium APY</label>
+                  <span className="text-[10px] text-gray-500">Default: 1%</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    step={0.1}
+                    value={minApy}
+                    onChange={e => setMinApy(e.target.value)}
+                    className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Floor for the auction. Traders bid above this — 1% is the protocol minimum.
+                </p>
+              </div>
+
+              {/* Pro mode read-only Virtual Market preview */}
+              <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
+                <ParamRow label="Virtual Market" value={fmtUSD(nft.liquidityUSD * effectiveLeverage)} small />
+                <ParamRow label="Real Backing" value={fmtUSD(nft.liquidityUSD)} small />
+                <ParamRow
+                  label="Liquidation price"
+                  value={leverage > 1 ? `~${liqDistancePct?.toFixed(1)}% from spot` : '— (no liquidation)'}
+                  small
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer CTAs */}
+        <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-2 text-xs text-gray-600 hover:text-gray-900 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              /* Prototype: stub-list. Real impl: contract call with effectiveLeverage + effectiveMinApy */
+              onClose()
+            }}
+            className="ml-auto inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-4 py-2 text-sm font-semibold transition"
+          >
+            {mode === 'lite' ? 'List with Lite defaults' : `List with Pro settings (${leverage}× · ${effectiveMinApy}%)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ParamRow({ label, value, small }: { label: string; value: React.ReactNode; small?: boolean }) {
+  return (
+    <div className={`flex items-baseline justify-between ${small ? 'text-[11px]' : 'text-xs'}`}>
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium text-gray-900 num">{value}</span>
+    </div>
+  )
 }
 
 // Aggregated claimable across all listings — was on a separate /lp/claims tab; now lives here.

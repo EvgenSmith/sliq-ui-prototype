@@ -12,7 +12,7 @@ import type { ChainId } from '@/lib/types'
 
 const SECTIONS = [
   { id: 'trade', label: 'Trade', match: ['/listings', '/trader'], dest: '/listings' },
-  { id: 'pools', label: 'Pools', match: ['/lp'], dest: '/lp/listings' },
+  { id: 'pools', label: 'Pools', match: ['/lp'], dest: '/lp/list' },
 ] as const
 
 export function AppHeader() {
