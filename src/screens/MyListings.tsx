@@ -160,7 +160,7 @@ function ListingsView() {
         <OnboardingBanner />
 
         {/* Summary cards */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           <SummaryCard label="Earning today" subtitle="across all listings" valueColor="success">
             +{fmtUSD(summary.earningToday)}
           </SummaryCard>
@@ -351,7 +351,8 @@ function ListFlowPage({
                 Wallet connected · {walletNFTs.length} eligible Uniswap V3 NFT{walletNFTs.length === 1 ? '' : 's'} found
               </div>
               <p className="text-xs text-gray-600 mt-0.5">
-                Pick a position. Lite mode: 1-click with Conservative 1× and 1% Premium APY floor — no liquidation risk.
+                Pick a position to start earning extra carry on top of Uniswap fees.{' '}
+                <span className="text-gray-500 num">Pick → Sign → Earn</span>
               </p>
             </div>
           </div>
@@ -484,14 +485,17 @@ function AllListedOnListTab() {
           mint a new position on Uniswap — sLiq will detect it automatically.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href="https://app.uniswap.org/positions"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
+          <button
+            type="button"
+            disabled
+            className="inline-flex items-center gap-2 rounded-md bg-gray-900/30 text-white px-5 py-2.5 text-sm font-medium cursor-not-allowed"
+            title="Direct LP minting from sLiq — coming after Beta"
           >
-            Mint LP on Uniswap <span aria-hidden>↗</span>
-          </a>
+            Provide liquidity
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/20 text-white/90">
+              Coming soon
+            </span>
+          </button>
           <Link
             to="/lp/positions"
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
@@ -499,6 +503,17 @@ function AllListedOnListTab() {
             View my positions →
           </Link>
         </div>
+        <p className="mt-4 text-xs text-gray-500">
+          Or mint another LP on{' '}
+          <a
+            href="https://app.uniswap.org/positions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-700 underline decoration-gray-300 hover:decoration-gray-600 hover:no-underline"
+          >
+            Uniswap ↗
+          </a>
+        </p>
       </div>
     </div>
   )
@@ -557,8 +572,8 @@ function GuestState() {
         </div>
         <div className="mt-8 grid sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
           <ValueChip n="+3–7% APR" label="Premium APY carry" />
-          <ValueChip n="Up to 100×" label="Provider Leverage (Advanced)" />
-          <ValueChip n="2-click exit" label="~4 sec on Arbitrum" />
+          <ValueChip n="Up to 100×" label="Provider Leverage (Pro mode)" />
+          <ValueChip n="Your NFT" label="Stays yours · custody preserved" />
         </div>
       </div>
     </div>
@@ -597,14 +612,18 @@ function NoNFTsState() {
           no V3 LP positions found yet. Mint one on Uniswap and sLiq will detect it automatically.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href="https://app.uniswap.org/positions"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
+          {/* Primary CTA: native sLiq path (disabled until contract supports direct LP mint) */}
+          <button
+            type="button"
+            disabled
+            className="inline-flex items-center gap-2 rounded-md bg-gray-900/30 text-white px-5 py-2.5 text-sm font-medium cursor-not-allowed"
+            title="Direct LP minting from sLiq — coming after Beta"
           >
-            Mint LP on Uniswap <span aria-hidden>↗</span>
-          </a>
+            Provide liquidity & mint NFT
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/20 text-white/90">
+              Coming soon
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => { /* prototype no-op */ }}
@@ -614,7 +633,19 @@ function NoNFTsState() {
             Re-scan wallet
           </button>
         </div>
-        <p className="mt-6 text-xs text-gray-500">
+        <p className="mt-4 text-xs text-gray-500">
+          For now, mint LP on{' '}
+          <a
+            href="https://app.uniswap.org/positions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-700 underline decoration-gray-300 hover:decoration-gray-600 hover:no-underline"
+          >
+            Uniswap ↗
+          </a>{' '}
+          and sLiq will detect it.
+        </p>
+        <p className="mt-3 text-xs text-gray-500">
           Supported: Uniswap V3 on Arbitrum · Ethereum · Base · Optimism · Polygon
         </p>
       </div>
@@ -634,7 +665,8 @@ function FreshUserState({ walletNFTs, nonEligibleNFTs }: { walletNFTs: WalletNFT
               Wallet connected · {walletNFTs.length} eligible Uniswap V3 NFT{walletNFTs.length === 1 ? '' : 's'} found
             </div>
             <p className="text-xs text-gray-600 mt-0.5">
-              Pick a position to wrap into sLiq. Conservative 1× is default — no liquidation risk.
+              Pick a position to start earning extra carry on top of Uniswap fees.{' '}
+              <span className="text-gray-500 num">Pick → Sign → Earn</span>
             </p>
           </div>
         </div>
@@ -730,7 +762,10 @@ function ProtocolTabs({
   onChange: (p: string) => void
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 p-0.5">
+    // Wrapper enables local horizontal scroll on overflow without affecting page layout.
+    // Inner inline-flex stays whitespace-nowrap so chips don't wrap.
+    <div className="max-w-full overflow-x-auto -mx-1 px-1">
+      <div className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 p-0.5 whitespace-nowrap">
       {groups.map(([protocol, nfts]) => {
         const label = PROTOCOL_LABELS[protocol as keyof typeof PROTOCOL_LABELS] ?? protocol
         const isActive = active === protocol
@@ -757,6 +792,7 @@ function ProtocolTabs({
           </button>
         )
       })}
+      </div>
     </div>
   )
 }
@@ -1105,181 +1141,280 @@ function ListingStatusChip({ status, rangeStatus, tiny }: { status: string; rang
   return <span className={baseCls + ' ' + data.cls} title={data.tip}>{data.label}</span>
 }
 
-// ───────── List NFT modal — Lite + Pro toggle ─────────
-// Lite (default): 1-click, leverage=1×, minPremiumAPY=1%, no controls
-// Pro: leverage slider 1-100×, Min APY input, real-time liquidation price, warnings
+// ───────── List NFT modal — Lite + Pro toggle + post-listing success ─────────
+type ListStage = 'configure' | 'signing' | 'success'
+const APY_PRESETS = [10, 20, 30, 50, 100]
+
 function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void }) {
+  const [stage, setStage] = useState<ListStage>('configure')
   const [mode, setMode] = useState<'lite' | 'pro'>('lite')
   const [leverage, setLeverage] = useState<number>(1)
-  const [minApy, setMinApy] = useState<string>('1')
+  const [minApy, setMinApy] = useState<number>(1)
 
-  // Compute display values
   const isPro = mode === 'pro'
   const effectiveLeverage = isPro ? leverage : 1
-  const effectiveMinApy = isPro ? Number(minApy) || 1 : 1
-  // Mock liq-price: spot ± range/leverage (formula per call @38:50)
+  const effectiveMinApy = isPro ? minApy : 1
+  // Mock liq-price: spot ± range/leverage (per call @38:50)
   const liqDistancePct = effectiveLeverage > 1 ? (2 / effectiveLeverage) * 100 : null
+
+  function handleSubmit() {
+    setStage('signing')
+    // Simulate wallet signature + tx mining
+    setTimeout(() => setStage('success'), 1400)
+  }
+
+  function handleListAnother() {
+    // Reset for chained listing in same modal
+    setStage('configure')
+    setMode('lite')
+    setLeverage(1)
+    setMinApy(1)
+    onClose() // close so user picks another NFT from grid
+  }
 
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4"
-      onClick={onClose}
+      onClick={stage === 'configure' ? onClose : undefined}
     >
       <div
         className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-base font-semibold text-gray-900">
-                List {nft.pair.token0}/{nft.pair.token1}
-              </h3>
-              <span className="text-[10px] font-mono text-gray-500">{fmtFeeTier(nft.feeTierBps)}</span>
+        {/* Header — only on configure stage */}
+        {stage === 'configure' && (
+          <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-base font-semibold text-gray-900">
+                  List {nft.pair.token0}/{nft.pair.token1}
+                </h3>
+                <span className="text-[10px] font-mono text-gray-500">{fmtFeeTier(nft.feeTierBps)}</span>
+              </div>
+              <div className="text-[11px] text-gray-500 num mt-0.5">
+                NFT #{nft.tokenId} · {fmtUSD(nft.liquidityUSD)} liquidity
+              </div>
             </div>
-            <div className="text-[11px] text-gray-500 num mt-0.5">
-              NFT #{nft.tokenId} · {fmtUSD(nft.liquidityUSD)} liquidity
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-xl leading-none transition"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Mode tabs */}
-        <div className="px-5 pt-4">
-          <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 p-0.5 w-full">
             <button
               type="button"
-              onClick={() => setMode('lite')}
-              className={
-                'flex-1 px-3 py-1.5 text-xs rounded transition font-medium ' +
-                (mode === 'lite' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800')
-              }
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-700 text-xl leading-none transition"
+              aria-label="Close"
             >
-              Lite <span className="text-[10px] text-gray-400 ml-1">recommended</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('pro')}
-              className={
-                'flex-1 px-3 py-1.5 text-xs rounded transition font-medium ' +
-                (mode === 'pro' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800')
-              }
-            >
-              Pro <span className="text-[10px] text-gray-400 ml-1">advanced</span>
+              ×
             </button>
           </div>
-        </div>
+        )}
 
-        {/* Body */}
-        <div className="px-5 py-4">
-          {mode === 'lite' ? (
-            <div className="space-y-3">
-              <ParamRow label="Provider Leverage" value="1× — no liquidation risk" />
-              <ParamRow label="Min Premium APY" value="1% — default floor" />
-              <ParamRow label="Auto-claim" value="Enabled" />
-              <p className="mt-3 text-xs text-gray-600 leading-relaxed bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-                <strong>Lite mode</strong> — sensible defaults, no manual tuning. Conservative 1× means
-                you cannot be liquidated by price moves; you still earn Uniswap fees + a 1% Premium APY
-                floor from any trader who rents your liquidity.
-              </p>
+        {/* CONFIGURE stage — Lite / Pro tabs + body */}
+        {stage === 'configure' && (
+          <>
+            <div className="px-5 pt-4">
+              <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 p-0.5 w-full">
+                <button
+                  type="button"
+                  onClick={() => setMode('lite')}
+                  className={
+                    'flex-1 px-3 py-1.5 text-xs rounded transition font-medium ' +
+                    (mode === 'lite' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800')
+                  }
+                >
+                  Lite <span className="text-[10px] text-gray-400 ml-1">recommended</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('pro')}
+                  className={
+                    'flex-1 px-3 py-1.5 text-xs rounded transition font-medium ' +
+                    (mode === 'pro' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800')
+                  }
+                >
+                  Pro <span className="text-[10px] text-gray-400 ml-1">advanced</span>
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Provider Leverage slider */}
-              <div>
-                <div className="flex items-baseline justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
-                  <span className="text-sm font-semibold num text-gray-900">{leverage}×</span>
+
+            <div className="px-5 py-4">
+              {mode === 'lite' ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    Traders compete to rent your liquidity. <strong>1% APY is the floor</strong> — bids only go up from here.
+                  </p>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    You don't need to configure APY — the auction sets the price.
+                    Your NFT stays in your control; withdraw any time.
+                  </p>
                 </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={leverage}
-                  onChange={e => setLeverage(Number(e.target.value))}
-                  className="w-full accent-[var(--color-role-lp)]"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 num mt-0.5">
-                  <span>1× (safe)</span>
-                  <span>50×</span>
-                  <span>100× (max)</span>
-                </div>
-                {leverage > 1 && (
-                  <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex items-start gap-2">
-                    <span>⚠️</span>
-                    <div>
-                      <strong>Liquidation risk applies.</strong> At {leverage}× your liquidation triggers
-                      when the pool moves ~<span className="num">{liqDistancePct?.toFixed(1)}%</span> against your range.
+              ) : (
+                <div className="space-y-4">
+                  {/* Provider Leverage slider — labels 25× / 75× */}
+                  <div>
+                    <div className="flex items-baseline justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
+                      <span className="text-sm font-semibold num text-gray-900">{leverage}×</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={leverage}
+                      onChange={e => setLeverage(Number(e.target.value))}
+                      className="w-full accent-[var(--color-role-lp)]"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-500 num mt-0.5">
+                      <span>1×</span>
+                      <span>25×</span>
+                      <span>50×</span>
+                      <span>75×</span>
+                      <span>100×</span>
+                    </div>
+                    {leverage > 1 && (
+                      <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex items-start gap-2">
+                        <span>⚠️</span>
+                        <div>
+                          <strong>Liquidation risk applies.</strong> At {leverage}× your liquidation triggers
+                          when the pool moves ~<span className="num">{liqDistancePct?.toFixed(1)}%</span> against your range.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Min APY input — +/- buttons + presets */}
+                  <div>
+                    <div className="flex items-baseline justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-700">Min Premium APY</label>
+                      <span className="text-[10px] text-gray-500">Default: 1%</span>
+                    </div>
+                    <div className="flex items-stretch gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMinApy(v => Math.max(1, v - 1))}
+                        className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                        aria-label="Decrease by 1%"
+                      >
+                        −
+                      </button>
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={minApy}
+                          onChange={e => setMinApy(Math.max(1, Number(e.target.value) || 1))}
+                          className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition text-center"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMinApy(v => v + 1)}
+                        className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                        aria-label="Increase by 1%"
+                      >
+                        +
+                      </button>
+                    </div>
+                    {/* Presets */}
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {APY_PRESETS.map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setMinApy(p)}
+                          className={
+                            'px-2.5 py-1 text-[11px] font-medium rounded border transition ' +
+                            (minApy === p
+                              ? 'bg-[var(--color-role-lp-bg)] border-[var(--color-role-lp)] text-[var(--color-role-lp)]'
+                              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900')
+                          }
+                        >
+                          {p}%
+                        </button>
+                      ))}
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Min Premium APY input */}
-              <div>
-                <div className="flex items-baseline justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-700">Min Premium APY</label>
-                  <span className="text-[10px] text-gray-500">Default: 1%</span>
+                  {/* Pro-mode read-only preview */}
+                  <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
+                    <ParamRow label="Virtual Market" value={fmtUSD(nft.liquidityUSD * effectiveLeverage)} small />
+                    <ParamRow label="Real Backing" value={fmtUSD(nft.liquidityUSD)} small />
+                    <ParamRow
+                      label="Liquidation price"
+                      value={leverage > 1 ? `~${liqDistancePct?.toFixed(1)}% from spot` : '— (no liquidation)'}
+                      small
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={1}
-                    step={0.1}
-                    value={minApy}
-                    onChange={e => setMinApy(e.target.value)}
-                    className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
-                </div>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  Floor for the auction. Traders bid above this — 1% is the protocol minimum.
-                </p>
-              </div>
-
-              {/* Pro mode read-only Virtual Market preview */}
-              <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
-                <ParamRow label="Virtual Market" value={fmtUSD(nft.liquidityUSD * effectiveLeverage)} small />
-                <ParamRow label="Real Backing" value={fmtUSD(nft.liquidityUSD)} small />
-                <ParamRow
-                  label="Liquidation price"
-                  value={leverage > 1 ? `~${liqDistancePct?.toFixed(1)}% from spot` : '— (no liquidation)'}
-                  small
-                />
-              </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Footer CTAs */}
-        <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-2 text-xs text-gray-600 hover:text-gray-900 transition"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              /* Prototype: stub-list. Real impl: contract call with effectiveLeverage + effectiveMinApy */
-              onClose()
-            }}
-            className="ml-auto inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-4 py-2 text-sm font-semibold transition"
-          >
-            {mode === 'lite' ? 'List with Lite defaults' : `List with Pro settings (${leverage}× · ${effectiveMinApy}%)`}
-          </button>
-        </div>
+            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-2 text-xs text-gray-600 hover:text-gray-900 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="ml-auto inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-5 py-2 text-sm font-semibold transition"
+              >
+                List
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* SIGNING stage — waiting for wallet signature */}
+        {stage === 'signing' && (
+          <div className="px-6 py-10 text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-gray-100 text-gray-500">
+              <svg width="22" height="22" viewBox="0 0 24 24" className="animate-spin">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeOpacity="0.2" />
+                <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="text-base font-semibold text-gray-900">Listing your NFT…</div>
+            <p className="mt-1 text-xs text-gray-500">Confirm the signature in your wallet.</p>
+          </div>
+        )}
+
+        {/* SUCCESS stage — listed confirmation */}
+        {stage === 'success' && (
+          <div className="px-6 py-8 text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-lime-100 text-lime-700 text-xl">
+              ✓
+            </div>
+            <div className="text-lg font-semibold text-gray-900">NFT listed successfully</div>
+            <p className="mt-1 text-xs text-gray-500">
+              {nft.pair.token0}/{nft.pair.token1} · {fmtFeeTier(nft.feeTierBps)} · {fmtUSD(nft.liquidityUSD)}
+              {' · '}
+              {mode === 'lite' ? '1× · 1% min APY' : `${leverage}× · ${effectiveMinApy}% min APY`}
+            </p>
+            <p className="mt-4 text-xs text-gray-600 leading-relaxed max-w-sm mx-auto">
+              Your NFT is now available for traders. You'll start earning carry as soon as someone rents it.
+            </p>
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2">
+              <Link
+                to="/lp/positions"
+                onClick={onClose}
+                className="inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-5 py-2.5 text-sm font-semibold transition"
+              >
+                View in My Listings
+              </Link>
+              <button
+                type="button"
+                onClick={handleListAnother}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
+              >
+                List another
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

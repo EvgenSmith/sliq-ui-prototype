@@ -86,7 +86,7 @@ export function AppHeader() {
         {/* Network switcher + LP demo state switcher (dev-only) + Wallet (with copy) */}
         <div className="ml-auto flex items-center gap-2">
           <LPStateSwitcher />
-          <NetworkSwitcher value={chain} onChange={setChain} />
+          <NetworkSwitcher value={chain} onChange={setChain} compact />
           {renderAsGuest ? (
             <button
               type="button"

@@ -31,11 +31,11 @@ export default function App() {
     return <Landing />
   }
   return (
-    <div className="min-h-full flex flex-col">
+    <div className="min-h-full flex flex-col overflow-x-hidden">
       <AppHeader />
       <StatusBanner />
       <AppSubNav />
-      <main className="flex-1">
+      <main className="flex-1 overflow-x-hidden">
         <Routes>
           {/* Trade section */}
           <Route path="/listings" element={<ListingsMarketplace />} />

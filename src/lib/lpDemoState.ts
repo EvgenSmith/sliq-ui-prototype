@@ -13,11 +13,11 @@ export type LPDemoStateId =
   | 'connected-partial'        // 1.5 — connected, has listings AND more eligible NFTs
 
 export const LP_DEMO_STATES: { id: LPDemoStateId; code: string; label: string; short: string }[] = [
-  { id: 'guest',                code: '1.1', label: 'Guest',          short: 'Not connected' },
-  { id: 'connected-no-nfts',    code: '1.2', label: 'No NFTs',        short: 'Connected · empty wallet' },
-  { id: 'connected-fresh',      code: '1.3', label: 'Fresh',          short: 'Has NFTs · no listings' },
-  { id: 'connected-all-listed', code: '1.4', label: 'All listed',     short: 'All NFTs deployed' },
-  { id: 'connected-partial',    code: '1.5', label: 'Partial',        short: 'Some listed · more available' },
+  { id: 'guest',                code: '1.1', label: 'Not connected',       short: 'Wallet not connected' },
+  { id: 'connected-no-nfts',    code: '1.2', label: 'Wallet · empty',      short: 'Connected · 0 LP NFTs' },
+  { id: 'connected-fresh',      code: '1.3', label: 'Has NFT · no listings', short: 'Eligible to list · nothing listed yet' },
+  { id: 'connected-all-listed', code: '1.4', label: 'All listed',          short: 'No more eligible NFTs · all deployed' },
+  { id: 'connected-partial',    code: '1.5', label: 'Partial listed',      short: 'Some listed · more available' },
 ]
 
 const STORAGE_KEY = 'sliq.lpDemoState'
