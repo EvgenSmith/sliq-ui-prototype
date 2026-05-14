@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { listings, positions, connectedWallet } from '@/mocks/data'
+import { listings, positions, closedPositions, connectedWallet } from '@/mocks/data'
 import {
   fmtFeeTier,
   fmtPct,
@@ -1289,7 +1289,7 @@ function OwnerPanel({
               />
               <ActionButton
                 title="Top up liquidity"
-                subtitle="Soon — добавить ликвидность к позиции"
+                subtitle=""
                 onClick={() => {}}
                 disabled
                 tooltipLabel="Top up — Soon"
@@ -1297,7 +1297,7 @@ function OwnerPanel({
               />
               <ActionButton
                 title="Auto-compound Uniswap fees"
-                subtitle="Soon — keeper compound на каждом settlement"
+                subtitle=""
                 onClick={() => {}}
                 disabled
                 tooltipLabel="Auto-compound — Soon"
@@ -1563,6 +1563,13 @@ function OwnerPanel({
       </div>
       )}
 
+      {/* Rental history — per-trader audit of closed rentals on THIS listing.
+          Fills the «black-box» gap between Fees aggregate ($X earned) and the
+          per-trade detail of where that came from. See doc rationale 2026-05-15.
+          Format adapted from Market Transactions (ClosedPositionsList) with LP-
+          perspective columns (no Pair, no trader-PnL; instead «Earned for me»). */}
+      <RentalHistory listing={listing} />
+
       {/* Manage listing · Pro panel moved up next to Listing summary (Eugene 2026-05-15) —
           user switches to Pro specifically to tune leverage / min APY, panel needs to be
           visible without scrolling. See paired layout inside the Listing Summary IIFE above.
@@ -1794,6 +1801,144 @@ function OwnerPanel({
   )
 }
 
+// RentalHistory — per-listing log of closed trader rentals.
+// Format derived from Market Transactions (ClosedPositionsList) but LP-perspective:
+//   columns drop Pair (single listing), Entry→Exit, % move, trader Net PnL.
+//   columns keep Trader / Notional / APY paid / Held / Earned-for-LP / Outcome / Closed.
+// Default shows 7 most recent + «View all» expand. Empty state when zero closes.
+function RentalHistory({ listing }: { listing: import('@/lib/types').Listing }) {
+  const [expanded, setExpanded] = useState(false)
+  const rentals = useMemo(() => {
+    return closedPositions
+      .filter(c => c.listingId === listing.id)
+      .sort((a, b) => b.closedAt - a.closedAt)
+  }, [listing.id])
+
+  const visible = expanded ? rentals : rentals.slice(0, 7)
+  const hasMore = rentals.length > 7
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <div className="flex items-baseline justify-between mb-3 gap-2 flex-wrap">
+        <h2 className="text-base font-semibold inline-flex items-center gap-1">
+          Rental history
+          <HelpPopover label="Rental history" width="w-80">
+            <p className="font-semibold mb-1">Settled rentals on this listing</p>
+            <p className="mb-1.5">Each row = a trader position that opened against this listing and has now closed (paid in full, partial settlement, or liquidated).</p>
+            <p className="text-[11px] text-gray-500"><strong>Earned</strong> = Reference + Premium paid by that trader (your take from this rental). <strong>Outcome</strong> = how settlement resolved.</p>
+          </HelpPopover>
+        </h2>
+        <span className="text-[11px] text-gray-500 num">
+          {rentals.length} {rentals.length === 1 ? 'settled rental' : 'settled rentals'}
+        </span>
+      </div>
+
+      {rentals.length === 0 ? (
+        <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center">
+          <p className="text-sm text-gray-600">No rentals settled yet.</p>
+          <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+            History appears here once traders open and close positions against this listing.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop */}
+          <div className="hidden md:block overflow-hidden rounded-md border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left font-medium px-3 py-2">Trader</th>
+                  <th className="text-right font-medium px-3 py-2">Notional</th>
+                  <th className="text-right font-medium px-3 py-2">APY paid</th>
+                  <th className="text-right font-medium px-3 py-2 hidden lg:table-cell">Held</th>
+                  <th className="text-right font-medium px-3 py-2">Earned</th>
+                  <th className="text-left font-medium px-3 py-2">Outcome</th>
+                  <th className="text-right font-medium px-3 py-2 hidden lg:table-cell">Closed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map(r => {
+                  const earned = r.referencePaidUSD + r.premiumPaidUSD
+                  const outcome = r.liquidated
+                    ? { label: '💥 liquidated', cls: 'bg-red-50 text-[var(--color-status-danger)] border-[var(--color-status-danger)]/40' }
+                    : r.paidInFull
+                    ? { label: 'paid in full', cls: 'bg-gray-50 text-gray-700 border-gray-200' }
+                    : { label: `partial · −${fmtUSD(r.unpaidUSD ?? 0)}`, cls: 'bg-amber-50 text-amber-900 border-amber-300' }
+                  return (
+                    <tr key={r.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/60 transition">
+                      <td className="px-3 py-2 num text-[12px] text-gray-700">{shortAddr(r.trader)}</td>
+                      <td className="px-3 py-2 text-right num">{fmtUSD(r.notionalUSD)}</td>
+                      <td className="px-3 py-2 text-right num">{fmtPct(r.apyBps, { signed: r.apyBps < 0 })}</td>
+                      <td className="px-3 py-2 text-right num text-gray-600 hidden lg:table-cell">{fmtHeld(r.durationHours)}</td>
+                      <td className="px-3 py-2 text-right num font-medium" style={{ color: earned > 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
+                        {earned >= 0 ? '+' : '−'}{fmtUSD(Math.abs(earned))}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={'whitespace-nowrap rounded-full font-medium text-[10px] px-2 py-0.5 border ' + outcome.cls}>{outcome.label}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right text-[11px] text-gray-500 num hidden lg:table-cell">{fmtTimeAgo(r.closedAt)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile — card per rental */}
+          <div className="md:hidden space-y-2">
+            {visible.map(r => {
+              const earned = r.referencePaidUSD + r.premiumPaidUSD
+              const outcome = r.liquidated
+                ? { label: '💥 liquidated', cls: 'bg-red-50 text-[var(--color-status-danger)] border-[var(--color-status-danger)]/40' }
+                : r.paidInFull
+                ? { label: 'paid in full', cls: 'bg-gray-50 text-gray-700 border-gray-200' }
+                : { label: `partial · −${fmtUSD(r.unpaidUSD ?? 0)}`, cls: 'bg-amber-50 text-amber-900 border-amber-300' }
+              return (
+                <div key={r.id} className="rounded-md border border-gray-200 px-3 py-2.5">
+                  <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                    <span className="num text-[12px] text-gray-700">{shortAddr(r.trader)}</span>
+                    <span className={'whitespace-nowrap rounded-full font-medium text-[10px] px-2 py-0.5 border ' + outcome.cls}>{outcome.label}</span>
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] num">
+                    <div><span className="text-gray-500">Notional </span><span>{fmtUSD(r.notionalUSD)}</span></div>
+                    <div><span className="text-gray-500">APY </span><span>{fmtPct(r.apyBps, { signed: r.apyBps < 0 })}</span></div>
+                    <div><span className="text-gray-500">Held </span><span>{fmtHeld(r.durationHours)}</span></div>
+                    <div>
+                      <span className="text-gray-500">Earned </span>
+                      <span className="font-medium" style={{ color: earned > 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
+                        {earned >= 0 ? '+' : '−'}{fmtUSD(Math.abs(earned))}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-1 text-[10px] text-gray-500 num">closed {fmtTimeAgo(r.closedAt)}</div>
+                </div>
+              )
+            })}
+          </div>
+
+          {hasMore && (
+            <div className="mt-3 text-center">
+              <button
+                type="button"
+                onClick={() => setExpanded(e => !e)}
+                className="text-xs font-medium text-[var(--color-role-lp)] hover:underline"
+              >
+                {expanded ? `Show recent 7 ↑` : `View all (${rentals.length}) →`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function fmtHeld(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)}m`
+  if (hours < 48) return `${hours.toFixed(1)}h`
+  return `${(hours / 24).toFixed(1)}d`
+}
+
 // ManageMenu — owner-actions surface in the OwnerPanel header strip.
 //   Lite mode  → no dropdown, single inline «Withdraw NFT» button (only one
 //                action available, dropdown would be needless friction).
@@ -1976,7 +2121,7 @@ function ActionButton({
             <p>{tooltipBody}</p>
           </HelpPopover>
         </div>
-        <div className="text-[11px] text-gray-500 num mt-0.5">{subtitle}</div>
+        {subtitle && <div className="text-[11px] text-gray-500 num mt-0.5">{subtitle}</div>}
       </div>
       <button
         type="button"
