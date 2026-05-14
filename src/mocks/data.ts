@@ -172,6 +172,103 @@ listings.push({
   distanceToLiqPct: 6, // already at trigger
 })
 
+// Maria's listings covering remaining status variants (PAUSED + WITHDRAWAL_REQUESTED)
+// + a multi-protocol listing (GMX) for protocol-column demo.
+listings.push({
+  id: 'L5',
+  tokenId: 422512,
+  owner: '0xMaria',
+  chain: 'arbitrum',
+  dex: 'uniswap-v3',
+  pair: { token0: 'ARB', token1: 'USDC' },
+  feeTierBps: 30,
+  rangeLow: 0.42,
+  rangeHigh: 0.58,
+  currentPrice: 0.49,
+  initialLiquidityUSD: 24_500,
+  availableCapacityUSD: 14_700,
+  totalCapacityUSD: 24_255,
+  providerMode: 'conservative',
+  providerLeverage: 1,
+  minPremiumApyBps: 500,
+  uniswapApyBps: 1850,
+  referenceApyBps: 620,
+  status: 'PAUSED',
+  listedAt: now - 1000 * 60 * 60 * 24 * 4, // 4d ago
+})
+listings.push({
+  id: 'L6',
+  tokenId: 422618,
+  owner: '0xMaria',
+  chain: 'arbitrum',
+  dex: 'uniswap-v3',
+  pair: { token0: 'WETH', token1: 'USDC' },
+  feeTierBps: 5,
+  rangeLow: 3280,
+  rangeHigh: 3520,
+  currentPrice: 3401,
+  initialLiquidityUSD: 42_000,
+  availableCapacityUSD: 4_200,
+  totalCapacityUSD: 41_580,
+  providerMode: 'conservative',
+  providerLeverage: 1,
+  minPremiumApyBps: 1000,
+  uniswapApyBps: 960,
+  referenceApyBps: 380,
+  status: 'WITHDRAWAL_REQUESTED',
+  listedAt: now - 1000 * 60 * 60 * 24 * 2, // 2d ago
+})
+// L8 — Advanced Maria listing close to liquidation (but not yet LIQUIDATING).
+// Ensures «At risk» summary = exactly 2 (this one + L4 LIQUIDATING).
+listings.push({
+  id: 'L8',
+  tokenId: 422740,
+  owner: '0xMaria',
+  chain: 'arbitrum',
+  dex: 'uniswap-v3',
+  pair: { token0: 'WBTC', token1: 'USDC' },
+  feeTierBps: 30,
+  rangeLow: 94_000,
+  rangeHigh: 102_800,
+  currentPrice: 95_800, // close to lower bound
+  initialLiquidityUSD: 70_000,
+  availableCapacityUSD: 14_000,
+  totalCapacityUSD: 1_386_000, // 20× leverage
+  providerMode: 'advanced',
+  providerLeverage: 20,
+  minPremiumApyBps: 1500,
+  uniswapApyBps: 820,
+  referenceApyBps: 240,
+  status: 'ACTIVE',
+  listedAt: now - 1000 * 60 * 60 * 36,
+  aggregateReserveUSD: 1_400,
+  distanceToLiqPct: 18, // < 30 → counts as «at risk» but not LIQUIDATING
+})
+
+// L7 — GMX-protocol listing to demonstrate protocol indicator in the table
+listings.push({
+  id: 'L7',
+  tokenId: 50012,
+  owner: '0xMaria',
+  chain: 'arbitrum',
+  dex: 'gmx',
+  pair: { token0: 'GMX', token1: 'ETH' },
+  feeTierBps: 30,
+  rangeLow: 0.0084,
+  rangeHigh: 0.0112,
+  currentPrice: 0.0096,
+  initialLiquidityUSD: 18_400,
+  availableCapacityUSD: 12_300,
+  totalCapacityUSD: 18_216,
+  providerMode: 'conservative',
+  providerLeverage: 1,
+  minPremiumApyBps: 700,
+  uniswapApyBps: 1340,
+  referenceApyBps: 460,
+  status: 'ACTIVE',
+  listedAt: now - 1000 * 60 * 60 * 12, // 12h ago
+})
+
 // Generated diverse listings — covers all statuses + pairs + modes для Marketplace demo + pagination
 listings.push(...generateListings(50, 100, now))
 

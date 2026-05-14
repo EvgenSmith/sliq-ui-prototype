@@ -153,10 +153,12 @@ export function generateListings(count: number, startId: number, now: number): L
     const aggregateReserveUSD = isAdvanced
       ? totalCapacityUSD * (0.03 + rng() * 0.15)
       : undefined
+    // Distance to liq: at-risk band (< 30) reserved for LIQUIDATING + specific seed listings.
+    // Generated Advanced listings stay in safe band 35-95 to avoid bloating «At risk» metric.
     const distanceToLiqPct = isAdvanced
       ? status === 'LIQUIDATING'
         ? Math.floor(rng() * 8)
-        : 25 + Math.floor(rng() * 70)
+        : 35 + Math.floor(rng() * 60)
       : undefined
 
     const owner = OWNERS[Math.floor(rng() * OWNERS.length)]

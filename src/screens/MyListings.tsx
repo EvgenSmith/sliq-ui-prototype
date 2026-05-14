@@ -11,7 +11,18 @@ import { capacityFreePct, getRangeStatus, isSubsidized, pairLabel } from '@/lib/
 import { HelpPopover } from '@/components/HelpPopover'
 import { useLPDemoState, deriveLPState } from '@/lib/lpDemoState'
 import { getWalletNFTsForState, getNonEligibleNFTsForState, PROTOCOL_LABELS, showListingsForState, type WalletNFT } from '@/mocks/walletNFTs'
-import type { Listing } from '@/lib/types'
+import type { Listing, DexProtocol } from '@/lib/types'
+
+// Protocol name display — keep short, matches «protocol tabs» convention on /lp/list
+function dexLabel(d: DexProtocol): string {
+  switch (d) {
+    case 'uniswap-v3': return 'Uniswap V3'
+    case 'uniswap-v4': return 'Uniswap V4'
+    case 'pancakeswap-v3': return 'PancakeSwap'
+    case 'gmx': return 'GMX'
+    default: return 'Other'
+  }
+}
 
 type StatusFilter = 'all' | 'earning' | 'paused' | 'attention'
 type SortId = 'pnl-desc' | 'pnl-asc' | 'earnings-desc' | 'tvl-desc' | 'hitrate-desc' | 'newest'
@@ -66,6 +77,7 @@ function ListingsView() {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [pairFilter, setPairFilter] = useState<string>('all')
+  const [protocolFilter, setProtocolFilter] = useState<string>('all')
   const [sort, setSort] = useState<SortId>('pnl-desc')
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState<number>(1)
@@ -116,6 +128,9 @@ function ListingsView() {
     if (pairFilter !== 'all') {
       out = out.filter(l => `${l.pair.token0}/${l.pair.token1}` === pairFilter)
     }
+    if (protocolFilter !== 'all') {
+      out = out.filter(l => l.dex === protocolFilter)
+    }
 
     switch (sort) {
       case 'pnl-desc': out.sort((a, b) => (b.netPnLUSD ?? 0) - (a.netPnLUSD ?? 0)); break
@@ -130,13 +145,19 @@ function ListingsView() {
       case 'newest': out.sort((a, b) => b.listedAt - a.listedAt); break
     }
     return out
-  }, [mine, statusFilter, pairFilter, sort])
+  }, [mine, statusFilter, pairFilter, protocolFilter, sort])
 
   const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const pageStart = pageSize === -1 ? 0 : (safePage - 1) * pageSize
   const pageEnd = pageSize === -1 ? filtered.length : pageStart + pageSize
   const visible = filtered.slice(pageStart, pageEnd)
+
+  const myProtocols = useMemo(() => {
+    const set = new Set<string>()
+    mine.forEach(l => set.add(l.dex))
+    return Array.from(set)
+  }, [])
 
   const myPairs = useMemo(() => {
     const set = new Set<string>()
@@ -253,6 +274,17 @@ function ListingsView() {
           >
             <option value="all">All pairs</option>
             {myPairs.map(p => (<option key={p} value={p}>{p}</option>))}
+          </select>
+        )}
+
+        {myProtocols.length > 1 && (
+          <select
+            value={protocolFilter}
+            onChange={e => setProtocolFilter(e.target.value)}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+          >
+            <option value="all">All protocols</option>
+            {myProtocols.map(p => (<option key={p} value={p}>{dexLabel(p as DexProtocol)}</option>))}
           </select>
         )}
 
@@ -962,8 +994,33 @@ function ListingsTable({
           <thead className="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="text-left font-medium px-4 py-2.5">Pair · listing</th>
-              <th className="text-left font-medium px-3 py-2.5">Status</th>
-              <th className="text-right font-medium px-3 py-2.5">TVL</th>
+              <th className="text-left font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1">
+                  Status
+                  <HelpPopover label="Listing statuses" width="w-80">
+                    <p className="font-semibold mb-2">Listing statuses</p>
+                    <ul className="space-y-1.5 text-xs">
+                      <li><strong className="text-[var(--color-status-success)]">Active</strong> — listed, traders can rent. Earning Uniswap fees + Premium APY (when rented).</li>
+                      <li><strong className="text-[var(--color-status-success)]">Full</strong> — 100% capacity leased. Outbid-only — new traders must beat current Premium APY.</li>
+                      <li><strong className="text-gray-700">Paused</strong> — temporarily off-market. No new traders, existing keep paying until close.</li>
+                      <li><strong className="text-[var(--color-status-warning)]">Withdrawal pending</strong> — exit requested. 2-block guard before NFT returns to wallet.</li>
+                      <li><strong className="text-[var(--color-status-danger)]">Liquidating</strong> — listing-level liquidation in flight (Advanced mode + leverage 1× only).</li>
+                      <li><strong className="text-gray-500">Out of range</strong> — Uniswap range crossed by price. No fee accrual until back in range. Orthogonal to listing status.</li>
+                    </ul>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  TVL
+                  <HelpPopover label="TVL · leased %" width="w-72">
+                    <p className="font-semibold mb-1">TVL — Total Value Locked</p>
+                    <p>USD value of LP NFT at listing time. Stays constant unless you adjust the position.</p>
+                    <p className="font-semibold mt-2 mb-1">Leased %</p>
+                    <p>Share of your listed liquidity <strong>currently rented out</strong> by traders. Premium APY accrues only on the leased portion. Higher leased % = more carry.</p>
+                  </HelpPopover>
+                </span>
+              </th>
               <th className="text-right font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1 justify-end">
                   Net PnL
@@ -1035,8 +1092,10 @@ function ListingRow({ listing, lesseesCount, onClick }: { listing: Listing; less
             </span>
           )}
         </div>
-        <div className="text-[11px] text-gray-500 num mt-0.5">
-          NFT #{listing.tokenId}
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[10px] text-gray-500 font-medium">{dexLabel(listing.dex)}</span>
+          <span className="text-gray-300 text-[8px]">·</span>
+          <span className="text-[11px] text-gray-500 num">NFT #{listing.tokenId}</span>
         </div>
       </td>
       <td className="px-3 py-3">
