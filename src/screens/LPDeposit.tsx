@@ -68,9 +68,9 @@ export function LPDeposit() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <nav className="text-xs text-gray-500 mb-3">
-        <Link to="/lp/listings" className="hover:underline">My Listings</Link>
+        <Link to="/lp/listings" className="hover:underline">My listings</Link>
         <span className="mx-1.5">/</span>
-        <span className="text-gray-700">Deposit NFT</span>
+        <span className="text-gray-700">List NFT</span>
       </nav>
 
       <header className="mb-5">

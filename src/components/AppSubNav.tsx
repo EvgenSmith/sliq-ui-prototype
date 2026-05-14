@@ -25,10 +25,12 @@ const TRADE_TABS: SubTab[] = [
   },
 ]
 
+// LP sub-nav: «Deposit» and «Claims» tabs removed per IA simplification.
+//   - «Deposit» — superseded by inline «+ List NFT» CTA inside /lp/listings (states 1.3/1.5).
+//     Deposit form route /lp/deposit is reached via that CTA, not via top nav.
+//   - «Claims» — aggregated into /lp/listings summary; per-listing claim lives in ListingDetail.
 const POOLS_TABS: SubTab[] = [
-  { to: '/lp/listings', label: 'My listings', match: p => p === '/lp/listings' || p.startsWith('/lp/listings/') },
-  { to: '/lp/deposit', label: 'Deposit', match: p => p === '/lp/deposit' },
-  { to: '/lp/claims', label: 'Claims', match: p => p === '/lp/claims' },
+  { to: '/lp/listings', label: 'My listings', match: p => p.startsWith('/lp') },
 ]
 
 const KEEPER_TABS: SubTab[] = [

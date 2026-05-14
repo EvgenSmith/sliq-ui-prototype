@@ -85,7 +85,14 @@ function ListingsView({ walletNFTs, nonEligibleNFTs, allListed }: { walletNFTs: 
     const totalNetPnL = mine.reduce((s, l) => s + (l.netPnLUSD ?? 0), 0)
     const totalTVL = mine.reduce((s, l) => s + l.initialLiquidityUSD, 0)
     const atRisk = mine.filter(l => l.providerMode === 'advanced' && (l.distanceToLiqPct ?? 100) < 30).length
-    return { earningToday, totalNetPnL, totalTVL, atRisk }
+    // Claimable now — aggregated across all active listings (Uniswap fees + Premium + Reference)
+    const claimableNow = mine.reduce((s, l) => {
+      const uniClaimable = (l.lifetimeUniFeesUSD ?? 0) * 0.18 // mock: ~18% sitting unclaimed
+      const premiumClaimable = (l.lifetimePremiumUSD ?? 0) * 0.22
+      const refClaimable = (l.lifetimeReferenceUSD ?? 0) * 0.15
+      return s + uniClaimable + premiumClaimable + refClaimable
+    }, 0)
+    return { earningToday, totalNetPnL, totalTVL, atRisk, claimableNow }
   }, [mine])
 
   // Filter
@@ -132,6 +139,11 @@ function ListingsView({ walletNFTs, nonEligibleNFTs, allListed }: { walletNFTs: 
   return (
     <div>
       <header className="mb-5">
+        {/* Claimable banner — aggregated across all listings, top of page (was a separate /lp/claims tab) */}
+        {summary.claimableNow > 0.01 && (
+          <ClaimableBanner amount={summary.claimableNow} listingsCount={mine.length} />
+        )}
+
         {/* Onboarding banner — collapsed by default */}
         <OnboardingBanner />
 
@@ -166,7 +178,7 @@ function ListingsView({ walletNFTs, nonEligibleNFTs, allListed }: { walletNFTs: 
             </>
           )}
           <Link to="/lp/deposit" className="ml-auto float-right text-[var(--color-role-lp)] hover:underline">
-            + Deposit NFT
+            + List NFT
           </Link>
         </p>
       </header>
@@ -864,6 +876,35 @@ function ListingStatusChip({ status, rangeStatus, tiny }: { status: string; rang
   })()
 
   return <span className={baseCls + ' ' + data.cls} title={data.tip}>{data.label}</span>
+}
+
+// Aggregated claimable across all listings — was on a separate /lp/claims tab; now lives here.
+// Hidden when nothing to claim (cleaner default).
+function ClaimableBanner({ amount, listingsCount }: { amount: number; listingsCount: number }) {
+  return (
+    <div className="mb-4 rounded-lg border border-[var(--color-role-lp)]/30 bg-[var(--color-role-lp-bg)] px-4 py-3 flex items-center gap-3">
+      <span className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-[var(--color-role-lp)]/30 text-[var(--color-role-lp)] text-base">
+        ◈
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-gray-900">
+          Claimable now:{' '}
+          <span className="text-[var(--color-role-lp)] num">+{fmtUSD(amount)}</span>
+        </div>
+        <div className="text-xs text-gray-600 mt-0.5">
+          Accumulated Uniswap fees + Premium APY across {listingsCount} listing{listingsCount === 1 ? '' : 's'}.
+          Claim sweeps all in a single transaction.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => { /* prototype: claim-all stub */ }}
+        className="shrink-0 inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-4 py-2 text-sm font-semibold transition"
+      >
+        Claim all
+      </button>
+    </div>
+  )
 }
 
 function SummaryCard({
