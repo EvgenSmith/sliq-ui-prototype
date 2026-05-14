@@ -1272,8 +1272,11 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
             </div>
 
             <div className="px-5 py-4">
+              {/* Pool info card — shared between Lite + Pro (Protocol / Range / Pool size) */}
+              <PoolInfoCard nft={nft} />
+
               {mode === 'lite' ? (
-                <div className="space-y-3">
+                <div className="mt-4 space-y-3">
                   <p className="text-sm text-gray-700 leading-relaxed">
                     Traders compete to rent your liquidity. <strong>1% APY is the floor</strong> — bids only go up from here.
                   </p>
@@ -1283,28 +1286,48 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Provider Leverage slider — labels 25× / 75× */}
+                <div className="mt-4 space-y-4">
+                  {/* Provider Leverage slider — clickable ticks at 25/50/75/100 + Max button */}
                   <div>
                     <div className="flex items-baseline justify-between mb-1">
                       <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
                       <span className="text-sm font-semibold num text-gray-900">{leverage}×</span>
                     </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={100}
-                      step={1}
-                      value={leverage}
-                      onChange={e => setLeverage(Number(e.target.value))}
-                      className="w-full accent-[var(--color-role-lp)]"
-                    />
-                    <div className="flex justify-between text-[10px] text-gray-500 num mt-0.5">
-                      <span>1×</span>
-                      <span>25×</span>
-                      <span>50×</span>
-                      <span>75×</span>
-                      <span>100×</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={leverage}
+                        onChange={e => setLeverage(Number(e.target.value))}
+                        className="flex-1 accent-[var(--color-role-lp)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setLeverage(100)}
+                        className="text-[10px] uppercase tracking-wide font-semibold px-2 py-1 rounded border border-gray-300 hover:border-[var(--color-role-lp)] hover:text-[var(--color-role-lp)] text-gray-600 transition"
+                      >
+                        Max
+                      </button>
+                    </div>
+                    {/* Clickable tick row */}
+                    <div className="grid grid-cols-5 gap-0.5 mt-1.5">
+                      {[1, 25, 50, 75, 100].map(tick => (
+                        <button
+                          key={tick}
+                          type="button"
+                          onClick={() => setLeverage(tick)}
+                          className={
+                            'text-[10px] num py-0.5 rounded transition ' +
+                            (leverage === tick
+                              ? 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] font-semibold'
+                              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100')
+                          }
+                        >
+                          {tick}×
+                        </button>
+                      ))}
                     </div>
                     {leverage > 1 && (
                       <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex items-start gap-2">
@@ -1372,10 +1395,9 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                     </div>
                   </div>
 
-                  {/* Pro-mode read-only preview */}
+                  {/* Pro-mode read-only preview (leverage-driven) */}
                   <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
                     <ParamRow label="Virtual Market" value={fmtUSD(nft.liquidityUSD * effectiveLeverage)} small />
-                    <ParamRow label="Real Backing" value={fmtUSD(nft.liquidityUSD)} small />
                     <ParamRow
                       label="Liquidation price"
                       value={leverage > 1 ? `~${liqDistancePct?.toFixed(1)}% from spot` : '— (no liquidation)'}
@@ -1399,7 +1421,7 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                 onClick={handleSubmit}
                 className="ml-auto inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-5 py-2 text-sm font-semibold transition"
               >
-                List
+                {mode === 'lite' ? 'List' : `List (${leverage}×, ${effectiveMinApy}%)`}
               </button>
             </div>
           </>
@@ -1421,13 +1443,23 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
 
         {/* SUCCESS stage — listed confirmation */}
         {stage === 'success' && (
-          <div className="px-6 py-8 text-center">
+          <div className="px-6 py-8 text-center relative">
+            {/* Close button — top right */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-xl leading-none transition"
+              aria-label="Close"
+            >
+              ×
+            </button>
             <div className="inline-flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-lime-100 text-lime-700 text-xl">
               ✓
             </div>
             <div className="text-lg font-semibold text-gray-900">NFT listed successfully</div>
             <p className="mt-1 text-xs text-gray-500">
-              {nft.pair.token0}/{nft.pair.token1} · {fmtFeeTier(nft.feeTierBps)} · {fmtUSD(nft.liquidityUSD)}
+              {nft.pair.token0}/{nft.pair.token1} · {fmtFeeTier(nft.feeTierBps)} ·{' '}
+              {PROTOCOL_LABELS[nft.protocol] ?? nft.protocol} · {fmtUSD(nft.liquidityUSD)}
               {' · '}
               {mode === 'lite' ? '1× · 1% min APY' : `${leverage}× · ${effectiveMinApy}% min APY`}
             </p>
@@ -1453,6 +1485,38 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Pool info card — Protocol / Range / Pool size, shown above Lite & Pro body
+function PoolInfoCard({ nft }: { nft: WalletNFT }) {
+  // Mock token-pair amounts derived from liquidityUSD (display-only — real impl reads from V3 NFT metadata)
+  const halfUsd = nft.liquidityUSD / 2
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-1.5">
+      <ParamRow
+        label="Protocol"
+        value={PROTOCOL_LABELS[nft.protocol] ?? nft.protocol}
+        small
+      />
+      <ParamRow
+        label="Range"
+        value={`${nft.priceRange.lower} – ${nft.priceRange.upper}`}
+        small
+      />
+      <ParamRow
+        label="Pool size"
+        value={
+          <span>
+            {fmtUSD(nft.liquidityUSD)}{' '}
+            <span className="text-gray-500 font-normal">
+              ({fmtUSD(halfUsd)} {nft.pair.token0} · {fmtUSD(halfUsd)} {nft.pair.token1})
+            </span>
+          </span>
+        }
+        small
+      />
     </div>
   )
 }
