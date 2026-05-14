@@ -190,6 +190,14 @@ export function ListingDetail() {
           {(!isOwner || ownerMode === 'pro') && (
             <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
           )}
+
+          {/* Owner-specific position analytics — moved from main column to aside per
+              Eugene 2026-05-15: «хочется блоки под Pro metrics поместить». Logical
+              order = market context (ProMetrics: vol / σ / depth) → LP performance
+              (hit-rate, avg leased). Stacked vertically since aside is narrow. */}
+          {isOwner && ownerMode === 'pro' && (
+            <OwnerPositionAnalytics listing={listing} />
+          )}
         </aside>
       </div>
     </div>
@@ -1063,7 +1071,9 @@ function OwnerPanel({
   const subsidized = listing.minPremiumApyBps < 0
   const isAdvanced = listing.providerMode === 'advanced'
   const hitRate = listing.rangeHitRatePct ?? 0
-  const avgLeased = listing.avgLeasedPct30d ?? 0
+  // avgLeased moved to OwnerPositionAnalytics (right aside under ProMetrics)
+  // per Eugene 2026-05-15. Only hitRate still referenced inside OwnerPanel
+  // (the «💡 Что делать» amber callout under Fees).
 
   return (
     <div className="space-y-5">
@@ -1344,34 +1354,41 @@ function OwnerPanel({
           {/* Trader market — derived figure that only exists at leverage > 1.
               Vocabulary matches the List NFT modal (ProPreview): Pool size × Leverage.
               Hidden for Conservative listings (would equal Pool size, redundant)
-              and in Lite view (kept clean per call 2026-05-14). */}
-          {isPro && isAdvanced && (
-            <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
-                Trader market
-                <HelpPopover label="Trader market" width="w-72">
-                  <div className="font-semibold mb-1">Trader market = Pool size × Leverage</div>
-                  The leveraged exposure traders compete for. Your NFT backs it at
-                  the Pool-size amount; traders pay Premium APY on the full
-                  Trader-market size. At 1× leverage Trader market = Pool size.
-                </HelpPopover>
-              </dt>
-              <dd className="font-semibold text-gray-900 num">
-                {fmtUSD(listing.totalCapacityUSD)}
-                <span className="text-[11px] text-gray-500 font-normal ml-1.5">
-                  = {fmtUSD(listing.initialLiquidityUSD)} × {listing.providerLeverage}×
-                </span>
-              </dd>
-              <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">
-                {(() => {
-                  const { t0Amt, t1Amt } = splitToTokens(listing.totalCapacityUSD, listing)
-                  return t0Amt !== null && t1Amt !== null
-                    ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
-                    : `${fmtUSD(listing.totalCapacityUSD / 2)} ${listing.pair.token0} · ${fmtUSD(listing.totalCapacityUSD / 2)} ${listing.pair.token1}`
-                })()}
-              </dd>
-            </div>
-          )}
+              and in Lite view (kept clean per call 2026-05-14).
+              IMPORTANT: compute as initialLiquidity × leverage directly, NOT from
+              listing.totalCapacityUSD — mocks have inconsistent semantics for that
+              field across listings (some apply leverage, some don't), which made
+              Trader market render identical to Pool size in many cases. */}
+          {isPro && isAdvanced && (() => {
+            const traderMarketUSD = listing.initialLiquidityUSD * listing.providerLeverage
+            return (
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  Trader market
+                  <HelpPopover label="Trader market" width="w-72">
+                    <div className="font-semibold mb-1">Trader market = Pool size × Leverage</div>
+                    The leveraged exposure traders compete for. Your NFT backs it at
+                    the Pool-size amount; traders pay Premium APY on the full
+                    Trader-market size. At 1× leverage Trader market = Pool size.
+                  </HelpPopover>
+                </dt>
+                <dd className="font-semibold text-gray-900 num">
+                  {fmtUSD(traderMarketUSD)}
+                  <span className="text-[11px] text-gray-500 font-normal ml-1.5">
+                    = {fmtUSD(listing.initialLiquidityUSD)} × {listing.providerLeverage}×
+                  </span>
+                </dd>
+                <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">
+                  {(() => {
+                    const { t0Amt, t1Amt } = splitToTokens(traderMarketUSD, listing)
+                    return t0Amt !== null && t1Amt !== null
+                      ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
+                      : `${fmtUSD(traderMarketUSD / 2)} ${listing.pair.token0} · ${fmtUSD(traderMarketUSD / 2)} ${listing.pair.token1}`
+                  })()}
+                </dd>
+              </div>
+            )
+          })()}
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Range</dt>
             <dd className="font-medium text-gray-900 num">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
@@ -1490,78 +1507,9 @@ function OwnerPanel({
         )}
       </div>
 
-      {/* Position analytics — Pro only. Two complementary signals:
-          – Range hit-rate (% time price was inside Uniswap range)
-          – Avg leased · 30d (intensity of trader demand — how much of pool was rented on average) */}
-      {isPro && (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Range hit-rate */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-baseline justify-between mb-2">
-            <h3 className="text-sm font-semibold inline-flex items-center gap-1">
-              Range hit-rate · 30d
-              <HelpPopover label="Range hit-rate" width="w-64">
-                <p>% времени, когда цена была внутри твоего Uniswap range. Низкий hit-rate = NFT часто out-of-range, Uniswap fees не идут. Сигнал расширить range или перелистить.</p>
-              </HelpPopover>
-            </h3>
-            <span
-              className="num font-bold text-lg"
-              style={{ color: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
-            >
-              {hitRate}%
-            </span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all"
-              style={{
-                width: `${hitRate}%`,
-                background: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)',
-              }}
-            />
-          </div>
-          <p className="text-[11px] text-gray-500 mt-2 leading-snug">
-            {hitRate > 70 ? 'Хорошо — Uniswap fees регулярно начисляются.'
-             : hitRate > 40 ? 'Средне — рассмотри расширение range.'
-             : 'Низко — NFT часто out-of-range. Withdraw + re-list с новым range.'}
-          </p>
-        </div>
-
-        {/* Avg leased — utilization */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-baseline justify-between mb-2">
-            <h3 className="text-sm font-semibold inline-flex items-center gap-1">
-              Avg leased · 30d
-              <HelpPopover label="Avg leased · 30d" width="w-72">
-                <p className="font-semibold mb-1">Средняя загруженность за 30 дней</p>
-                <p className="mb-1.5">Какая доля пула в среднем была арендована трейдерами за период. Это сигнал спроса: высокая utilization → можно поднять min Premium APY; низкая → надо снизить чтобы привлечь.</p>
-                <p className="text-[11px] text-gray-500">Сейчас в таблице ты видишь snapshot (текущий leased %). Здесь — time-weighted среднее.</p>
-              </HelpPopover>
-            </h3>
-            <span
-              className="num font-bold text-lg"
-              style={{ color: avgLeased > 70 ? 'var(--color-status-success)' : avgLeased > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
-            >
-              {avgLeased}%
-            </span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all"
-              style={{
-                width: `${avgLeased}%`,
-                background: avgLeased > 70 ? 'var(--color-status-success)' : avgLeased > 30 ? 'var(--color-role-lp)' : 'var(--color-status-danger)',
-              }}
-            />
-          </div>
-          <p className="text-[11px] text-gray-500 mt-2 leading-snug">
-            {avgLeased > 70 ? 'Высокий спрос — можно поднять min Premium APY.'
-             : avgLeased > 30 ? 'Умеренный — позиция в work, можно тюнить min APY.'
-             : 'Низкий — спрос слабый. Снизь min Premium APY чтобы привлечь арендаторов.'}
-          </p>
-        </div>
-      </div>
-      )}
+      {/* Position analytics (Range hit-rate + Avg leased) moved to right aside
+          under ProMetrics per Eugene 2026-05-15. Lives in OwnerPositionAnalytics
+          component now, rendered next to ProMetrics for visual grouping. */}
 
       {/* Rental history — per-trader audit of closed rentals on THIS listing.
           Fills the «black-box» gap between Fees aggregate ($X earned) and the
@@ -1798,6 +1746,84 @@ function OwnerPanel({
         onCancel={() => setWithdrawOpen(false)}
       />
     </div>
+  )
+}
+
+// OwnerPositionAnalytics — LP performance retrospective. Two bars stacked.
+// Lives in the right aside under ProMetrics (owner pro view only). The visual
+// pairing reads as «market context → my listing's performance under it».
+function OwnerPositionAnalytics({ listing }: { listing: import('@/lib/types').Listing }) {
+  const hitRate = listing.rangeHitRatePct ?? 0
+  const avgLeased = listing.avgLeasedPct30d ?? 0
+
+  return (
+    <>
+      {/* Range hit-rate */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold inline-flex items-center gap-1">
+            Range hit-rate · 30d
+            <HelpPopover label="Range hit-rate" width="w-64">
+              <p>% времени, когда цена была внутри твоего Uniswap range. Низкий hit-rate = NFT часто out-of-range, Uniswap fees не идут. Сигнал расширить range или перелистить.</p>
+            </HelpPopover>
+          </h3>
+          <span
+            className="num font-bold text-base"
+            style={{ color: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
+          >
+            {hitRate}%
+          </span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full transition-all"
+            style={{
+              width: `${hitRate}%`,
+              background: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)',
+            }}
+          />
+        </div>
+        <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+          {hitRate > 70 ? 'Хорошо — Uniswap fees регулярно начисляются.'
+           : hitRate > 40 ? 'Средне — рассмотри расширение range.'
+           : 'Низко — NFT часто out-of-range. Withdraw + re-list с новым range.'}
+        </p>
+      </div>
+
+      {/* Avg leased — utilization */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold inline-flex items-center gap-1">
+            Avg leased · 30d
+            <HelpPopover label="Avg leased · 30d" width="w-72">
+              <p className="font-semibold mb-1">Средняя загруженность за 30 дней</p>
+              <p className="mb-1.5">Какая доля пула в среднем была арендована трейдерами за период. Это сигнал спроса: высокая utilization → можно поднять min Premium APY; низкая → надо снизить чтобы привлечь.</p>
+              <p className="text-[11px] text-gray-500">Сейчас в таблице ты видишь snapshot (текущий leased %). Здесь — time-weighted среднее.</p>
+            </HelpPopover>
+          </h3>
+          <span
+            className="num font-bold text-base"
+            style={{ color: avgLeased > 70 ? 'var(--color-status-success)' : avgLeased > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
+          >
+            {avgLeased}%
+          </span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full transition-all"
+            style={{
+              width: `${avgLeased}%`,
+              background: avgLeased > 70 ? 'var(--color-status-success)' : avgLeased > 30 ? 'var(--color-role-lp)' : 'var(--color-status-danger)',
+            }}
+          />
+        </div>
+        <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+          {avgLeased > 70 ? 'Высокий спрос — можно поднять min Premium APY.'
+           : avgLeased > 30 ? 'Умеренный — позиция в work, можно тюнить min APY.'
+           : 'Низкий — спрос слабый. Снизь min Premium APY чтобы привлечь арендаторов.'}
+        </p>
+      </div>
+    </>
   )
 }
 
