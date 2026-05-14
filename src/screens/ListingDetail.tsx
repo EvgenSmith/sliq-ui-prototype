@@ -1260,6 +1260,37 @@ function OwnerPanel({
               })()}
             </dd>
           </div>
+          {/* Trader market — derived figure that only exists at leverage > 1.
+              Vocabulary matches the List NFT modal (ProPreview): Pool size × Leverage.
+              Hidden for Conservative listings (would equal Pool size, redundant)
+              and in Lite view (kept clean per call 2026-05-14). */}
+          {isPro && isAdvanced && (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                Trader market
+                <HelpPopover label="Trader market" width="w-72">
+                  <div className="font-semibold mb-1">Trader market = Pool size × Leverage</div>
+                  The leveraged exposure traders compete for. Your NFT backs it at
+                  the Pool-size amount; traders pay Premium APY on the full
+                  Trader-market size. At 1× leverage Trader market = Pool size.
+                </HelpPopover>
+              </dt>
+              <dd className="font-semibold text-gray-900 num">
+                {fmtUSD(listing.totalCapacityUSD)}
+                <span className="text-[11px] text-gray-500 font-normal ml-1.5">
+                  = {fmtUSD(listing.initialLiquidityUSD)} × {listing.providerLeverage}×
+                </span>
+              </dd>
+              <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">
+                {(() => {
+                  const { t0Amt, t1Amt } = splitToTokens(listing.totalCapacityUSD, listing)
+                  return t0Amt !== null && t1Amt !== null
+                    ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
+                    : `${fmtUSD(listing.totalCapacityUSD / 2)} ${listing.pair.token0} · ${fmtUSD(listing.totalCapacityUSD / 2)} ${listing.pair.token1}`
+                })()}
+              </dd>
+            </div>
+          )}
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Range</dt>
             <dd className="font-medium text-gray-900 num">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
