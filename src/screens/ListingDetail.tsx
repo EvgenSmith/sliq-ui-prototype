@@ -1287,7 +1287,7 @@ function OwnerPanel({
                 // was misleading. Function is the same regardless of current mode:
                 // open the leverage editor. The Safe ↔ At-risk mode toggle lives
                 // inside the modal where it belongs. Subtitle reflects current state.
-                title="Update Provider Leverage"
+                title="Provider Leverage"
                 subtitle={`Сейчас: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
                 onClick={() => setLeverageOpen(true)}
                 tooltipLabel="Update Provider Leverage"
@@ -1296,7 +1296,7 @@ function OwnerPanel({
                   : 'Provider Leverage. Сейчас Safe · 1×. В модалке можно переключиться на At-risk · N× (NFT станет collateral) или оставить Safe.'}
               />
               <ActionButton
-                title="Update Min Premium APY"
+                title="Min Premium APY"
                 subtitle={`Сейчас: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
                 onClick={() => setUpdateApyOpen(true)}
                 tooltipLabel="Update Min APY"
@@ -2176,7 +2176,7 @@ function ActionButton({
             : 'border-[var(--color-role-lp)] text-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)]')
         }
       >
-        {disabled ? 'Soon' : 'Edit'}
+        {disabled ? 'Soon' : 'Update'}
       </button>
     </div>
   )
