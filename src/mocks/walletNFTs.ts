@@ -91,19 +91,7 @@ const ALL_WALLET_NFTS: WalletNFT[] = [
     uniswapAprPct: 22.1,
   },
   // Non-eligible — other-protocol LP positions detected in the wallet.
-  // Surfaced as a transparency footer; not «Ready to list».
-  {
-    tokenId: '88421',
-    protocol: 'aerodrome-slipstream',
-    pair: { token0: 'AERO', token1: 'USDC' },
-    feeTierBps: 30,
-    priceRange: { lower: '0.85', upper: '1.20' },
-    rangeStatus: 'in-range',
-    liquidityUSD: 5_600,
-    unclaimedFeesUSD: 12.30,
-    ageDays: 16,
-    uniswapAprPct: 18.4,
-  },
+  // Surfaced as protocol-tab «Coming soon» surface. Keep 2 examples (GMX + PancakeSwap).
   {
     tokenId: '7041',
     protocol: 'gmx',

@@ -1212,17 +1212,14 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
             </div>
 
             <div className="px-5 py-4">
-              {/* Pool info card — shared between Lite + Pro (Protocol / Range / Pool size) */}
-              <PoolInfoCard nft={nft} />
+              {/* Pool info card — Lite shows full defaults; Pro hides leverage/APY rows (configured below) */}
+              <PoolInfoCard nft={nft} showDefaults={mode === 'lite'} />
 
               {mode === 'lite' ? (
-                <div className="mt-4 space-y-3">
+                <div className="mt-4">
                   <p className="text-sm text-gray-700 leading-relaxed">
-                    Traders compete to rent your liquidity. <strong>1% APY is the floor</strong> — bids only go up from here.
-                  </p>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    You don't need to configure APY — the auction sets the price.
-                    Your NFT stays in your control; withdraw any time.
+                    <strong>Sit back — traders pay you to rent your liquidity.</strong>{' '}
+                    Bids start at 1% and only climb. NFT stays in your wallet; withdraw any time.
                   </p>
                 </div>
               ) : (
@@ -1429,10 +1426,34 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
   )
 }
 
-// Pool info card — Protocol / Range / Pool size, shown above Lite & Pro body
-function PoolInfoCard({ nft }: { nft: WalletNFT }) {
-  // Mock token-pair amounts derived from liquidityUSD (display-only — real impl reads from V3 NFT metadata)
+// Mock USD prices (prototype only — real impl reads from oracle / pool quote)
+const TOKEN_USD_PRICE: Record<string, number> = {
+  WETH: 2260, ETH: 2260, USDC: 1, USDT: 1, DAI: 1,
+  WBTC: 98_000, BTC: 98_000,
+  wstETH: 2410, stETH: 2310,
+  ARB: 0.50, GMX: 28, CAKE: 2.50, AERO: 1.05, BNB: 600, OP: 1.80,
+}
+
+// Format token amount with sensible precision based on magnitude.
+function fmtTokenAmount(amount: number): string {
+  if (amount === 0) return '0'
+  if (amount >= 1000) return amount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  if (amount >= 1) return amount.toLocaleString('en-US', { maximumFractionDigits: 4 })
+  if (amount >= 0.0001) return amount.toLocaleString('en-US', { maximumFractionDigits: 6 })
+  return amount.toExponential(2)
+}
+
+// Pool info card — Protocol / Range / Pool size (token amounts + USD).
+// In Lite mode also shows default Provider Leverage + Floor Premium APY.
+// In Pro mode those params are user-configured via slider/input below — hidden here to avoid duplication.
+function PoolInfoCard({ nft, showDefaults }: { nft: WalletNFT; showDefaults?: boolean }) {
+  // Split USD value 50/50 between sides (V3 in-range position approx). Real impl reads exact token balances from NFT metadata.
   const halfUsd = nft.liquidityUSD / 2
+  const price0 = TOKEN_USD_PRICE[nft.pair.token0] ?? 1
+  const price1 = TOKEN_USD_PRICE[nft.pair.token1] ?? 1
+  const amount0 = halfUsd / price0
+  const amount1 = halfUsd / price1
+
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-1.5">
       <ParamRow
@@ -1449,14 +1470,29 @@ function PoolInfoCard({ nft }: { nft: WalletNFT }) {
         label="Pool size"
         value={
           <span>
-            {fmtUSD(nft.liquidityUSD)}{' '}
-            <span className="text-gray-500 font-normal">
-              ({fmtUSD(halfUsd)} {nft.pair.token0} · {fmtUSD(halfUsd)} {nft.pair.token1})
-            </span>
+            {fmtTokenAmount(amount0)} {nft.pair.token0}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
+            <span className="text-gray-400 font-normal mx-1">·</span>
+            {fmtTokenAmount(amount1)} {nft.pair.token1}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
           </span>
         }
         small
       />
+      {showDefaults && (
+        <>
+          <ParamRow
+            label="Provider Leverage"
+            value={<span>1× <span className="text-gray-500 font-normal">— no liquidation</span></span>}
+            small
+          />
+          <ParamRow
+            label="Floor Premium APY"
+            value={<span>1% <span className="text-gray-500 font-normal">— bids start here</span></span>}
+            small
+          />
+        </>
+      )}
     </div>
   )
 }
