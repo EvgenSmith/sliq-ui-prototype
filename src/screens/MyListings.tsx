@@ -190,24 +190,48 @@ function ListingsView() {
           </SummaryCard>
         </div>
 
-        <p className="text-xs text-gray-500 num mt-3">
-          {filtered.length} of {mine.length} listings
-          {attentionTotal > 0 && (
-            <>
-              {' '}·{' '}
-              <button
-                type="button"
-                onClick={() => setAttentionExpanded(e => !e)}
-                className="text-[var(--color-status-danger)] font-medium underline decoration-dotted hover:no-underline inline-flex items-center gap-1"
-              >
-                {attentionTotal} need attention <span aria-hidden="true">{attentionExpanded ? '▴' : '▾'}</span>
-              </button>
-            </>
-          )}
-          <Link to="/lp/deposit" className="ml-auto float-right text-[var(--color-role-lp)] hover:underline">
-            + List NFT
-          </Link>
-        </p>
+        {/* Counts duplicated by filter chips below + Total-pool-size summary card above
+            — only surface this line when there's a real signal to deliver:
+              (a) some filter is active (show «N of M shown · clear filters»)
+              (b) attentionTotal > 0 (show the expandable «N need attention» CTA)
+            In default «no filters, nothing wrong» state the line collapses to just the
+            «+ List NFT» shortcut on the right. */}
+        {(() => {
+          const filtersActive = statusFilter !== 'all' || pairFilter !== 'all' || protocolFilter !== 'all'
+          return (
+            <p className="text-xs text-gray-500 num mt-3 flex items-center gap-3 flex-wrap">
+              {filtersActive && (
+                <span>
+                  {filtered.length} of {mine.length} shown
+                  {' · '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('all')
+                      setPairFilter('all')
+                      setProtocolFilter('all')
+                    }}
+                    className="text-[var(--color-role-lp)] hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                </span>
+              )}
+              {attentionTotal > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAttentionExpanded(e => !e)}
+                  className="text-[var(--color-status-danger)] font-medium underline decoration-dotted hover:no-underline inline-flex items-center gap-1"
+                >
+                  {attentionTotal} need attention <span aria-hidden="true">{attentionExpanded ? '▴' : '▾'}</span>
+                </button>
+              )}
+              <Link to="/lp/deposit" className="ml-auto text-[var(--color-role-lp)] hover:underline">
+                + List NFT
+              </Link>
+            </p>
+          )
+        })()}
       </header>
 
       {/* Attention expandable */}
@@ -244,16 +268,24 @@ function ListingsView() {
             { id: 'attention', label: `Attention${attentionTotal > 0 ? ` (${attentionTotal})` : ''}` },
           ] as const).map(o => {
             const active = statusFilter === o.id
+            const attentionHot = o.id === 'attention' && attentionTotal > 0
+            // Attention chip is the only chip that signals urgency by colour:
+            // - hot + active   → red fill, white text  (urgent + filtered)
+            // - hot + inactive → red soft fill         (urgent, alerting user)
+            // - other chips    → standard segmented control behaviour
+            const cls = active
+              ? attentionHot
+                ? 'bg-[var(--color-status-danger)] text-white font-medium'
+                : 'bg-gray-900 text-white font-medium'
+              : attentionHot
+                ? 'bg-red-50 text-[var(--color-status-danger)] font-medium hover:bg-red-100'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
             return (
               <button
                 key={o.id}
                 type="button"
                 onClick={() => setStatusFilter(o.id)}
-                className={
-                  'text-xs px-2.5 py-1 transition ' +
-                  (active ? 'bg-gray-900 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50') +
-                  (o.id === 'attention' && attentionTotal > 0 && !active ? ' text-[var(--color-status-danger)]' : '')
-                }
+                className={'text-xs px-2.5 py-1 transition ' + cls}
               >
                 {o.label}
               </button>
