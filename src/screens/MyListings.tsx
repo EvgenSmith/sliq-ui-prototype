@@ -1211,8 +1211,8 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
             </div>
 
             <div className="px-5 py-4">
-              {/* Pool info card — Lite shows full defaults; Pro hides leverage/APY rows (configured below) */}
-              <PoolInfoCard nft={nft} showDefaults={mode === 'lite'} />
+              {/* Pool info card — Lite shows pool size + defaults; Pro adapts APY to current minApy */}
+              <PoolInfoCard nft={nft} mode={mode} currentMinApy={effectiveMinApy} />
 
               {mode === 'lite' ? (
                 <div className="mt-4">
@@ -1229,24 +1229,15 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                       <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
                       <span className="text-sm font-semibold num text-gray-900">{leverage}×</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min={1}
-                        max={100}
-                        step={1}
-                        value={leverage}
-                        onChange={e => setLeverage(Number(e.target.value))}
-                        className="flex-1 accent-[var(--color-role-lp)]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setLeverage(100)}
-                        className="text-[10px] uppercase tracking-wide font-semibold px-2 py-1 rounded border border-gray-300 hover:border-[var(--color-role-lp)] hover:text-[var(--color-role-lp)] text-gray-600 transition"
-                      >
-                        Max
-                      </button>
-                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={leverage}
+                      onChange={e => setLeverage(Number(e.target.value))}
+                      className="w-full accent-[var(--color-role-lp)]"
+                    />
                     {/* Clickable tick row */}
                     <div className="grid grid-cols-5 gap-0.5 mt-1.5">
                       {[1, 25, 50, 75, 100].map(tick => (
@@ -1331,15 +1322,8 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                     </div>
                   </div>
 
-                  {/* Pro-mode read-only preview (leverage-driven) */}
-                  <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
-                    <ParamRow label="Virtual Market" value={fmtUSD(nft.liquidityUSD * effectiveLeverage)} small />
-                    <ParamRow
-                      label="Liquidation price"
-                      value={leverage > 1 ? `~${liqDistancePct?.toFixed(1)}% from spot` : '— (no liquidation)'}
-                      small
-                    />
-                  </div>
+                  {/* Pro-mode read-only preview (leverage-driven, token-pair format) */}
+                  <ProPreview nft={nft} leverage={leverage} liqDistancePct={liqDistancePct} />
                 </div>
               )}
             </div>
@@ -1442,16 +1426,36 @@ function fmtTokenAmount(amount: number): string {
   return amount.toExponential(2)
 }
 
-// Pool info card — Protocol / Range / Pool size (token amounts + USD).
-// In Lite mode also shows default Provider Leverage + Floor Premium APY.
-// In Pro mode those params are user-configured via slider/input below — hidden here to avoid duplication.
-function PoolInfoCard({ nft, showDefaults }: { nft: WalletNFT; showDefaults?: boolean }) {
-  // Split USD value 50/50 between sides (V3 in-range position approx). Real impl reads exact token balances from NFT metadata.
+// Compute token-pair amounts from liquidityUSD using mock USD prices (real impl reads from NFT metadata).
+function poolTokenAmounts(nft: WalletNFT, multiplier = 1) {
   const halfUsd = nft.liquidityUSD / 2
   const price0 = TOKEN_USD_PRICE[nft.pair.token0] ?? 1
   const price1 = TOKEN_USD_PRICE[nft.pair.token1] ?? 1
-  const amount0 = halfUsd / price0
-  const amount1 = halfUsd / price1
+  return {
+    amount0: (halfUsd / price0) * multiplier,
+    amount1: (halfUsd / price1) * multiplier,
+    halfUsd: halfUsd * multiplier,
+    totalUsd: nft.liquidityUSD * multiplier,
+  }
+}
+
+// Pool info card — shown in both Lite and Pro modes.
+// Lite: full breakdown incl. Pool size + Provider Leverage default + APY.
+// Pro: Protocol / Range + APY breakdown only. Pool size moves to preview at bottom as Real backing.
+function PoolInfoCard({
+  nft,
+  mode,
+  currentMinApy,
+}: {
+  nft: WalletNFT
+  mode: 'lite' | 'pro'
+  currentMinApy: number
+}) {
+  const { amount0, amount1, halfUsd } = poolTokenAmounts(nft)
+  const isLite = mode === 'lite'
+  const uniApr = nft.uniswapAprPct
+  const premiumFloor = isLite ? 1 : currentMinApy
+  const totalApr = uniApr + premiumFloor
 
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-1.5">
@@ -1465,38 +1469,135 @@ function PoolInfoCard({ nft, showDefaults }: { nft: WalletNFT; showDefaults?: bo
         value={`${nft.priceRange.lower} – ${nft.priceRange.upper}`}
         small
       />
-      <ParamRow
-        label="Pool size"
-        value={
-          <span>
-            {fmtTokenAmount(amount0)} {nft.pair.token0}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
-            <span className="text-gray-400 font-normal mx-1">·</span>
-            {fmtTokenAmount(amount1)} {nft.pair.token1}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
-          </span>
-        }
-        small
-      />
-      {showDefaults && (
-        <>
+
+      {/* Pool size — Lite only (Pro shows it in bottom preview as Real backing) */}
+      {isLite && (
+        <ParamRow
+          label="Pool size"
+          value={
+            <span>
+              {fmtTokenAmount(amount0)} {nft.pair.token0}{' '}
+              <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
+              <span className="text-gray-400 font-normal mx-1">·</span>
+              {fmtTokenAmount(amount1)} {nft.pair.token1}{' '}
+              <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
+            </span>
+          }
+          small
+        />
+      )}
+
+      {/* APY breakdown — divider for visual separation */}
+      <div className="border-t border-gray-200 pt-1.5 mt-1.5 space-y-1.5">
+        <ParamRow
+          label="Uniswap APY"
+          value={<span className="num">{uniApr.toFixed(1)}%</span>}
+          small
+        />
+        <ParamRow
+          label={
+            <span className="inline-flex items-center gap-1">
+              Premium APY
+              <HelpPopover label="Premium APY" width="w-72">
+                <p className="font-semibold mb-1">Premium APY</p>
+                <p>The carry traders pay you to rent your liquidity. Set by a continuous auction: you set a minimum (the floor), traders bid above it.</p>
+                <p className="mt-1.5">This is your <strong>extra yield on top of Uniswap fees</strong> — the reason LPs migrate to sLiq.</p>
+              </HelpPopover>
+            </span>
+          }
+          value={
+            <span className="text-[var(--color-role-lp)] font-semibold num">
+              from {premiumFloor}%
+            </span>
+          }
+          small
+        />
+        <ParamRow
+          label={<span className="font-medium text-gray-900">Total APY</span>}
+          value={
+            <span className="text-gray-900 font-bold num">
+              from {totalApr.toFixed(1)}%
+            </span>
+          }
+          small
+        />
+      </div>
+
+      {/* Provider Leverage — Lite shows default 1× with (i); Pro hides (controlled via slider) */}
+      {isLite && (
+        <div className="border-t border-gray-200 pt-1.5 mt-1.5">
           <ParamRow
-            label="Provider Leverage"
+            label={
+              <span className="inline-flex items-center gap-1">
+                Provider Leverage
+                <HelpPopover label="Provider Leverage" width="w-72">
+                  <p className="font-semibold mb-1">Provider Leverage</p>
+                  <p>Amplifies your earnings — and your risk.</p>
+                  <p className="mt-1.5"><strong>1× (Lite default)</strong> — your liquidity is rented 1:1. <strong>No liquidation risk</strong> from price moves; you only face standard Uniswap IL.</p>
+                  <p className="mt-1.5"><strong>2×–100× (Pro)</strong> — your liquidity is multiplied for trader rental. You earn N× the Premium APY, but if the pool moves against your range, the position can be liquidated.</p>
+                </HelpPopover>
+              </span>
+            }
             value={<span>1× <span className="text-gray-500 font-normal">— no liquidation</span></span>}
             small
           />
-          <ParamRow
-            label="Floor Premium APY"
-            value={<span>1% <span className="text-gray-500 font-normal">— bids start here</span></span>}
-            small
-          />
-        </>
+        </div>
       )}
     </div>
   )
 }
 
-function ParamRow({ label, value, small }: { label: string; value: React.ReactNode; small?: boolean }) {
+// Pro-mode preview — Virtual market (leveraged token amounts) + Real backing (pool size in tokens) + Liq price.
+// Pool size info isn't duplicated above (PoolInfoCard hides it in Pro mode).
+function ProPreview({
+  nft,
+  leverage,
+  liqDistancePct,
+}: {
+  nft: WalletNFT
+  leverage: number
+  liqDistancePct: number | null
+}) {
+  const real = poolTokenAmounts(nft, 1)
+  const virt = poolTokenAmounts(nft, leverage)
+  return (
+    <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
+      <ParamRow
+        label="Virtual market"
+        value={
+          <span>
+            {fmtTokenAmount(virt.amount0)} {nft.pair.token0}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
+            <span className="text-gray-400 font-normal mx-1">·</span>
+            {fmtTokenAmount(virt.amount1)} {nft.pair.token1}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
+          </span>
+        }
+        small
+      />
+      <ParamRow
+        label="Real backing"
+        value={
+          <span>
+            {fmtTokenAmount(real.amount0)} {nft.pair.token0}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(real.halfUsd)})</span>
+            <span className="text-gray-400 font-normal mx-1">·</span>
+            {fmtTokenAmount(real.amount1)} {nft.pair.token1}{' '}
+            <span className="text-gray-500 font-normal">({fmtUSD(real.halfUsd)})</span>
+          </span>
+        }
+        small
+      />
+      <ParamRow
+        label="Liquidation price"
+        value={leverage > 1 ? `~${liqDistancePct?.toFixed(1)}% from spot` : '— (no liquidation)'}
+        small
+      />
+    </div>
+  )
+}
+
+function ParamRow({ label, value, small }: { label: React.ReactNode; value: React.ReactNode; small?: boolean }) {
   return (
     <div className={`flex items-baseline justify-between ${small ? 'text-[11px]' : 'text-xs'}`}>
       <span className="text-gray-500">{label}</span>
