@@ -20,6 +20,7 @@ import { RiskPanel } from '@/components/RiskPanel'
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 import { LPFlowSelector } from '@/components/LPFlowSelector'
 import { HelpPopover } from '@/components/HelpPopover'
+import { CopyAddress } from '@/components/CopyAddress'
 import { capacityFreePct, estimatePositionPnL } from '@/lib/derive'
 import { useState as useState2 } from 'react'
 
@@ -1511,12 +1512,13 @@ function OwnerPanel({
           under ProMetrics per Eugene 2026-05-15. Lives in OwnerPositionAnalytics
           component now, rendered next to ProMetrics for visual grouping. */}
 
-      {/* Rental history — per-trader audit of closed rentals on THIS listing.
-          Fills the «black-box» gap between Fees aggregate ($X earned) and the
-          per-trade detail of where that came from. See doc rationale 2026-05-15.
-          Format adapted from Market Transactions (ClosedPositionsList) with LP-
-          perspective columns (no Pair, no trader-PnL; instead «Earned for me»). */}
-      <RentalHistory listing={listing} />
+      {/* Listing transactions — per-trader audit of closed positions on THIS listing.
+          Named to mirror the global «Market transactions» (ClosedPositionsList) — same
+          data type, just filtered to this one listing. Fills the «black-box» gap
+          between Fees aggregate ($X earned) and the per-position detail of where
+          that came from. Eugene 2026-05-15: «Rental» — не закрепили в продукте,
+          нужно nomenclature parallel to global feed. */}
+      <ListingTransactions listing={listing} />
 
       {/* Manage listing · Pro panel moved up next to Listing summary (Eugene 2026-05-15) —
           user switches to Pro specifically to tune leverage / min APY, panel needs to be
@@ -1827,41 +1829,43 @@ function OwnerPositionAnalytics({ listing }: { listing: import('@/lib/types').Li
   )
 }
 
-// RentalHistory — per-listing log of closed trader rentals.
-// Format derived from Market Transactions (ClosedPositionsList) but LP-perspective:
-//   columns drop Pair (single listing), Entry→Exit, % move, trader Net PnL.
-//   columns keep Trader / Notional / APY paid / Held / Earned-for-LP / Outcome / Closed.
+// ListingTransactions — per-listing log of closed trader positions.
+// Mirrors the global «Market transactions» (ClosedPositionsList) vocabulary —
+// same data type, scoped to this listing. LP-perspective columns vs the
+// global feed: drop Pair (single listing), drop Entry→Exit / % move / trader
+// Net PnL (trader-side numbers irrelevant to LP); keep Trader / Notional /
+// APY paid / Held / Earned-for-LP / Outcome / Closed.
 // Default shows 7 most recent + «View all» expand. Empty state when zero closes.
-function RentalHistory({ listing }: { listing: import('@/lib/types').Listing }) {
+function ListingTransactions({ listing }: { listing: import('@/lib/types').Listing }) {
   const [expanded, setExpanded] = useState(false)
-  const rentals = useMemo(() => {
+  const transactions = useMemo(() => {
     return closedPositions
       .filter(c => c.listingId === listing.id)
       .sort((a, b) => b.closedAt - a.closedAt)
   }, [listing.id])
 
-  const visible = expanded ? rentals : rentals.slice(0, 7)
-  const hasMore = rentals.length > 7
+  const visible = expanded ? transactions : transactions.slice(0, 7)
+  const hasMore = transactions.length > 7
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5">
       <div className="flex items-baseline justify-between mb-3 gap-2 flex-wrap">
         <h2 className="text-base font-semibold inline-flex items-center gap-1">
-          Rental history
-          <HelpPopover label="Rental history" width="w-80">
-            <p className="font-semibold mb-1">Settled rentals on this listing</p>
-            <p className="mb-1.5">Each row = a trader position that opened against this listing and has now closed (paid in full, partial settlement, or liquidated).</p>
-            <p className="text-[11px] text-gray-500"><strong>Earned</strong> = Reference + Premium paid by that trader (your take from this rental). <strong>Outcome</strong> = how settlement resolved.</p>
+          Listing transactions
+          <HelpPopover label="Listing transactions" width="w-80">
+            <p className="font-semibold mb-1">Settled positions on this listing</p>
+            <p className="mb-1.5">Each row = a trader position that opened against this listing and has now closed (paid in full, partial settlement, or liquidated). Same data as the global Market transactions feed, filtered to this listing.</p>
+            <p className="text-[11px] text-gray-500"><strong>Earned</strong> = Reference + Premium paid by that trader (your take from this position). <strong>Outcome</strong> = how settlement resolved.</p>
           </HelpPopover>
         </h2>
         <span className="text-[11px] text-gray-500 num">
-          {rentals.length} {rentals.length === 1 ? 'settled rental' : 'settled rentals'}
+          {transactions.length} {transactions.length === 1 ? 'closed position' : 'closed positions'}
         </span>
       </div>
 
-      {rentals.length === 0 ? (
+      {transactions.length === 0 ? (
         <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center">
-          <p className="text-sm text-gray-600">No rentals settled yet.</p>
+          <p className="text-sm text-gray-600">No transactions yet.</p>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
             History appears here once traders open and close positions against this listing.
           </p>
@@ -1892,7 +1896,12 @@ function RentalHistory({ listing }: { listing: import('@/lib/types').Listing }) 
                     : { label: `partial · −${fmtUSD(r.unpaidUSD ?? 0)}`, cls: 'bg-amber-50 text-amber-900 border-amber-300' }
                   return (
                     <tr key={r.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/60 transition">
-                      <td className="px-3 py-2 num text-[12px] text-gray-700">{shortAddr(r.trader)}</td>
+                      <td className="px-3 py-2 num text-[12px] text-gray-700">
+                        <span className="inline-flex items-center gap-1">
+                          {shortAddr(r.trader)}
+                          <CopyAddress address={r.trader} />
+                        </span>
+                      </td>
                       <td className="px-3 py-2 text-right num">{fmtUSD(r.notionalUSD)}</td>
                       <td className="px-3 py-2 text-right num">{fmtPct(r.apyBps, { signed: r.apyBps < 0 })}</td>
                       <td className="px-3 py-2 text-right num text-gray-600 hidden lg:table-cell">{fmtHeld(r.durationHours)}</td>
@@ -1922,7 +1931,10 @@ function RentalHistory({ listing }: { listing: import('@/lib/types').Listing }) 
               return (
                 <div key={r.id} className="rounded-md border border-gray-200 px-3 py-2.5">
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                    <span className="num text-[12px] text-gray-700">{shortAddr(r.trader)}</span>
+                    <span className="num text-[12px] text-gray-700 inline-flex items-center gap-1">
+                      {shortAddr(r.trader)}
+                      <CopyAddress address={r.trader} />
+                    </span>
                     <span className={'whitespace-nowrap rounded-full font-medium text-[10px] px-2 py-0.5 border ' + outcome.cls}>{outcome.label}</span>
                   </div>
                   <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] num">
@@ -1949,7 +1961,7 @@ function RentalHistory({ listing }: { listing: import('@/lib/types').Listing }) 
                 onClick={() => setExpanded(e => !e)}
                 className="text-xs font-medium text-[var(--color-role-lp)] hover:underline"
               >
-                {expanded ? `Show recent 7 ↑` : `View all (${rentals.length}) →`}
+                {expanded ? `Show recent 7 ↑` : `View all (${transactions.length}) →`}
               </button>
             </div>
           )}
