@@ -416,6 +416,9 @@ function FreshUserState({ walletNFTs, nonEligibleNFTs }: { walletNFTs: WalletNFT
 }
 
 // ───────── Eligible NFTs section (used in 1.3 & 1.5) ─────────
+// When wallet has non-Uniswap-V3 NFTs too, show protocol tabs:
+//   [Uniswap V3 (N) — active]  [Aerodrome (M) · Soon]  [PancakeSwap V3 (K) · Soon]
+// Active tab renders eligible cards. «Soon» tabs render detected positions + coming-soon banner.
 function EligibleNFTsSection({
   walletNFTs,
   nonEligibleNFTs = [],
@@ -425,63 +428,165 @@ function EligibleNFTsSection({
   nonEligibleNFTs?: WalletNFT[]
   variant?: 'primary' | 'secondary'
 }) {
+  const allNFTs = [...walletNFTs, ...nonEligibleNFTs]
+
+  // Group by protocol, Uniswap V3 first
+  const protocolGroups = useMemo(() => {
+    const map = new Map<string, WalletNFT[]>()
+    allNFTs.forEach(n => {
+      const arr = map.get(n.protocol) ?? []
+      arr.push(n)
+      map.set(n.protocol, arr)
+    })
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === 'uniswap-v3') return -1
+      if (b === 'uniswap-v3') return 1
+      return a.localeCompare(b)
+    })
+  }, [allNFTs])
+
+  const [activeProtocol, setActiveProtocol] = useState<string>('uniswap-v3')
+  const activeNFTs = protocolGroups.find(([p]) => p === activeProtocol)?.[1] ?? walletNFTs
+  const showTabs = protocolGroups.length > 1
+  const isUniswapTab = activeProtocol === 'uniswap-v3'
+
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-3 gap-3 flex-wrap">
         <h2 className="text-base font-semibold text-gray-900">
           {variant === 'primary' ? 'Ready to list' : 'More NFTs ready to list'}
-          <span className="ml-2 text-sm text-gray-500 num">({walletNFTs.length})</span>
+          {isUniswapTab && (
+            <span className="ml-2 text-sm text-gray-500 num">({walletNFTs.length})</span>
+          )}
         </h2>
-        {variant === 'secondary' && (
-          <span className="text-xs text-gray-500">
-            in your wallet · not yet on sLiq
-          </span>
+        {showTabs && (
+          <ProtocolTabs
+            groups={protocolGroups}
+            active={activeProtocol}
+            onChange={setActiveProtocol}
+          />
         )}
       </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {walletNFTs.map(nft => (
-          <EligibleNFTCard key={nft.tokenId} nft={nft} />
-        ))}
-      </div>
-      {nonEligibleNFTs.length > 0 && (
-        <NonEligibleFooter nonEligibleNFTs={nonEligibleNFTs} />
+
+      {isUniswapTab ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {activeNFTs.map(nft => (
+            <EligibleNFTCard key={nft.tokenId} nft={nft} />
+          ))}
+        </div>
+      ) : (
+        <ProtocolComingSoon protocol={activeProtocol} nfts={activeNFTs} />
       )}
     </div>
   )
 }
 
-// Transparency footer — surfaces other-protocol LP NFTs detected in the wallet so the user
-// doesn't think we missed them. sLiq Beta = Uniswap V3 only (positioning §1.4 scope-lock);
-// multi-protocol support is After-Beta roadmap.
-function NonEligibleFooter({ nonEligibleNFTs }: { nonEligibleNFTs: WalletNFT[] }) {
-  // Group by protocol for the inline list
-  const byProtocol = nonEligibleNFTs.reduce<Record<string, number>>((acc, n) => {
-    acc[n.protocol] = (acc[n.protocol] ?? 0) + 1
-    return acc
-  }, {})
-  const protocolList = Object.entries(byProtocol)
-    .map(([proto, n]) => `${PROTOCOL_LABELS[proto as keyof typeof PROTOCOL_LABELS]}${n > 1 ? ` (${n})` : ''}`)
-    .join(', ')
-
+// Protocol tab row — Uniswap V3 is the only «active» protocol on Beta; others show «Soon».
+function ProtocolTabs({
+  groups,
+  active,
+  onChange,
+}: {
+  groups: [string, WalletNFT[]][]
+  active: string
+  onChange: (p: string) => void
+}) {
   return (
-    <div className="mt-5 rounded-lg border border-dashed border-gray-300 bg-gray-50/60 px-4 py-3 flex items-start gap-3">
-      <span className="text-gray-400 text-base leading-none mt-0.5">+</span>
-      <div className="flex-1 text-xs">
-        <div className="text-gray-700">
-          <span className="font-medium text-gray-900 num">{nonEligibleNFTs.length}</span>{' '}
-          other LP position{nonEligibleNFTs.length === 1 ? '' : 's'} detected — {protocolList}
+    <div className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 p-0.5">
+      {groups.map(([protocol, nfts]) => {
+        const label = PROTOCOL_LABELS[protocol as keyof typeof PROTOCOL_LABELS] ?? protocol
+        const isActive = active === protocol
+        const isUniswap = protocol === 'uniswap-v3'
+        return (
+          <button
+            key={protocol}
+            type="button"
+            onClick={() => onChange(protocol)}
+            className={
+              'px-3 py-1.5 text-xs rounded transition font-medium inline-flex items-center gap-1.5 whitespace-nowrap ' +
+              (isActive
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                : 'text-gray-500 hover:text-gray-800')
+            }
+          >
+            <span>{label}</span>
+            <span className="num text-gray-400">({nfts.length})</span>
+            {!isUniswap && (
+              <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                Soon
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// «Coming soon» tab content — shows detected positions + roadmap message + waitlist-style CTA.
+function ProtocolComingSoon({ protocol, nfts }: { protocol: string; nfts: WalletNFT[] }) {
+  const label = PROTOCOL_LABELS[protocol as keyof typeof PROTOCOL_LABELS] ?? protocol
+  return (
+    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/60 px-5 py-6">
+      <div className="flex items-start gap-3 mb-4">
+        <span className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-gray-200 text-amber-700 text-base">
+          ⏳
+        </span>
+        <div className="flex-1">
+          <div className="text-sm font-semibold text-gray-900">
+            {label} support — coming after mainnet
+          </div>
+          <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">
+            sLiq Beta supports Uniswap V3 only ({label} integration is on the roadmap).
+            We detected <span className="num font-medium text-gray-900">{nfts.length}</span> position{nfts.length === 1 ? '' : 's'} in your wallet — listed below for transparency.
+          </p>
         </div>
-        <div className="text-gray-500 mt-0.5">
-          sLiq Beta supports Uniswap V3 only. Multi-protocol support coming after mainnet.
-        </div>
+        <button
+          type="button"
+          className="shrink-0 inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap"
+          title={`Get notified when ${label} integration ships`}
+        >
+          Notify me
+        </button>
       </div>
-      <button
-        type="button"
-        className="shrink-0 text-[11px] text-gray-500 hover:text-gray-700 underline decoration-dotted hover:no-underline transition"
-        title="See which positions were detected"
-      >
-        View
-      </button>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 opacity-70">
+        {nfts.map(nft => (
+          <DetectedNFTCard key={nft.tokenId} nft={nft} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Read-only card for detected-but-not-supported NFTs. No CTA; visually muted.
+function DetectedNFTCard({ nft }: { nft: WalletNFT }) {
+  const inRange = nft.rangeStatus === 'in-range'
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-gray-900">
+          {nft.pair.token0}/{nft.pair.token1}
+        </span>
+        <span className="text-[10px] font-mono text-gray-500">
+          {fmtFeeTier(nft.feeTierBps)}
+        </span>
+      </div>
+      <div className="mt-1 text-[11px] text-gray-500 num">
+        NFT #{nft.tokenId}
+      </div>
+      <div className="mt-3 space-y-1.5 text-xs">
+        <Row label="Price range" value={`${nft.priceRange.lower} – ${nft.priceRange.upper}`} />
+        <Row
+          label="Status"
+          value={
+            <span className={inRange ? 'text-[var(--color-status-success)]' : 'text-[var(--color-status-warning)]'}>
+              {inRange ? 'In range' : 'Out of range'}
+            </span>
+          }
+        />
+        <Row label="Liquidity" value={fmtUSD(nft.liquidityUSD)} mono />
+      </div>
     </div>
   )
 }
