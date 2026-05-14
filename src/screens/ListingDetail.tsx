@@ -186,18 +186,18 @@ export function ListingDetail() {
             />
           )}
 
-          {/* Pro Metrics — relocated to right rail. Trader sees always (decision context).
-              Owner sees only in Pro mode (Lite stays lean per call 2026-05-14 feedback). */}
-          {(!isOwner || ownerMode === 'pro') && (
-            <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
-          )}
-
-          {/* Owner-specific position analytics — moved from main column to aside per
-              Eugene 2026-05-15: «хочется блоки под Pro metrics поместить». Logical
-              order = market context (ProMetrics: vol / σ / depth) → LP performance
-              (hit-rate, avg leased). Stacked vertically since aside is narrow. */}
+          {/* Owner-specific position analytics — always-visible quick-glance perf
+              indicators (hit-rate, avg leased). Per Eugene 2026-05-15 placed ABOVE
+              the collapsible ProMetrics block: open-by-default essentials first,
+              collapsed-by-default «advanced» analytics underneath. */}
           {isOwner && ownerMode === 'pro' && (
             <OwnerPositionAnalytics listing={listing} />
+          )}
+
+          {/* Pro Metrics — collapsible «advanced» block. Trader sees always
+              (decision context near Open CTA). Owner sees only in Pro mode. */}
+          {(!isOwner || ownerMode === 'pro') && (
+            <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
           )}
         </aside>
       </div>
@@ -841,7 +841,7 @@ function ProMetrics({
     <details className="rounded-lg border border-gray-200 bg-white p-5">
       <summary className="cursor-pointer text-sm font-semibold hover:text-gray-700 inline-flex items-center gap-2">
         Pro metrics
-        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">для опытных</span>
+        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">advanced</span>
         <span className="text-[11px] text-gray-500 font-normal ml-1">
           {isOwner ? 'performance · vs HODL · vol · σ-distance · auction · OI' : 'vol · σ-distance · auction depth · OI'}
         </span>
@@ -1283,13 +1283,17 @@ function OwnerPanel({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <ActionButton
-                title={isAdvanced ? 'Update Provider Leverage' : 'Enable Advanced mode'}
+                // Single label both modes — Eugene 2026-05-15: «Enable Advanced mode»
+                // was misleading. Function is the same regardless of current mode:
+                // open the leverage editor. The Safe ↔ At-risk mode toggle lives
+                // inside the modal where it belongs. Subtitle reflects current state.
+                title="Update Provider Leverage"
                 subtitle={`Сейчас: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
                 onClick={() => setLeverageOpen(true)}
-                tooltipLabel={isAdvanced ? 'Update Leverage' : 'Enable Advanced'}
+                tooltipLabel="Update Provider Leverage"
                 tooltipBody={isAdvanced
-                  ? 'Provider Leverage 2-100×. Выше = amplified pool под Premium APY, ниже = безопаснее.'
-                  : 'Переключиться с Safe · 1× на At-risk · N×. NFT становится collateral. Только для high-conviction LPs.'}
+                  ? 'Provider Leverage 2–100×. Выше = amplified pool под Premium APY, ниже = безопаснее. Можно вернуться к Safe · 1× выбрав mode в модалке.'
+                  : 'Provider Leverage. Сейчас Safe · 1×. В модалке можно переключиться на At-risk · N× (NFT станет collateral) или оставить Safe.'}
               />
               <ActionButton
                 title="Update Min Premium APY"
@@ -1307,7 +1311,7 @@ function OwnerPanel({
                 tooltipBody="Per Kolya 2026-05-14 @01:21:54: margin = NFT, его докинуть нельзя. Но добавить liquidity к позиции — да, фича в плане."
               />
               <ActionButton
-                title="Auto-compound Uniswap fees"
+                title="Auto-compound fees"
                 subtitle=""
                 onClick={() => {}}
                 disabled
