@@ -485,7 +485,7 @@ function AllListedOnListTab() {
             to="/lp/positions"
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
           >
-            View my positions →
+            View my listings →
           </Link>
         </div>
         <p className="mt-4 text-[11px] text-gray-400">
@@ -504,7 +504,7 @@ function NoPositionsState({ hasEligibleNFTs }: { hasEligibleNFTs: boolean }) {
         <span className="inline-flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl bg-gray-100 text-gray-400 text-2xl">
           ◯
         </span>
-        <h2 className="text-lg font-semibold text-gray-900">No positions on sLiq yet</h2>
+        <h2 className="text-lg font-semibold text-gray-900">No listings on sLiq yet</h2>
         <p className="mt-2 text-sm text-gray-600 leading-relaxed max-w-md mx-auto">
           {hasEligibleNFTs
             ? 'Your wallet has eligible LP NFTs ready to list. Head to the List NFT tab to start earning Premium APY.'

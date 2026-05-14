@@ -27,12 +27,17 @@ const TRADE_TABS: SubTab[] = [
 
 // LP sub-nav: split into 2 logical tabs per Eugene's IA call (2026-05-14):
 //   - «List NFT»: onboarding flow + eligible NFTs + inline Lite/Pro form (states 1.1-1.3)
-//   - «My positions»: existing listings table + claimable banner (states 1.4-1.5)
+//   - «My listings»: existing listings table + claimable banner (states 1.4-1.5)
 // Old /lp/deposit and /lp/claims tabs removed — /lp/list replaces the form flow,
-// claims live inline on My positions header.
+// claims live inline on My listings header.
+//
+// Label asymmetry vs Trade («My positions») is intentional — protocol verbs are
+// «List NFT» (LP) vs «Open position» (Trader), so the containers mirror that.
+// Aligns with OpenSea convention (My listings) we already use on the List button;
+// disambiguates for users wearing both hats (LP + Trader).
 const POOLS_TABS: SubTab[] = [
   { to: '/lp/list', label: 'List NFT', match: p => p === '/lp/list' || p === '/lp/deposit' || p.startsWith('/lp/deposit/') },
-  { to: '/lp/positions', label: 'My positions', match: p => p === '/lp/positions' || p === '/lp/listings' || p.startsWith('/lp/listings/') || p === '/lp/claims' },
+  { to: '/lp/positions', label: 'My listings', match: p => p === '/lp/positions' || p === '/lp/listings' || p.startsWith('/lp/listings/') || p === '/lp/claims' },
 ]
 
 const KEEPER_TABS: SubTab[] = [
