@@ -1116,8 +1116,11 @@ function OwnerPanel({
         </div>
       </div>
 
-      {/* Listing Summary — sLiq-side parameters: pricing, demand, stability.
-          (Position Info above = Uniswap-side facts. These two are intentionally split.) */}
+      {/* Listing Summary + Manage · Pro paired layout (Eugene 2026-05-15:
+          «пользователь включает Pro чтобы настроить плечо и Premium APY — панель
+          должна быть рядом, не внизу страницы»).
+            Lite view  → Summary full width, Manage не рендерится.
+            Pro view   → lg+: Summary | Manage side-by-side; mobile: stacked. */}
       {(() => {
         const totalApyBps = listing.minPremiumApyBps + listing.uniswapApyBps
         const activeCount = activeLessees.length
@@ -1138,7 +1141,7 @@ function OwnerPanel({
         }[stability]
         const leasedUSD = listing.totalCapacityUSD - listing.availableCapacityUSD
         const leasedPct = listing.totalCapacityUSD > 0 ? (leasedUSD / listing.totalCapacityUSD) * 100 : 0
-        return (
+        const summary = (
           <div className="rounded-lg border border-gray-200 bg-white p-4">
             <h3 className="text-sm font-semibold mb-3">Listing summary</h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-sm">
@@ -1229,6 +1232,73 @@ function OwnerPanel({
                 </div>
               </div>
             </dl>
+          </div>
+        )
+        if (!isPro) return summary
+        // Manage · Pro — same JSX as before, just relocated next to Summary.
+        const managePro = (
+          <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-base font-semibold">Manage listing · Pro</h2>
+              {isAdvanced && (listing.healthFactorPct !== undefined) && (
+                <span className="text-[11px] inline-flex items-center gap-1">
+                  Health
+                  <span
+                    className="font-semibold num"
+                    style={{
+                      color: (listing.healthFactorPct ?? 0) > 60 ? 'var(--color-status-success)'
+                        : (listing.healthFactorPct ?? 0) > 30 ? 'var(--color-status-warning)'
+                        : 'var(--color-status-danger)',
+                    }}
+                  >
+                    {listing.healthFactorPct}%
+                  </span>
+                  <HelpPopover label="Health Factor" width="w-72">
+                    <p>Aave-style 0–100% scale. Только для Pro с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
+                  </HelpPopover>
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <ActionButton
+                title={isAdvanced ? 'Update Provider Leverage' : 'Enable Advanced mode'}
+                subtitle={`Сейчас: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
+                onClick={() => setLeverageOpen(true)}
+                tooltipLabel={isAdvanced ? 'Update Leverage' : 'Enable Advanced'}
+                tooltipBody={isAdvanced
+                  ? 'Provider Leverage 2-100×. Выше = amplified pool под Premium APY, ниже = безопаснее.'
+                  : 'Переключиться с Safe · 1× на At-risk · N×. NFT становится collateral. Только для high-conviction LPs.'}
+              />
+              <ActionButton
+                title="Update Min Premium APY"
+                subtitle={`Сейчас: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
+                onClick={() => setUpdateApyOpen(true)}
+                tooltipLabel="Update Min APY"
+                tooltipBody="Floor для auction. Трейдер должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь арендаторов."
+              />
+              <ActionButton
+                title="Top up liquidity"
+                subtitle="Soon — добавить ликвидность к позиции"
+                onClick={() => {}}
+                disabled
+                tooltipLabel="Top up — Soon"
+                tooltipBody="Per Kolya 2026-05-14 @01:21:54: margin = NFT, его докинуть нельзя. Но добавить liquidity к позиции — да, фича в плане."
+              />
+              <ActionButton
+                title="Auto-compound Uniswap fees"
+                subtitle="Soon — keeper compound на каждом settlement"
+                onClick={() => {}}
+                disabled
+                tooltipLabel="Auto-compound — Soon"
+                tooltipBody="Не в текущем sprint. Когда включится — keeper будет автоматически делать collect Uniswap fees и re-добавлять к NFT, без ручных claim/re-deposit."
+              />
+            </div>
+          </div>
+        )
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+            {summary}
+            {managePro}
           </div>
         )
       })()}
@@ -1478,73 +1548,12 @@ function OwnerPanel({
       </div>
       )}
 
-      {/* Manage listing — Pro only.
-          (Claim + Withdraw moved up into the Fees panel — those are core actions, always available.
-          Manage section is for advanced settings: leverage, min APY, Top up, Health factor, auto-compound.) */}
-      {isPro && (
-      <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-base font-semibold">Manage listing · Pro</h2>
-          {isAdvanced && (listing.healthFactorPct !== undefined) && (
-            <span className="text-[11px] inline-flex items-center gap-1">
-              Health
-              <span
-                className="font-semibold num"
-                style={{
-                  color: (listing.healthFactorPct ?? 0) > 60 ? 'var(--color-status-success)'
-                    : (listing.healthFactorPct ?? 0) > 30 ? 'var(--color-status-warning)'
-                    : 'var(--color-status-danger)',
-                }}
-              >
-                {listing.healthFactorPct}%
-              </span>
-              <HelpPopover label="Health Factor" width="w-72">
-                <p>Aave-style 0–100% scale. Только для Pro с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
-              </HelpPopover>
-            </span>
-          )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Leverage editor — opens inline form rather than a confirm modal directly */}
-          <ActionButton
-            title={isAdvanced ? 'Update Provider Leverage' : 'Enable Advanced mode'}
-            subtitle={`Сейчас: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
-            onClick={() => setLeverageOpen(true)}
-            tooltipLabel={isAdvanced ? 'Update Leverage' : 'Enable Advanced'}
-            tooltipBody={isAdvanced
-              ? 'Provider Leverage 2-100×. Выше = amplified pool под Premium APY, ниже = безопаснее.'
-              : 'Переключиться с Safe · 1× на At-risk · N×. NFT становится collateral. Только для high-conviction LPs.'}
-          />
-          <ActionButton
-            title="Update Min Premium APY"
-            subtitle={`Сейчас: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
-            onClick={() => setUpdateApyOpen(true)}
-            tooltipLabel="Update Min APY"
-            tooltipBody="Floor для auction. Трейдер должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь арендаторов."
-          />
-          <ActionButton
-            title="Top up liquidity"
-            subtitle="Soon — добавить ликвидность к позиции"
-            onClick={() => {}}
-            disabled
-            tooltipLabel="Top up — Soon"
-            tooltipBody="Per Kolya 2026-05-14 @01:21:54: margin = NFT, его докинуть нельзя. Но добавить liquidity к позиции — да, фича в плане."
-          />
-          <ActionButton
-            title="Auto-compound Uniswap fees"
-            subtitle="Soon — keeper compound на каждом settlement"
-            onClick={() => {}}
-            disabled
-            tooltipLabel="Auto-compound — Soon"
-            tooltipBody="Не в текущем sprint. Когда включится — keeper будет автоматически делать collect Uniswap fees и re-добавлять к NFT, без ручных claim/re-deposit."
-          />
-        </div>
-      </div>
-      )}
+      {/* Manage listing · Pro panel moved up next to Listing summary (Eugene 2026-05-15) —
+          user switches to Pro specifically to tune leverage / min APY, panel needs to be
+          visible without scrolling. See paired layout inside the Listing Summary IIFE above.
 
-      {/* Active lessees block removed (call 2026-05-14): «lessees» as a term wasn't used —
-          Liquidity Used / Leased % already conveys "how much rented". Per-trader history is
-          not on the LP card. */}
+          Active lessees block was already removed (call 2026-05-14): «lessees» as a term
+          wasn't used — Liquidity Used / Leased % already conveys "how much rented". */}
 
       {/* === Modals === */}
 
