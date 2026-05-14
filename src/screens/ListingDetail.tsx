@@ -2,7 +2,7 @@
 // One page per listing, role-aware tabs (About | Open as Trader | Manage as Owner).
 // Listing is the spine of the product — every link points here.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { listings, positions, connectedWallet } from '@/mocks/data'
 import {
@@ -1074,15 +1074,14 @@ function OwnerPanel({
 
   return (
     <div className="space-y-5">
-      {/* Lite / Pro toggle (mirrors listing flow) — Lite by default; Pro reveals leverage editing,
-          min APY editing, analytics (hit-rate / avg leased / health factor). */}
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5">
-        <div className="text-xs text-gray-600 flex-1 min-w-0">
-          <span className="font-semibold text-gray-900">Manage view:</span>{' '}
-          {isPro
-            ? 'Pro — плечо / min APY / аналитика и health-факторы.'
-            : 'Lite — основные метрики, claim, withdraw. Расширенные настройки в Pro.'}
-        </div>
+      {/* Top action bar — primary owner actions (Claim + Manage▾) on the right,
+          Lite/Pro view toggle on the left. Moved up from the bottom of the page
+          per Eugene 2026-05-15 — owner came here to ACT, not to scroll past
+          read-only data first. Convention: Uniswap V3 / OpenSea / Aave all put
+          owner actions in the page header. */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5 flex-wrap">
+        {/* Lite / Pro view-mode toggle (orthogonal to listing's providerMode).
+            Lite hides advanced analytics; Pro reveals leverage tuning + HF + hit-rate. */}
         <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm">
           <button
             type="button"
@@ -1094,6 +1093,26 @@ function OwnerPanel({
             onClick={() => setOwnerMode('pro')}
             className={'text-xs px-3.5 py-1.5 transition ' + (isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
           >Pro</button>
+        </div>
+
+        {/* Primary actions cluster */}
+        <div className="flex items-center gap-2">
+          {claimableNow > 0.01 && (
+            <button
+              type="button"
+              onClick={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
+              className="text-sm font-semibold px-3.5 py-1.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
+            >
+              Claim {fmtUSD(claimableNow)}
+            </button>
+          )}
+          <ManageMenu
+            isPro={isPro}
+            tokenId={listing.tokenId}
+            onUpdateLeverage={() => setLeverageOpen(true)}
+            onUpdateApy={() => setUpdateApyOpen(true)}
+            onWithdraw={() => setWithdrawOpen(true)}
+          />
         </div>
       </div>
 
@@ -1312,8 +1331,11 @@ function OwnerPanel({
             <span className="num text-[var(--color-status-danger)]">{fmtUSD(ilProxy)}</span>
           </div>
         )}
-        {/* Primary action — single Claim tx (Kolya open action: paid/unpaid merge under the hood) */}
-        <div className="mt-4 flex items-center justify-end gap-2">
+        {/* Inline Claim — duplicates the header action by design: same intent,
+            different context. Header = «I came here to claim», here = «I'm reading
+            the fee breakdown and tap claim from the number I just saw».
+            Withdraw moved to header Manage▾ (destructive, doesn't belong next to fees). */}
+        <div className="mt-4 flex items-center justify-end">
           <button
             type="button"
             disabled={claimableNow <= 0.01}
@@ -1326,14 +1348,6 @@ function OwnerPanel({
             }
           >
             {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Нечего клеймить'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setWithdrawOpen(true)}
-            disabled={withdrawing}
-            className="text-sm font-semibold px-4 py-2 rounded border border-[var(--color-status-danger)] text-[var(--color-status-danger)] hover:bg-red-50 transition disabled:opacity-50"
-          >
-            {withdrawing ? 'Withdrawing…' : 'Withdraw NFT'}
           </button>
         </div>
         {netPnL < 0 && (
@@ -1597,6 +1611,118 @@ function OwnerPanel({
         onCancel={() => setWithdrawOpen(false)}
       />
     </div>
+  )
+}
+
+// ManageMenu — owner-actions dropdown rendered in the OwnerPanel header strip.
+// Pro reveals leverage / min APY editors; both modes get Withdraw + Uniswap link.
+// Destructive item (Withdraw) sits last + danger-coloured.
+function ManageMenu({
+  isPro,
+  tokenId,
+  onUpdateLeverage,
+  onUpdateApy,
+  onWithdraw,
+}: {
+  isPro: boolean
+  tokenId: number
+  onUpdateLeverage: () => void
+  onUpdateApy: () => void
+  onWithdraw: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="text-sm font-semibold px-3.5 py-1.5 rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 transition inline-flex items-center gap-1"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        Manage
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true">
+          <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1 w-60 rounded-md border border-gray-200 bg-white shadow-lg overflow-hidden z-30 py-1"
+        >
+          {isPro && (
+            <>
+              <MenuRow
+                label="Update leverage"
+                hint="Re-lists slices below new floor"
+                onClick={() => { setOpen(false); onUpdateLeverage() }}
+              />
+              <MenuRow
+                label="Update Min Premium APY"
+                hint="Re-lists slices below new floor"
+                onClick={() => { setOpen(false); onUpdateApy() }}
+              />
+              <div className="border-t border-gray-100 my-1" />
+            </>
+          )}
+          <a
+            href={`https://app.uniswap.org/positions/v3/arbitrum/${tokenId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-sm hover:bg-gray-50 transition"
+            role="menuitem"
+          >
+            <div className="font-medium text-gray-900 inline-flex items-center gap-1">
+              View on Uniswap <span aria-hidden="true" className="text-xs">↗</span>
+            </div>
+            <div className="text-[11px] text-gray-500 mt-0.5">Source NFT on app.uniswap.org</div>
+          </a>
+          <div className="border-t border-gray-100 my-1" />
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onWithdraw() }}
+            className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 transition"
+            role="menuitem"
+          >
+            <div className="font-medium text-[var(--color-status-danger)]">Withdraw NFT</div>
+            <div className="text-[11px] text-gray-500 mt-0.5">Closes all open positions, returns NFT to wallet</div>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MenuRow({ label, hint, onClick }: { label: string; hint?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition"
+      role="menuitem"
+    >
+      <div className="font-medium text-gray-900">{label}</div>
+      {hint && <div className="text-[11px] text-gray-500 mt-0.5">{hint}</div>}
+    </button>
   )
 }
 
