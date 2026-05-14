@@ -1136,12 +1136,26 @@ function OwnerPanel({
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  Uniswap APY
+                  <HelpPopover label="Uniswap APY" width="w-64">
+                    <p>Realised pool fee APY за последние 30d на текущем range. Это та доходность, которую NFT и так зарабатывал бы на Uniswap без sLiq. На вершину этого аукцион добавляет Premium APY.</p>
+                  </HelpPopover>
+                </dt>
+                <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   Total APY
                   <HelpPopover label="Total APY" width="w-64">
                     <p>Сумма: <strong>min Premium APY + Uniswap APY</strong>. То, на что в сумме можно рассчитывать при текущих условиях аукциона и Uniswap pool yield.</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num">{fmtPct(totalApyBps)}</dd>
+                <dd className="font-semibold text-gray-900 num text-base flex items-baseline gap-2 flex-wrap">
+                  <span>{fmtPct(totalApyBps)}</span>
+                  <span className="text-[11px] text-gray-500 font-normal">
+                    = {fmtPct(listing.minPremiumApyBps, { signed: subsidized })} Premium + {fmtPct(listing.uniswapApyBps)} Uniswap
+                  </span>
+                </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
