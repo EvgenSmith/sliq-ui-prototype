@@ -57,37 +57,22 @@ export function AppHeader() {
     path.startsWith('/access')
 
   return (
-    <header className="border-b border-gray-200 bg-white sticky top-0 z-30">
-      <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-6">
-        {/* Brand lockup — stacked: "sLiq Protocol" / "powered by EarnPark" */}
-        <Link to="/listings" className="flex flex-col leading-tight hover:opacity-90 transition flex-shrink-0">
-          <span className="font-semibold tracking-tight text-base">sLiq Protocol</span>
-          <span className="text-[10px] text-gray-500 -mt-0.5">
-            powered by <span className="font-medium text-gray-700">EarnPark</span>
-          </span>
-        </Link>
+    <header className="bg-white sticky top-0 z-30">
+      {/* Row 1 — Brand · Network · Wallet (always visible, minimal) */}
+      <div className="border-b border-gray-200">
+        <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-6">
+          {/* Brand lockup */}
+          <Link to="/listings" className="flex flex-col leading-tight hover:opacity-90 transition flex-shrink-0">
+            <span className="font-semibold tracking-tight text-base">sLiq Protocol</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5">
+              powered by <span className="font-medium text-gray-700">EarnPark</span>
+            </span>
+          </Link>
 
-        {/* Inline section nav — Uniswap-style */}
-        {!hideNav && (
-          <nav className="flex items-center gap-1 -ml-2">
-            <NavItem label="Trade" active={inTrade} onClick={() => navigate(SECTIONS[0].dest)} />
-            <NavItem label="Pools" active={inPools} onClick={() => navigate(SECTIONS[1].dest)} />
-            {connectedWallet.isPermissionedLiquidator && (
-              <NavItem
-                label="Keeper"
-                active={inKeeper}
-                onClick={() => navigate('/keeper/positions')}
-                accent="liquidator"
-              />
-            )}
-          </nav>
-        )}
-
-        {/* Network switcher + LP demo state switcher (dev-only) + Wallet (with copy) */}
-        <div className="ml-auto flex items-center gap-2">
-          <LPStateSwitcher />
-          <NetworkSwitcher value={chain} onChange={setChain} compact />
-          {renderAsGuest ? (
+          {/* Network + Wallet (right-aligned) */}
+          <div className="ml-auto flex items-center gap-2">
+            <NetworkSwitcher value={chain} onChange={setChain} compact />
+            {renderAsGuest ? (
             <button
               type="button"
               onClick={() => { /* prototype: dev should flip state via LPStateSwitcher */ }}
@@ -143,8 +128,34 @@ export function AppHeader() {
               )}
             </div>
           )}
+          </div>
         </div>
       </div>
+
+      {/* Row 2 — Dev state switcher (prototype only; will be removed in production) */}
+      <div className="border-b border-dashed border-gray-200 bg-gray-50/50">
+        <div className="mx-auto max-w-7xl px-4 h-8 flex items-center justify-end">
+          <LPStateSwitcher />
+        </div>
+      </div>
+
+      {/* Row 3 — Section nav (Trade / Pools) — under header, not inline with logo */}
+      {!hideNav && (
+        <div className="border-b border-gray-200">
+          <div className="mx-auto max-w-7xl px-4 h-11 flex items-center gap-1">
+            <NavItem label="Trade" active={inTrade} onClick={() => navigate(SECTIONS[0].dest)} />
+            <NavItem label="Pools" active={inPools} onClick={() => navigate(SECTIONS[1].dest)} />
+            {connectedWallet.isPermissionedLiquidator && (
+              <NavItem
+                label="Keeper"
+                active={inKeeper}
+                onClick={() => navigate('/keeper/positions')}
+                accent="liquidator"
+              />
+            )}
+          </div>
+        </div>
+      )}
     </header>
   )
 }
