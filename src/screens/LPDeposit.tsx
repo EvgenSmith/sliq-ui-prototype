@@ -236,7 +236,7 @@ export function LPDeposit() {
                         onChange={e => setAutoCompound(e.target.checked)}
                         className="w-4 h-4 accent-[var(--color-role-lp)]"
                       />
-                      <span className="font-medium">Auto-compound Uniswap fees</span>
+                      <span className="font-medium">Auto-compound fees</span>
                       <HelpPopover label="Auto-compound" width="w-72">
                         <p>Keeper автоматически collects Uniswap fees и re-добавляет к NFT при каждом settlement (когда trader closes / outbid). Eliminates manual collect+re-add overhead.</p>
                         <p className="text-[11px] text-gray-500 mt-1.5">Recommended ON. Можно выключить если хочешь fees на wallet directly.</p>

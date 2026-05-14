@@ -848,7 +848,7 @@ function PositionProMetrics({
     <details className="rounded-lg border border-gray-200 bg-white p-4">
       <summary className="cursor-pointer text-sm font-semibold hover:text-gray-700 inline-flex items-center gap-2">
         Pro metrics
-        <span className="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">для опытных</span>
+        <span className="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">advanced</span>
       </summary>
 
       <div className="mt-3 space-y-3 text-xs">
