@@ -143,9 +143,11 @@ export function AppHeader() {
       {/* Row 3 — Beta-version banner (must go between logo block and menus per Eugene) */}
       <StatusBanner />
 
-      {/* Row 4 — Section nav (Trade / Pools) — uninterrupted with sub-nav below */}
+      {/* Row 4 — Section nav (Trade / Pools) — flows directly into Row 5 (AppSubNav)
+          without a divider, so level-1 and level-2 read as one menu block.
+          Bottom border lives on AppSubNav. */}
       {!hideNav && (
-        <div className="border-b border-gray-200">
+        <div>
           <div className="mx-auto max-w-7xl px-4 h-11 flex items-center gap-1">
             <NavItem label="Trade" active={inTrade} onClick={() => navigate(SECTIONS[0].dest)} />
             <NavItem label="Pools" active={inPools} onClick={() => navigate(SECTIONS[1].dest)} />
@@ -184,7 +186,8 @@ function NavItem({
       type="button"
       onClick={onClick}
       className={
-        'px-3 h-11 inline-flex items-center text-sm transition font-medium border-b-2 -mb-px ' +
+        // L1 uses text-base (16px) vs L2's text-sm (14px) for clear hierarchy.
+        'px-3 h-11 inline-flex items-center text-base transition font-medium border-b-2 -mb-px ' +
         (active
           ? 'text-gray-900 border-gray-900'
           : 'text-gray-500 border-transparent hover:text-gray-900 hover:border-gray-300')
