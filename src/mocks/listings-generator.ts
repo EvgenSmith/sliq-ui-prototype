@@ -51,12 +51,13 @@ function seedRng(seed: number) {
 export function generateListings(count: number, startId: number, now: number): Listing[] {
   const rng = seedRng(42)
   const out: Listing[] = []
-  // Status distribution per spec: large slice of ACTIVE/in, smaller out-of-range, FULL, then minority each of LIQUIDATING, WITHDRAWAL_REQUESTED, PAUSED, LIQUIDATED
+  // Status distribution per call 2026-05-14: only 5 statuses now. FULL/PAUSED are
+  // not statuses, they're display-derived (leased%=100 → «Earning · full»; the old
+  // PAUSED slot becomes ACTIVE+leased=0% → «Listed · waiting» display).
+  // Leased % is encoded later via availableCapacityUSD.
   const statusPool: ListingStatus[] = [
-    ...Array(Math.floor(count * 0.55)).fill('ACTIVE' as ListingStatus), // many ACTIVE
-    ...Array(Math.floor(count * 0.18)).fill('FULL' as ListingStatus),
+    ...Array(Math.floor(count * 0.79)).fill('ACTIVE' as ListingStatus), // 79% ACTIVE (covers waiting/earning/full via leased%)
     ...Array(Math.floor(count * 0.08)).fill('WITHDRAWAL_REQUESTED' as ListingStatus),
-    ...Array(Math.floor(count * 0.06)).fill('PAUSED' as ListingStatus),
     ...Array(Math.floor(count * 0.05)).fill('LIQUIDATING' as ListingStatus),
     ...Array(Math.floor(count * 0.05)).fill('LIQUIDATED' as ListingStatus),
     ...Array(Math.floor(count * 0.03)).fill('WITHDRAWN' as ListingStatus),
@@ -139,15 +140,17 @@ export function generateListings(count: number, startId: number, now: number): L
         : 3_000 + Math.floor(rng() * 30_000)
     const totalCapacityUSD = initialLiquidityUSD * 0.99 * providerLeverage
     const status = statusPool[i] ?? 'ACTIVE'
-    const filledPct = status === 'FULL'
-      ? 1
-      : status === 'LIQUIDATING' || status === 'WITHDRAWAL_REQUESTED'
-      ? 0.85 + rng() * 0.1
-      : status === 'PAUSED'
-      ? 0.3 + rng() * 0.4
-      : status === 'LIQUIDATED' || status === 'WITHDRAWN'
-      ? 0
-      : rng() * 0.9 // ACTIVE: 0-90%
+    // Leased distribution for ACTIVE listings now spans the full display spectrum:
+    // ~15% sit at 0% (Listed · waiting), ~15% at 100% (Earning · full), the rest partial.
+    let filledPct: number
+    if (status === 'LIQUIDATING' || status === 'WITHDRAWAL_REQUESTED') {
+      filledPct = 0.85 + rng() * 0.1
+    } else if (status === 'LIQUIDATED' || status === 'WITHDRAWN') {
+      filledPct = 0
+    } else {
+      const r = rng()
+      filledPct = r < 0.15 ? 0 : r > 0.85 ? 1 : 0.05 + rng() * 0.9
+    }
     const availableCapacityUSD = totalCapacityUSD * (1 - filledPct)
 
     const aggregateReserveUSD = isAdvanced
@@ -159,6 +162,14 @@ export function generateListings(count: number, startId: number, now: number): L
       ? status === 'LIQUIDATING'
         ? Math.floor(rng() * 8)
         : 35 + Math.floor(rng() * 60)
+      : undefined
+
+    // Health Factor — Aave-style 0-100, only for leverage>1 (call 2026-05-14 @01:19:48).
+    // Inverse-correlated with distanceToLiqPct: closer to liq = lower HF.
+    const healthFactorPct = isAdvanced && providerLeverage > 1
+      ? status === 'LIQUIDATING'
+        ? Math.floor(rng() * 15)
+        : Math.max(20, Math.min(98, (distanceToLiqPct ?? 60) + Math.floor(rng() * 10)))
       : undefined
 
     const owner = OWNERS[Math.floor(rng() * OWNERS.length)]
@@ -194,6 +205,7 @@ export function generateListings(count: number, startId: number, now: number): L
       listedAt,
       aggregateReserveUSD,
       distanceToLiqPct,
+      healthFactorPct,
     })
   }
   return out

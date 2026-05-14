@@ -24,8 +24,8 @@ function dexLabel(d: DexProtocol): string {
   }
 }
 
-type StatusFilter = 'all' | 'earning' | 'paused' | 'attention'
-type SortId = 'pnl-desc' | 'pnl-asc' | 'earnings-desc' | 'tvl-desc' | 'hitrate-desc' | 'newest'
+type StatusFilter = 'all' | 'earning' | 'waiting' | 'attention'
+type SortId = 'pnl-desc' | 'pnl-asc' | 'apy-desc' | 'claimable-desc' | 'earnings-desc' | 'tvl-desc' | 'newest'
 
 const PAGE_SIZES = [25, 50, 100, -1] as const
 
@@ -88,17 +88,6 @@ function ListingsView() {
     []
   )
 
-  // Lessee count per listing
-  const lesseesByListing = useMemo(() => {
-    const map = new Map<string, number>()
-    positions.forEach(p => {
-      if (p.status === 'OPEN') {
-        map.set(p.listingId, (map.get(p.listingId) ?? 0) + 1)
-      }
-    })
-    return map
-  }, [])
-
   // Summary
   const summary = useMemo(() => {
     const earningToday = mine.reduce((s, l) => {
@@ -109,6 +98,8 @@ function ListingsView() {
     const totalNetPnL = mine.reduce((s, l) => s + (l.netPnLUSD ?? 0), 0)
     const totalTVL = mine.reduce((s, l) => s + l.initialLiquidityUSD, 0)
     const atRisk = mine.filter(l => l.providerMode === 'advanced' && (l.distanceToLiqPct ?? 100) < 30).length
+    const earningCount = mine.filter(l => l.status === 'ACTIVE' && l.availableCapacityUSD < l.totalCapacityUSD).length
+    const waitingCount = mine.filter(l => l.status === 'ACTIVE' && l.availableCapacityUSD >= l.totalCapacityUSD).length
     // Claimable now — aggregated across all active listings (Uniswap fees + Premium + Reference)
     const claimableNow = mine.reduce((s, l) => {
       const uniClaimable = (l.lifetimeUniFeesUSD ?? 0) * 0.18 // mock: ~18% sitting unclaimed
@@ -116,14 +107,14 @@ function ListingsView() {
       const refClaimable = (l.lifetimeReferenceUSD ?? 0) * 0.15
       return s + uniClaimable + premiumClaimable + refClaimable
     }, 0)
-    return { earningToday, totalNetPnL, totalTVL, atRisk, claimableNow }
+    return { earningToday, totalNetPnL, totalTVL, atRisk, claimableNow, earningCount, waitingCount }
   }, [mine])
 
   // Filter
   const filtered = useMemo(() => {
     let out = [...mine]
-    if (statusFilter === 'earning') out = out.filter(l => l.status === 'ACTIVE' || l.status === 'FULL')
-    else if (statusFilter === 'paused') out = out.filter(l => l.status === 'PAUSED' || l.status === 'WITHDRAWAL_REQUESTED')
+    if (statusFilter === 'earning') out = out.filter(l => l.status === 'ACTIVE' && l.availableCapacityUSD < l.totalCapacityUSD)
+    else if (statusFilter === 'waiting') out = out.filter(l => l.status === 'ACTIVE' && l.availableCapacityUSD >= l.totalCapacityUSD)
     else if (statusFilter === 'attention') out = out.filter(l => l.providerMode === 'advanced' && (l.distanceToLiqPct ?? 100) < 30)
     if (pairFilter !== 'all') {
       out = out.filter(l => `${l.pair.token0}/${l.pair.token1}` === pairFilter)
@@ -141,7 +132,10 @@ function ListingsView() {
         return bDaily - aDaily
       }); break
       case 'tvl-desc': out.sort((a, b) => b.initialLiquidityUSD - a.initialLiquidityUSD); break
-      case 'hitrate-desc': out.sort((a, b) => (b.rangeHitRatePct ?? 0) - (a.rangeHitRatePct ?? 0)); break
+      case 'apy-desc': out.sort((a, b) =>
+        ((b.uniswapApyBps + b.minPremiumApyBps) - (a.uniswapApyBps + a.minPremiumApyBps))
+      ); break
+      case 'claimable-desc': out.sort((a, b) => (b.claimableNowUSD ?? 0) - (a.claimableNowUSD ?? 0)); break
       case 'newest': out.sort((a, b) => b.listedAt - a.listedAt); break
     }
     return out
@@ -188,7 +182,7 @@ function ListingsView() {
           <SummaryCard label="Net PnL" subtitle="IL-aware · since listing" valueColor={summary.totalNetPnL >= 0 ? 'success' : 'danger'}>
             {summary.totalNetPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(summary.totalNetPnL))}
           </SummaryCard>
-          <SummaryCard label="Total TVL" subtitle={`${mine.length} listing${mine.length === 1 ? '' : 's'}`} valueColor="neutral">
+          <SummaryCard label="Total pool size" subtitle={`${mine.length} listing${mine.length === 1 ? '' : 's'}`} valueColor="neutral">
             {fmtUSD(summary.totalTVL)}
           </SummaryCard>
           <SummaryCard label="At risk" subtitle="Advanced near liq" valueColor={summary.atRisk > 0 ? 'danger' : 'neutral'}>
@@ -241,11 +235,12 @@ function ListingsView() {
 
       {/* Filter strip */}
       <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3 flex flex-wrap items-center gap-2">
-        <div className="flex items-center rounded-md border border-gray-300 overflow-hidden">
+        {/* Desktop: segmented control */}
+        <div className="hidden sm:flex items-center rounded-md border border-gray-300 overflow-hidden">
           {([
             { id: 'all', label: `All (${mine.length})` },
-            { id: 'earning', label: 'Earning' },
-            { id: 'paused', label: 'Paused' },
+            { id: 'earning', label: `Earning${summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}` },
+            { id: 'waiting', label: `Waiting${summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}` },
             { id: 'attention', label: `Attention${attentionTotal > 0 ? ` (${attentionTotal})` : ''}` },
           ] as const).map(o => {
             const active = statusFilter === o.id
@@ -265,6 +260,17 @@ function ListingsView() {
             )
           })}
         </div>
+        {/* Mobile: dropdown (matches All pairs / All protocols style) */}
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+          className="sm:hidden rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+        >
+          <option value="all">All ({mine.length})</option>
+          <option value="earning">Earning{summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}</option>
+          <option value="waiting">Waiting{summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}</option>
+          <option value="attention">Attention{attentionTotal > 0 ? ` (${attentionTotal})` : ''}</option>
+        </select>
 
         {myPairs.length > 1 && (
           <select
@@ -289,18 +295,19 @@ function ListingsView() {
         )}
 
         <div className="ml-auto flex items-center gap-1">
-          <span className="text-xs text-gray-500">Sort:</span>
+          <span className="text-[11px] text-gray-500">Sort</span>
           <select
             value={sort}
             onChange={e => setSort(e.target.value as SortId)}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+            className="rounded border border-gray-300 bg-white px-1.5 py-1 text-xs"
           >
-            <option value="pnl-desc">Net PnL · high → low</option>
-            <option value="pnl-asc">Net PnL · low → high</option>
-            <option value="earnings-desc">Earnings/day · high → low</option>
-            <option value="tvl-desc">TVL · large → small</option>
-            <option value="hitrate-desc">Range hit-rate · high → low</option>
-            <option value="newest">Listed (newest)</option>
+            <option value="pnl-desc">PnL ↓</option>
+            <option value="pnl-asc">PnL ↑</option>
+            <option value="apy-desc">APY ↓</option>
+            <option value="claimable-desc">Claimable ↓</option>
+            <option value="earnings-desc">Earnings/day ↓</option>
+            <option value="tvl-desc">Pool size ↓</option>
+            <option value="newest">Newest</option>
           </select>
         </div>
       </div>
@@ -312,7 +319,16 @@ function ListingsView() {
         </div>
       ) : (
         <>
-          <ListingsTable listings={visible} lesseesByListing={lesseesByListing} onClick={id => navigate(`/listings/${id}`)} />
+          <ListingsTable
+            listings={visible}
+            onClick={id => navigate(`/listings/${id}`)}
+            onClaim={id => {
+              const l = listings.find(x => x.id === id)
+              if (!l) return
+              // TODO: wire up real claim flow — for now mark as claimed in-memory.
+              alert(`Mock: claiming ${fmtUSD(l.claimableNowUSD ?? 0)} from ${pairLabel(l)}`)
+            }}
+          />
 
           {/* Pagination */}
           {mine.length > Math.min(...PAGE_SIZES.filter(s => s > 0)) && (
@@ -411,8 +427,8 @@ function ListFlowPage({
 // Each row clickable → /lp/listings/:id ; footer link → /lp/positions.
 function ListedSummaryCard({ listings: myListings }: { listings: Listing[] }) {
   // Mini-stats: count breakdown by status
-  const earningCount = myListings.filter(l => l.status === 'ACTIVE' || l.status === 'FULL').length
-  const pausedCount = myListings.filter(l => l.status === 'PAUSED' || l.status === 'WITHDRAWAL_REQUESTED').length
+  const earningCount = myListings.filter(l => l.status === 'ACTIVE' && l.availableCapacityUSD < l.totalCapacityUSD).length
+  const waitingCount = myListings.filter(l => l.status === 'ACTIVE' && l.availableCapacityUSD >= l.totalCapacityUSD).length
   const attentionCount = myListings.filter(l => l.providerMode === 'advanced' && (l.distanceToLiqPct ?? 100) < 30).length
 
   return (
@@ -426,7 +442,7 @@ function ListedSummaryCard({ listings: myListings }: { listings: Listing[] }) {
         </div>
         <div className="text-[11px] text-gray-500 mt-0.5 num">
           {earningCount > 0 && <>{earningCount} earning</>}
-          {pausedCount > 0 && <> · {pausedCount} paused</>}
+          {waitingCount > 0 && <> · {waitingCount} waiting</>}
           {attentionCount > 0 && <> · <span className="text-[var(--color-status-danger)]">{attentionCount} attention</span></>}
         </div>
       </div>
@@ -896,12 +912,12 @@ function AllListedFooter() {
 
 function ListingsTable({
   listings,
-  lesseesByListing,
   onClick,
+  onClaim,
 }: {
   listings: Listing[]
-  lesseesByListing: Map<string, number>
   onClick: (id: string) => void
+  onClaim: (id: string) => void
 }) {
   return (
     <>
@@ -910,59 +926,78 @@ function ListingsTable({
         <table className="w-full text-sm">
           <thead className="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left font-medium px-4 py-2.5">Pair · listing</th>
+              <th className="text-left font-medium px-4 py-2.5">Pair · NFT</th>
               <th className="text-left font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1">
                   Status
-                  <HelpPopover label="Listing statuses" width="w-80">
-                    <p className="font-semibold mb-2">Listing statuses</p>
+                  <HelpPopover label="Статусы листинга" width="w-80">
+                    <p className="font-semibold mb-2">Статусы листинга (5)</p>
                     <ul className="space-y-1.5 text-xs">
-                      <li><strong className="text-[var(--color-status-success)]">Active</strong> — listed, traders can rent. Earning Uniswap fees + Premium APY (when rented).</li>
-                      <li><strong className="text-[var(--color-status-success)]">Full</strong> — 100% capacity leased. Outbid-only — new traders must beat current Premium APY.</li>
-                      <li><strong className="text-gray-700">Paused</strong> — temporarily off-market. No new traders, existing keep paying until close.</li>
-                      <li><strong className="text-[var(--color-status-warning)]">Withdrawal pending</strong> — exit requested. 2-block guard before NFT returns to wallet.</li>
-                      <li><strong className="text-[var(--color-status-danger)]">Liquidating</strong> — listing-level liquidation in flight (Advanced mode + leverage 1× only).</li>
-                      <li><strong className="text-gray-500">Out of range</strong> — Uniswap range crossed by price. No fee accrual until back in range. Orthogonal to listing status.</li>
+                      <li><strong className="text-amber-800">Listed · waiting</strong> — активен, арендаторов пока нет (leased 0%). Снизь min Premium APY чтобы привлечь.</li>
+                      <li><strong className="text-emerald-700">Earning</strong> — активен, есть арендаторы. Premium APY идёт на занятую долю.</li>
+                      <li><strong className="text-emerald-700">Earning · full</strong> — активен, 100% занят. Новые входы только через outbid.</li>
+                      <li><strong className="text-amber-800">Withdrawing</strong> — запрошен вывод. 2-блочный guard до возврата NFT.</li>
+                      <li><strong className="text-[var(--color-status-danger)]">Liquidating</strong> — идёт listing-level ликвидация (только Pro + плечо&gt;1).</li>
+                      <li><strong className="text-gray-500">Liquidated / Closed</strong> — терминальные.</li>
                     </ul>
+                    <p className="mt-2 text-[11px] text-gray-500"><strong>Out of range</strong> — ортогональный sub-badge, появляется на любом активном статусе, когда цена вышла из Uniswap range.</p>
                   </HelpPopover>
                 </span>
               </th>
               <th className="text-right font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1 justify-end">
-                  TVL
-                  <HelpPopover label="TVL · leased %" width="w-72">
-                    <p className="font-semibold mb-1">TVL — Total Value Locked</p>
-                    <p>USD value of LP NFT at listing time. Stays constant unless you adjust the position.</p>
-                    <p className="font-semibold mt-2 mb-1">Leased %</p>
-                    <p>Share of your listed liquidity <strong>currently rented out</strong> by traders. Premium APY accrues only on the leased portion. Higher leased % = more carry.</p>
+                  Pool size
+                  <HelpPopover label="Pool size · Leased %" width="w-72">
+                    <p className="font-semibold mb-1">Pool size</p>
+                    <p>USD-стоимость LP NFT (позиции в Uniswap pool) на момент листинга. Не меняется, пока ты не изменишь саму позицию.</p>
+                    <p className="font-semibold mt-2 mb-1">Leased % (под суммой)</p>
+                    <p>Доля пула, которая сейчас арендована трейдерами. Premium APY начисляется только на занятую долю.</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  APY
+                  <HelpPopover label="APY (Uniswap + Premium)" width="w-72">
+                    <p className="font-semibold mb-1">Total APY = Uniswap baseline + Premium</p>
+                    <p>Uniswap fees от underlying pool + Premium APY, который платят арендаторы на занятую долю. Сверху — сумма (bold); ниже — разбивка <span className="num">Uni · Prem</span>.</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  Health
+                  <HelpPopover label="Health Factor (только Pro)" width="w-72">
+                    <p>Aave-style шкала 0–100%. Показывается только для Pro-листингов с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
                   </HelpPopover>
                 </span>
               </th>
               <th className="text-right font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1 justify-end">
                   Net PnL
-                  <HelpPopover label="IL-aware Net PnL" width="w-72">
+                  <HelpPopover label="Net PnL с учётом IL" width="w-72">
                     <p className="font-semibold mb-1">Net PnL (IL-adjusted)</p>
-                    <p>= Uniswap fees + Reference Fees + Premium APY − Impermanent Loss. Это то что Uniswap UI <strong>не показывает</strong> — там только «fees earned» (misleading).</p>
+                    <p>= Uniswap fees + Reference Fees + Premium APY − Impermanent Loss. То, что Uniswap UI <strong>не показывает</strong> — там только «fees earned» (misleading).</p>
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
+              <th className="text-right font-medium px-3 py-2.5 hidden sm:table-cell">
                 <span className="inline-flex items-center gap-1 justify-end">
-                  Range hit-rate
-                  <HelpPopover label="Range hit-rate" width="w-64">
-                    <p>% времени когда цена находилась внутри range last 30d. Низкий hit-rate = NFT часто out-of-range = fees not accruing. Sigал rebalance'нуть.</p>
+                  Fees
+                  <HelpPopover label="Fees" width="w-72">
+                    <p className="font-semibold mb-1">Накопленные / доступные для claim</p>
+                    <p>Верхняя строка — gross-fees, заработанные с момента листинга (Uniswap baseline + Premium APY).</p>
+                    <p className="mt-1.5">Нижняя — то, что прямо сейчас можно забрать (settled, не реинвестировано autocompound'ом).</p>
+                    <p className="mt-1.5 text-[11px] text-gray-500">В отличие от Net PnL — здесь без вычета IL. Это «сколько ты заработал», без коррекции на убыток от движения цены.</p>
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5">Lessees</th>
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">Listed</th>
               <th className="text-right font-medium px-3 py-2.5">Action</th>
             </tr>
           </thead>
           <tbody>
             {listings.map(l => (
-              <ListingRow key={l.id} listing={l} lesseesCount={lesseesByListing.get(l.id) ?? 0} onClick={() => onClick(l.id)} />
+              <ListingRow key={l.id} listing={l} onClick={() => onClick(l.id)} onClaim={onClaim} />
             ))}
           </tbody>
         </table>
@@ -971,20 +1006,28 @@ function ListingsTable({
       {/* Mobile */}
       <div className="md:hidden rounded-lg border border-gray-200 bg-white overflow-hidden divide-y divide-gray-100">
         {listings.map(l => (
-          <MobileListingRow key={l.id} listing={l} lesseesCount={lesseesByListing.get(l.id) ?? 0} onClick={() => onClick(l.id)} />
+          <MobileListingRow key={l.id} listing={l} onClick={() => onClick(l.id)} onClaim={onClaim} />
         ))}
       </div>
     </>
   )
 }
 
-function ListingRow({ listing, lesseesCount, onClick }: { listing: Listing; lesseesCount: number; onClick: () => void }) {
+function ListingRow({ listing, onClick, onClaim }: { listing: Listing; onClick: () => void; onClaim: (id: string) => void }) {
   const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
-  const freePct = capacityFreePct(listing)
+  const leasedPct = 100 - capacityFreePct(listing)
   const netPnL = listing.netPnLUSD ?? 0
   const dailyEarnings = ((listing.lifetimeUniFeesUSD ?? 0) + (listing.lifetimePremiumUSD ?? 0)) /
     Math.max(1, (Date.now() - listing.listedAt) / (1000 * 60 * 60 * 24))
+  const claimable = listing.claimableNowUSD ?? 0
+  const grossEarned = (listing.lifetimeUniFeesUSD ?? 0) + (listing.lifetimePremiumUSD ?? 0) + (listing.lifetimeReferenceUSD ?? 0)
+  const uniApy = listing.uniswapApyBps / 100
+  const premApy = listing.minPremiumApyBps / 100
+  const totalApy = uniApy + premApy
+  const isPro = listing.providerMode === 'advanced' && listing.providerLeverage > 1
+  const hf = listing.healthFactorPct
+  const isTerminal = listing.status === 'LIQUIDATED' || listing.status === 'WITHDRAWN'
 
   return (
     <tr
@@ -994,6 +1037,7 @@ function ListingRow({ listing, lesseesCount, onClick }: { listing: Listing; less
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       className="group cursor-pointer transition border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
     >
+      {/* 1. Pair · NFT */}
       <td className="px-4 py-3">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-medium text-gray-900 group-hover:text-[var(--color-role-lp)] transition">{pairLabel(listing)}</span>
@@ -1015,106 +1059,236 @@ function ListingRow({ listing, lesseesCount, onClick }: { listing: Listing; less
           <span className="text-[11px] text-gray-500 num">NFT #{listing.tokenId}</span>
         </div>
       </td>
+      {/* 2. Status */}
       <td className="px-3 py-3">
-        <ListingStatusChip status={listing.status} rangeStatus={rangeStatus} />
+        <ListingStatusChip status={listing.status} leasedPct={leasedPct} rangeStatus={rangeStatus} />
       </td>
+      {/* 3. Pool size + Leased % (merged — leased shown as compact sub-line, no bar to keep row tight) */}
       <td className="px-3 py-3 text-right num">
         <div className="font-medium text-gray-900">{fmtUSD(listing.initialLiquidityUSD)}</div>
-        <div className="text-[10px] text-gray-500 mt-0.5">
-          {Math.round(100 - freePct)}% leased
-        </div>
+        <div className="text-[10px] text-gray-500 mt-0.5">{Math.round(leasedPct)}% leased</div>
       </td>
+      {/* 5. APY (Uniswap + Premium) */}
+      <td className="px-3 py-3 text-right num hidden md:table-cell">
+        {isTerminal ? (
+          <span className="text-gray-300">—</span>
+        ) : (
+          <>
+            <div className="font-semibold text-gray-900">{totalApy.toFixed(1)}%</div>
+            <div className="text-[10px] text-gray-500 mt-0.5 leading-tight num">
+              {uniApy.toFixed(1)}% {premApy >= 0 ? '+' : '−'} {Math.abs(premApy).toFixed(1)}%
+            </div>
+          </>
+        )}
+      </td>
+      {/* 6. Health Factor (Pro only) */}
+      <td className="px-3 py-3 text-right num hidden lg:table-cell">
+        {isPro && hf !== undefined ? (
+          <span
+            className="font-semibold"
+            style={{
+              color: hf > 60
+                ? 'var(--color-status-success)'
+                : hf > 30
+                ? 'var(--color-status-warning)'
+                : 'var(--color-status-danger)',
+            }}
+          >
+            {hf}%
+          </span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </td>
+      {/* 7. Net PnL */}
       <td className="px-3 py-3 text-right">
         <span className="num font-semibold" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
           {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
         </span>
-        <div className="text-[10px] text-gray-500 num">{dailyEarnings >= 0 ? '+' : '−'}{fmtUSD(Math.abs(dailyEarnings))}/day</div>
+        {!isTerminal && (
+          <div className="text-[10px] text-gray-500 num">{dailyEarnings >= 0 ? '+' : '−'}{fmtUSD(Math.abs(dailyEarnings))}/day</div>
+        )}
       </td>
-      <td className="px-3 py-3 text-right num hidden lg:table-cell">
-        <span className="font-semibold" style={{ color: (listing.rangeHitRatePct ?? 0) > 70 ? 'var(--color-status-success)' : (listing.rangeHitRatePct ?? 0) > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}>
-          {listing.rangeHitRatePct ?? 0}%
-        </span>
-        <div className="text-[10px] text-gray-500">30d</div>
+      {/* 8. Fees — gross earned (top) + claimable now (bottom, LP-color) */}
+      <td className="px-3 py-3 text-right hidden sm:table-cell">
+        <div className="num font-medium text-gray-700">{fmtUSD(grossEarned)}</div>
+        <div className="text-[10px] num mt-0.5 leading-tight" style={{ color: claimable > 0.01 ? 'var(--color-role-lp)' : 'var(--color-text-muted, #9ca3af)' }}>
+          {claimable > 0.01 ? `+${fmtUSD(claimable)}` : '—'}
+        </div>
       </td>
-      <td className="px-3 py-3 text-right num">
-        <span className="font-medium">{lesseesCount}</span>
-        <div className="text-[10px] text-gray-500">{listing.status === 'FULL' ? 'full' : 'open'}</div>
-      </td>
-      <td className="px-3 py-3 text-right num text-xs text-gray-500 hidden lg:table-cell">
-        {fmtTimeAgo(listing.listedAt)}
-      </td>
+      {/* 9. Action — two square buttons: Claim (disabled when nothing to claim) + Manage */}
       <td className="px-3 py-3 text-right">
-        <span className="text-xs font-medium text-[var(--color-role-lp)]">Manage →</span>
+        <div className="inline-flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={claimable <= 0.01 || isTerminal}
+            onClick={e => { e.stopPropagation(); onClaim(listing.id) }}
+            title={
+              isTerminal
+                ? 'Терминальный статус — клеймить нечего'
+                : claimable > 0.01
+                ? `Забрать ${fmtUSD(claimable)} accrued fees`
+                : 'Сейчас нечего клеймить'
+            }
+            className={
+              'text-xs font-semibold px-2 py-1 rounded num transition border ' +
+              (claimable > 0.01 && !isTerminal
+                ? 'bg-[var(--color-role-lp)] text-white border-[var(--color-role-lp)] hover:opacity-90'
+                : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed')
+            }
+          >
+            Claim
+          </button>
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onClick() }}
+            title="Открыть карточку листинга"
+            className="text-xs font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
+          >
+            Manage
+          </button>
+        </div>
       </td>
     </tr>
   )
 }
 
-function MobileListingRow({ listing, lesseesCount, onClick }: { listing: Listing; lesseesCount: number; onClick: () => void }) {
+function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onClick: () => void; onClaim: (id: string) => void }) {
   const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
+  const leasedPct = 100 - capacityFreePct(listing)
   const netPnL = listing.netPnLUSD ?? 0
+  const claimable = listing.claimableNowUSD ?? 0
+  const grossEarned = (listing.lifetimeUniFeesUSD ?? 0) + (listing.lifetimePremiumUSD ?? 0) + (listing.lifetimeReferenceUSD ?? 0)
+  const uniApy = listing.uniswapApyBps / 100
+  const premApy = listing.minPremiumApyBps / 100
+  const totalApy = uniApy + premApy
+  const isPro = listing.providerMode === 'advanced' && listing.providerLeverage > 1
+  const hf = listing.healthFactorPct
+  const isTerminal = listing.status === 'LIQUIDATED' || listing.status === 'WITHDRAWN'
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full text-left px-4 py-3 bg-white hover:bg-gray-50 transition"
-    >
-      <div className="flex items-baseline justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-semibold truncate">{pairLabel(listing)}</span>
-          <span className="text-[10px] text-gray-500 num">{fmtFeeTier(listing.feeTierBps)}</span>
+    <div className="w-full px-4 py-3 bg-white hover:bg-gray-50 transition">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-semibold truncate">{pairLabel(listing)}</span>
+            <span className="text-[10px] text-gray-500 num">{fmtFeeTier(listing.feeTierBps)}</span>
+          </div>
+          <span className="num font-semibold" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
+            {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
+          </span>
         </div>
-        <span className="num font-semibold" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
-          {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
-        </span>
+        <div className="mt-1 flex items-center gap-1.5 flex-wrap text-[11px]">
+          <ListingStatusChip status={listing.status} leasedPct={leasedPct} rangeStatus={rangeStatus} tiny />
+          {listing.providerMode === 'advanced' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium">{listing.providerLeverage}×</span>
+          )}
+          {subsidized && (
+            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold">you pay</span>
+          )}
+        </div>
+        <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] num">
+          <div>
+            <span className="text-gray-500">Pool size</span>
+            <div className="font-medium">{fmtUSD(listing.initialLiquidityUSD)}</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{Math.round(leasedPct)}% leased</div>
+            <div className="mt-0.5 h-1 w-full rounded-sm bg-gray-200 overflow-hidden">
+              <div
+                className="h-full"
+                style={{
+                  width: `${Math.round(leasedPct)}%`,
+                  background: leasedPct >= 99.5 ? 'var(--color-status-success)' : leasedPct < 0.5 ? 'transparent' : 'var(--color-role-lp)',
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <span className="text-gray-500">{isPro ? 'Health' : 'APY'}</span>
+            <div className="font-medium">
+              {isPro && hf !== undefined
+                ? <span style={{ color: hf > 60 ? 'var(--color-status-success)' : hf > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}>{hf}%</span>
+                : isTerminal ? '—' : `${totalApy.toFixed(1)}%`}
+            </div>
+          </div>
+          <div className="col-span-2">
+            <span className="text-gray-500">Fees</span>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-medium text-gray-700">{fmtUSD(grossEarned)}</span>
+              <span className="text-[10px] num" style={{ color: claimable > 0.01 ? 'var(--color-role-lp)' : '#9ca3af' }}>
+                {claimable > 0.01 ? `+${fmtUSD(claimable)}` : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </button>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          disabled={claimable <= 0.01 || isTerminal}
+          onClick={e => { e.stopPropagation(); onClaim(listing.id) }}
+          className={
+            'inline-flex items-center justify-center text-xs font-semibold px-2 py-1.5 rounded num transition border ' +
+            (claimable > 0.01 && !isTerminal
+              ? 'bg-[var(--color-role-lp)] text-white border-[var(--color-role-lp)]'
+              : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed')
+          }
+        >
+          {claimable > 0.01 && !isTerminal ? `Claim ${fmtUSD(claimable)}` : 'Claim'}
+        </button>
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onClick() }}
+          className="inline-flex items-center justify-center text-xs font-semibold px-2 py-1.5 rounded border border-gray-300 bg-white text-gray-700"
+        >
+          Manage
+        </button>
       </div>
-      <div className="mt-1 flex items-center gap-1.5 flex-wrap text-[11px]">
-        <ListingStatusChip status={listing.status} rangeStatus={rangeStatus} tiny />
-        {listing.providerMode === 'advanced' && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium">{listing.providerLeverage}×</span>
-        )}
-        {subsidized && (
-          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold">you pay</span>
-        )}
-      </div>
-      <div className="mt-1.5 grid grid-cols-3 gap-2 text-[11px] num">
-        <div>
-          <span className="text-gray-500">TVL</span>
-          <div className="font-medium">{fmtUSD(listing.initialLiquidityUSD)}</div>
-        </div>
-        <div>
-          <span className="text-gray-500">Hit-rate</span>
-          <div className="font-medium">{listing.rangeHitRatePct ?? 0}%</div>
-        </div>
-        <div>
-          <span className="text-gray-500">Lessees</span>
-          <div className="font-medium">{lesseesCount}</div>
-        </div>
-      </div>
-    </button>
+    </div>
   )
 }
 
-function ListingStatusChip({ status, rangeStatus, tiny }: { status: string; rangeStatus: 'in-range' | 'out-of-range'; tiny?: boolean }) {
+// Single source of truth for status display (chip + tooltip).
+// 5 contract statuses; ACTIVE has 3 display variants based on leased%.
+// Out-of-range is orthogonal to status — surfaced as a sub-badge.
+type StatusDisplay = { label: string; cls: string; tip: string }
+function statusDisplay(status: string, leasedPct: number): StatusDisplay {
+  if (status === 'LIQUIDATING')
+    return { label: '💥 liquidating', cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40', tip: 'Идёт listing-level ликвидация (только Pro + плечо>1).' }
+  if (status === 'LIQUIDATED')
+    return { label: 'liquidated', cls: 'bg-red-50/60 text-red-900/70 border border-red-200', tip: 'Терминальный статус — позиция ликвидирована. Residual NFT (если остался) можно claim.' }
+  if (status === 'WITHDRAWAL_REQUESTED')
+    return { label: 'withdrawing', cls: 'bg-amber-50 text-amber-900 border border-amber-300', tip: 'Вывод запрошен — 2-блочный guard перед возвратом NFT в кошелёк.' }
+  if (status === 'WITHDRAWN')
+    return { label: 'closed', cls: 'bg-gray-100 text-gray-500 border border-gray-300', tip: 'Терминальный — NFT возвращён в кошелёк.' }
+  // ACTIVE — three display variants by leased%
+  if (leasedPct >= 99.5) return { label: 'earning · full', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200', tip: 'Capacity 100% занят. Новые арендаторы только через outbid (надо предложить выше Premium APY).' }
+  if (leasedPct <= 0.5) return { label: 'listed · waiting', cls: 'bg-amber-50 text-amber-900 border border-amber-200', tip: 'Залистен, арендаторов пока нет. Снизь min Premium APY чтобы привлечь трейдеров.' }
+  return { label: 'earning', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200', tip: 'Зарабатывает: Uniswap fees + Premium APY на занятую долю.' }
+}
+
+function ListingStatusChip({ status, leasedPct, rangeStatus, tiny }: { status: string; leasedPct: number; rangeStatus: 'in-range' | 'out-of-range'; tiny?: boolean }) {
   const sizeCls = tiny ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'
-  const baseCls = 'whitespace-nowrap rounded-full font-medium cursor-help ' + sizeCls
-
-  const data = (() => {
-    if (status === 'LIQUIDATING')
-      return { label: '💥 liquidating', cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40', tip: 'Listing-level liquidation в процессе' }
-    if (status === 'LIQUIDATED') return { label: 'liquidated', cls: 'bg-gray-100 text-gray-700 border border-gray-300', tip: 'Полностью ликвидирован' }
-    if (status === 'WITHDRAWAL_REQUESTED') return { label: 'withdrawing', cls: 'bg-amber-50 text-amber-900 border border-amber-300', tip: 'Withdrawal requested' }
-    if (status === 'WITHDRAWN') return { label: 'closed', cls: 'bg-gray-100 text-gray-500 border border-gray-300', tip: 'NFT забран' }
-    if (status === 'PAUSED') return { label: 'paused', cls: 'bg-gray-50 text-gray-700 border border-gray-300', tip: 'New lessees blocked, existing continue' }
-    // Earning states — default LP good case. Neutral (no color noise).
-    if (status === 'FULL') return { label: 'earning · full', cls: 'bg-gray-50 text-gray-700 border border-gray-200', tip: 'Capacity занята; existing lessees платят' }
-    if (rangeStatus === 'in-range') return { label: 'earning · in range', cls: 'bg-gray-50 text-gray-700 border border-gray-200', tip: 'Uniswap fees начисляются' }
-    return { label: 'earning · out of range', cls: 'bg-gray-50 text-gray-500 border border-gray-200', tip: 'Цена вне range — Uniswap fees не идут. Все остальные доходы (Reference / Premium) — продолжают.' }
-  })()
-
-  return <span className={baseCls + ' ' + data.cls} title={data.tip}>{data.label}</span>
+  const baseCls = 'whitespace-nowrap rounded font-medium cursor-help ' + sizeCls
+  const data = statusDisplay(status, leasedPct)
+  const showOutOfRange = rangeStatus === 'out-of-range' && (status === 'ACTIVE' || status === 'WITHDRAWAL_REQUESTED')
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={baseCls + ' ' + data.cls} title={data.tip}>{data.label}</span>
+      {showOutOfRange && (
+        <span
+          className={'whitespace-nowrap rounded font-medium cursor-help bg-amber-50 text-amber-900 border border-amber-200 ' + sizeCls}
+          title="Цена вышла из Uniswap range — Uniswap fees не начисляются. Premium APY продолжает идти."
+        >
+          out of range
+        </span>
+      )}
+    </span>
+  )
 }
 
 // ───────── List NFT modal — Lite + Pro toggle + post-listing success ─────────

@@ -5,14 +5,16 @@ export type Role = 'LP' | 'Trader' | 'Liquidator' | 'All'
 
 export type ProviderMode = 'conservative' | 'advanced'
 
+// Per call 2026-05-14: «paused» does not exist in protocol (you either listed it
+// or you withdrew the NFT — no in-between). «full» is not a status either, it's
+// a display label derived from leased%=100. Status reflects the contract state,
+// display chip derives sub-label from status + leased% + rangeStatus.
 export type ListingStatus =
-  | 'ACTIVE'
-  | 'FULL'
-  | 'PAUSED'
-  | 'WITHDRAWAL_REQUESTED'
-  | 'LIQUIDATING'
-  | 'WITHDRAWN'
-  | 'LIQUIDATED'
+  | 'ACTIVE'              // NFT escrowed, traders can rent
+  | 'WITHDRAWAL_REQUESTED' // exit requested, 2-block guard
+  | 'LIQUIDATING'         // Pro+leverage>1 only, listing-level liquidation in flight
+  | 'LIQUIDATED'          // Pro+leverage>1 only, terminal
+  | 'WITHDRAWN'           // NFT returned to wallet, terminal
 
 export type PositionStatus =
   | 'OPEN'
@@ -65,12 +67,15 @@ export interface Listing {
   distanceToLiqPct?: number
   // LP-side analytics (computed/aggregated)
   rangeHitRatePct?: number    // % time in range last 30d
+  avgLeasedPct30d?: number    // average leased % over last 30d — intensity of rental demand (vs current snapshot)
   autoCompound?: boolean      // toggle
   lifetimeUniFeesUSD?: number // realized fees from Uniswap baseline since listing
   lifetimePremiumUSD?: number // realized Premium APY paid by lessees since listing
-  lifetimeReferenceUSD?: number // realized Reference Fees since listing
+  lifetimeReferenceUSD?: number // realized Reference Fees since listing — folded into Uniswap APY in UI (call 2026-05-14)
   netPnLUSD?: number          // IL-adjusted PnL vs initial deposit value
   hodlDeltaUSD?: number       // delta vs «if just HODL'd»
+  claimableNowUSD?: number    // sum of Uniswap fees + Premium ready to claim — surface on table (call decision)
+  healthFactorPct?: number    // Aave-style 0-100, only present when providerLeverage > 1 (call 2026-05-14 @01:19:48)
 }
 
 // Wallet-owned Uniswap V3 NFTs available for import (S12)

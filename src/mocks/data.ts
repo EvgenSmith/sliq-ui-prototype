@@ -47,14 +47,14 @@ export const listings: Listing[] = [
     rangeHigh: 19.6,
     currentPrice: 19.05,
     initialLiquidityUSD: 150_000,
-    availableCapacityUSD: 0, // FULL — outbid only
+    availableCapacityUSD: 0, // leased 100% → display «Earning · full» (outbid-only for new lessees)
     totalCapacityUSD: 148_500,
     providerMode: 'conservative',
     providerLeverage: 1,
     minPremiumApyBps: 1200,
     uniswapApyBps: 580,
     referenceApyBps: 290,
-    status: 'FULL',
+    status: 'ACTIVE', // FULL was retired — display label derives from leased%
     listedAt: now - 1000 * 60 * 60 * 8, // 8h ago
   },
   {
@@ -172,8 +172,8 @@ listings.push({
   distanceToLiqPct: 6, // already at trigger
 })
 
-// Maria's listings covering remaining status variants (PAUSED + WITHDRAWAL_REQUESTED)
-// + a multi-protocol listing (GMX) for protocol-column demo.
+// L5 — Maria's «Listed · waiting» case: ACTIVE with zero takers yet.
+// (Replaces the retired PAUSED status — per call 2026-05-14 PAUSED is not in protocol.)
 listings.push({
   id: 'L5',
   tokenId: 422512,
@@ -186,14 +186,14 @@ listings.push({
   rangeHigh: 0.58,
   currentPrice: 0.49,
   initialLiquidityUSD: 24_500,
-  availableCapacityUSD: 14_700,
+  availableCapacityUSD: 24_255, // = total → leased 0% → display «Listed · waiting»
   totalCapacityUSD: 24_255,
   providerMode: 'conservative',
   providerLeverage: 1,
   minPremiumApyBps: 500,
   uniswapApyBps: 1850,
   referenceApyBps: 620,
-  status: 'PAUSED',
+  status: 'ACTIVE',
   listedAt: now - 1000 * 60 * 60 * 24 * 4, // 4d ago
 })
 listings.push({
@@ -268,6 +268,110 @@ listings.push({
   status: 'ACTIVE',
   listedAt: now - 1000 * 60 * 60 * 12, // 12h ago
 })
+
+// L9 — Maria's earning listing whose Uniswap range was crossed (out-of-range).
+// Status ACTIVE + leased>0 + price outside [rangeLow, rangeHigh] → display «Earning · out of range».
+listings.push({
+  id: 'L9',
+  tokenId: 422803,
+  owner: '0xMaria',
+  chain: 'arbitrum',
+  dex: 'uniswap-v3',
+  pair: { token0: 'LINK', token1: 'ETH' },
+  feeTierBps: 30,
+  rangeLow: 0.0042,
+  rangeHigh: 0.0048,
+  currentPrice: 0.0051, // above rangeHigh → out of range
+  initialLiquidityUSD: 32_000,
+  availableCapacityUSD: 12_800, // leased 60%
+  totalCapacityUSD: 31_680,
+  providerMode: 'conservative',
+  providerLeverage: 1,
+  minPremiumApyBps: 1400,
+  uniswapApyBps: 0, // no fees while out of range
+  referenceApyBps: 480,
+  status: 'ACTIVE',
+  listedAt: now - 1000 * 60 * 60 * 24 * 3, // 3d ago
+})
+
+// L10 — Maria's terminal LIQUIDATED listing (Pro, leverage>1).
+listings.push({
+  id: 'L10',
+  tokenId: 422915,
+  owner: '0xMaria',
+  chain: 'arbitrum',
+  dex: 'uniswap-v3',
+  pair: { token0: 'PEPE', token1: 'ETH' },
+  feeTierBps: 100,
+  rangeLow: 0.0000018,
+  rangeHigh: 0.0000028,
+  currentPrice: 0.0000031,
+  initialLiquidityUSD: 12_000,
+  availableCapacityUSD: 0,
+  totalCapacityUSD: 360_000,
+  providerMode: 'advanced',
+  providerLeverage: 30,
+  minPremiumApyBps: 3200,
+  uniswapApyBps: 0,
+  referenceApyBps: 0,
+  status: 'LIQUIDATED',
+  listedAt: now - 1000 * 60 * 60 * 24 * 11, // 11d ago
+  healthFactorPct: 0,
+})
+
+// L11 — Maria's terminal WITHDRAWN listing (Closed).
+listings.push({
+  id: 'L11',
+  tokenId: 423088,
+  owner: '0xMaria',
+  chain: 'arbitrum',
+  dex: 'uniswap-v3',
+  pair: { token0: 'OP', token1: 'USDC' },
+  feeTierBps: 30,
+  rangeLow: 1.7,
+  rangeHigh: 2.1,
+  currentPrice: 1.92,
+  initialLiquidityUSD: 18_000,
+  availableCapacityUSD: 0,
+  totalCapacityUSD: 17_820,
+  providerMode: 'conservative',
+  providerLeverage: 1,
+  minPremiumApyBps: 900,
+  uniswapApyBps: 1240,
+  referenceApyBps: 380,
+  status: 'WITHDRAWN',
+  listedAt: now - 1000 * 60 * 60 * 24 * 9, // 9d ago, closed
+})
+
+// Seed Maria's listings with realistic lifetime + claimable + health-factor numbers.
+// Without these the My Positions table has empty columns. Set centrally to keep seed
+// blocks above readable.
+const mariaSeedEarnings: Record<string, {
+  uni?: number; prem?: number; ref?: number; pnl?: number; claim?: number; hf?: number; hit?: number; util?: number;
+}> = {
+  L1: { uni: 1240, prem: 980, ref: 410, pnl: 1480, claim: 220, hit: 86, util: 62 },
+  L2: { uni: 2150, prem: 1820, ref: 640, pnl: 3140, claim: 480, hit: 92, util: 88 },
+  L4: { uni: 920, prem: 380, ref: 80, pnl: -2140, claim: 0, hf: 4, hit: 41, util: 71 }, // LIQUIDATING — distress
+  L5: { uni: 0, prem: 0, ref: 0, pnl: 0, claim: 0, hit: 100, util: 0 }, // Listed · waiting — nothing yet
+  L6: { uni: 380, prem: 240, ref: 110, pnl: 460, claim: 90, hit: 78, util: 54 }, // Withdrawing
+  L7: { uni: 480, prem: 320, ref: 140, pnl: 690, claim: 110, hit: 84, util: 48 },
+  L8: { uni: 640, prem: 1140, ref: 280, pnl: 980, claim: 310, hf: 28, hit: 68, util: 75 }, // at-risk Advanced
+  L9: { uni: 180, prem: 380, ref: 90, pnl: -120, claim: 0, hit: 34, util: 41 }, // out-of-range — low fees
+  L10: { uni: 240, prem: 180, ref: 60, pnl: -8400, claim: 0, hf: 0, hit: 22, util: 12 }, // Liquidated terminal
+  L11: { uni: 1820, prem: 940, ref: 380, pnl: 2840, claim: 0, hit: 81, util: 67 }, // Closed terminal
+}
+for (const l of listings) {
+  const e = mariaSeedEarnings[l.id]
+  if (!e) continue
+  l.lifetimeUniFeesUSD = e.uni
+  l.lifetimePremiumUSD = e.prem
+  l.lifetimeReferenceUSD = e.ref
+  l.netPnLUSD = e.pnl
+  l.claimableNowUSD = e.claim
+  l.rangeHitRatePct = e.hit
+  l.avgLeasedPct30d = e.util
+  if (e.hf !== undefined) l.healthFactorPct = e.hf
+}
 
 // Generated diverse listings — covers all statuses + pairs + modes для Marketplace demo + pagination
 listings.push(...generateListings(50, 100, now))

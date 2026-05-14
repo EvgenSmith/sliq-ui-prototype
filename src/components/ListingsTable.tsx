@@ -214,7 +214,7 @@ function DesktopRow({
 
       {/* Status — tooltip enabled */}
       <td className="px-3 py-3">
-        <StatusChip status={listing.status} rangeStatus={rangeStatus} />
+        <StatusChip status={listing.status} leasedPct={100 - freePct} rangeStatus={rangeStatus} />
       </td>
 
       {/* Premium APY — stacked (no misleading +sign, subsidized shows negative) */}
@@ -331,7 +331,7 @@ function MobileRow({
             safe · 1×
           </span>
         )}
-        <StatusChip status={listing.status} rangeStatus={rangeStatus} tiny />
+        <StatusChip status={listing.status} leasedPct={100 - freePct} rangeStatus={rangeStatus} tiny />
         {subsidized && (
           <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold">
             LP pays you
@@ -402,17 +402,18 @@ function FeeChip({ feeTierBps }: { feeTierBps: number }) {
 
 function StatusChip({
   status,
+  leasedPct,
   rangeStatus,
   tiny,
 }: {
   status: ListingStatus
+  leasedPct: number
   rangeStatus: 'in-range' | 'out-of-range'
   tiny?: boolean
 }) {
   const sizeCls = tiny ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'
   const baseCls = 'whitespace-nowrap rounded-full font-medium cursor-help ' + sizeCls
 
-  const status_active = status === 'ACTIVE'
   const data = (() => {
     if (status === 'LIQUIDATING')
       return {
@@ -438,19 +439,13 @@ function StatusChip({
         cls: 'bg-gray-100 text-gray-500 border border-gray-300',
         tip: 'LP забрал NFT. Листинг закрыт. Зайти нельзя.',
       }
-    if (status === 'PAUSED')
-      return {
-        label: 'paused',
-        cls: 'bg-gray-50 text-gray-700 border border-gray-300',
-        tip: 'LP временно остановил новые входы. Текущие позиции продолжают начислять.',
-      }
-    if (status === 'FULL')
+    // ACTIVE — derive trader-facing label from leased% + range
+    if (leasedPct >= 99.5)
       return {
         label: 'full · outbid only',
         cls: 'bg-amber-50 text-amber-900 border border-amber-300',
         tip: 'Вся capacity занята. Чтобы зайти — предложи Premium APY выше текущего трейдера (перекуп).',
       }
-    // ACTIVE — derived range. Default state = neutral (no color noise)
     if (rangeStatus === 'in-range')
       return {
         label: 'open · in range',
@@ -464,7 +459,6 @@ function StatusChip({
     }
   })()
 
-  void status_active
   return (
     <span className={baseCls + ' ' + data.cls} title={data.tip}>
       {data.label}

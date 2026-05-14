@@ -21,7 +21,8 @@ export const RANGE_STATUS_FILTER = [
   { id: 'out', label: 'Out of range' },
 ] as const
 
-export const STATUS_FILTER = ['ACTIVE', 'FULL', 'LIQUIDATING'] as const
+// FULL retired — full capacity is now a display of ACTIVE+leased=100% (call 2026-05-14).
+export const STATUS_FILTER = ['ACTIVE', 'LIQUIDATING'] as const
 
 export const SORT_OPTIONS = [
   { id: 'outbid-desc', label: '🎯 Outbid opportunities (by PnL)' },

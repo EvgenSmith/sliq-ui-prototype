@@ -77,7 +77,7 @@ export function getOutbidOpportunity(
   listing: Listing,
   positionsOnListing: Position[]
 ): OutbidOpportunity | null {
-  if (listing.status !== 'ACTIVE' && listing.status !== 'FULL') return null
+  if (listing.status !== 'ACTIVE') return null
   if (positionsOnListing.length === 0) return null
 
   const open = positionsOnListing.filter(p => p.status === 'OPEN')

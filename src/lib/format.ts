@@ -47,6 +47,18 @@ export function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 }
 
+// Token amount — adapts decimals to magnitude. Sub-1 → 4dp; <1k → 2dp; ≥1k → "1.2K" style.
+export function fmtToken(n: number, symbol: string): string {
+  const abs = Math.abs(n)
+  let body: string
+  if (abs >= 1_000_000) body = `${(n / 1_000_000).toFixed(2)}M`
+  else if (abs >= 1_000) body = `${(n / 1_000).toFixed(1)}K`
+  else if (abs >= 1) body = n.toFixed(2)
+  else if (abs >= 0.01) body = n.toFixed(4)
+  else body = n.toPrecision(2)
+  return `${body} ${symbol}`
+}
+
 export function isInRange(price: number, lo: number, hi: number): boolean {
   return price >= lo && price <= hi
 }

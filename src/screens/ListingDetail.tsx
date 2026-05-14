@@ -10,6 +10,7 @@ import {
   fmtPct,
   fmtRange,
   fmtTimeAgo,
+  fmtToken,
   fmtUSD,
   isInRange,
   shortAddr,
@@ -31,6 +32,9 @@ export function ListingDetail() {
   )
 
   const isOwner = listing?.owner === connectedWallet.address
+  // Owner-side Lite/Pro toggle is lifted to the parent so the right-rail
+  // ProMetrics block can hide in Lite mode (call 2026-05-14 feedback).
+  const [ownerMode, setOwnerMode] = useState2<'lite' | 'pro'>('lite')
 
   if (!listing) {
     return (
@@ -124,7 +128,7 @@ export function ListingDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 space-y-6">
           {isOwner ? (
-            <OwnerPanel listing={listing} />
+            <OwnerPanel listing={listing} ownerMode={ownerMode} setOwnerMode={setOwnerMode} />
           ) : (
             <TraderPanel
               listing={listing}
@@ -134,9 +138,11 @@ export function ListingDetail() {
           )}
         </section>
 
-        {/* Sidebar */}
+        {/* Sidebar — for trader perspective. Owner has its own Listing Summary block
+            in the main column, so we hide this duplicate for them. */}
         <aside className="space-y-4">
-          {/* Listing summary — enriched с LP context для trader decision */}
+          {/* Listing summary — for trader decision context (hidden for owner — they have it in main) */}
+          {!isOwner && (
           <div className="rounded-lg border border-gray-200 bg-white p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
               Listing summary
@@ -173,6 +179,7 @@ export function ListingDetail() {
             </dl>
 
           </div>
+          )}
 
           {/* Risk panel — Advanced only, OWNER perspective. Hidden for trader (his risk = his own position liq, shown on S9 instead) */}
           {isOwner && isAdvanced && listing.aggregateReserveUSD !== undefined && (
@@ -185,9 +192,11 @@ export function ListingDetail() {
             />
           )}
 
-          {/* Pro Metrics — relocated to right rail. Visible for both trader & owner
-              (owner uses these для self-benchmark vs other listings) */}
-          <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
+          {/* Pro Metrics — relocated to right rail. Trader sees always (decision context).
+              Owner sees only in Pro mode (Lite stays lean per call 2026-05-14 feedback). */}
+          {(!isOwner || ownerMode === 'pro') && (
+            <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
+          )}
         </aside>
       </div>
     </div>
@@ -1017,7 +1026,17 @@ function MetricBlock({ label, value, tone = 'ok' }: { label: string; value: stri
   )
 }
 
-function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
+function OwnerPanel({
+  listing,
+  ownerMode,
+  setOwnerMode,
+}: {
+  listing: import('@/lib/types').Listing
+  ownerMode: 'lite' | 'pro'
+  setOwnerMode: (m: 'lite' | 'pro') => void
+}) {
+  const isPro = ownerMode === 'pro'
+
   const [leverageOpen, setLeverageOpen] = useState2(false)
   const [withdrawOpen, setWithdrawOpen] = useState2(false)
   const [updateApyOpen, setUpdateApyOpen] = useState2(false)
@@ -1025,8 +1044,7 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
   const [newLeverage, setNewLeverage] = useState2(listing.providerLeverage)
   const [newMode, setNewMode] = useState2(listing.providerMode)
   const [newMinApyPct, setNewMinApyPct] = useState2(listing.minPremiumApyBps / 100)
-  const [autoCompound, setAutoCompound] = useState2(listing.autoCompound ?? true)
-  const [paused, setPaused] = useState2(listing.status === 'PAUSED')
+  // Auto-compound moved to Soon (call 2026-05-15 user feedback) — no toggle state needed.
 
   const myListingPositions = positions.filter(p => p.listingId === listing.id)
   const activeLessees = myListingPositions.filter(p => p.status === 'OPEN')
@@ -1034,263 +1052,440 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
   const lifetimePremium = listing.lifetimePremiumUSD ?? 0
   const lifetimeRef = listing.lifetimeReferenceUSD ?? 0
   const netPnL = listing.netPnLUSD ?? 0
-  const ilProxy = netPnL - lifetimeUni - lifetimePremium - lifetimeRef
-  const claimable = lifetimeUni * 0.3 + lifetimePremium * 0.2 + lifetimeRef * 0.4 // mock — accrued but not claimed
-  const ageHours = Math.max(1, (Date.now() - listing.listedAt) / (1000 * 60 * 60))
-  const uniPerHour = lifetimeUni / ageHours
-  const premPerHour = lifetimePremium / ageHours
+
+  // Fees panel — positive-perspective layout (user spec 2026-05-15):
+  //   Row 1: Uniswap fees (total · USD + token split)
+  //   Row 2: Premium APY (total · USD + token split)
+  //   Row 3: Total fees (sum, bold)
+  //   Sub-block: Accrued (already-claimed portion) + Claimable now (LP color)
+  //   IL line (vs HODL)
+  // Reference is folded into Uniswap stream — term retired per call 2026-05-14.
+  const uniswapFeesTotal = lifetimeUni + lifetimeRef
+  const premiumFeesTotal = lifetimePremium
+  const totalFees = uniswapFeesTotal + premiumFeesTotal
+  const claimableNow = listing.claimableNowUSD ?? totalFees * 0.2  // mock: ~20% sitting unclaimed
+  const accruedClaimed = Math.max(0, totalFees - claimableNow)
+  const ilProxy = netPnL - totalFees
 
   const subsidized = listing.minPremiumApyBps < 0
   const isAdvanced = listing.providerMode === 'advanced'
   const hitRate = listing.rangeHitRatePct ?? 0
+  const avgLeased = listing.avgLeasedPct30d ?? 0
 
   return (
     <div className="space-y-5">
-      {/* Earnings panel — headline */}
+      {/* Lite / Pro toggle (mirrors listing flow) — Lite by default; Pro reveals leverage editing,
+          min APY editing, analytics (hit-rate / avg leased / health factor). */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5">
+        <div className="text-xs text-gray-600 flex-1 min-w-0">
+          <span className="font-semibold text-gray-900">Manage view:</span>{' '}
+          {isPro
+            ? 'Pro — плечо / min APY / аналитика и health-факторы.'
+            : 'Lite — основные метрики, claim, withdraw. Расширенные настройки в Pro.'}
+        </div>
+        <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm">
+          <button
+            type="button"
+            onClick={() => setOwnerMode('lite')}
+            className={'text-xs px-3.5 py-1.5 transition ' + (!isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
+          >Lite</button>
+          <button
+            type="button"
+            onClick={() => setOwnerMode('pro')}
+            className={'text-xs px-3.5 py-1.5 transition ' + (isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
+          >Pro</button>
+        </div>
+      </div>
+
+      {/* Listing Summary — sLiq-side parameters: pricing, demand, stability.
+          (Position Info above = Uniswap-side facts. These two are intentionally split.) */}
+      {(() => {
+        const totalApyBps = listing.minPremiumApyBps + listing.uniswapApyBps
+        const activeCount = activeLessees.length
+        // LP stability — unified scale Safe / Stable / Moderate / At-risk.
+        // Conservative (1×) is always Safe; Pro+leverage>1 is graded by health factor.
+        const hf = listing.healthFactorPct
+        const stability: 'Safe' | 'Stable' | 'Moderate' | 'At-risk' =
+          !isAdvanced ? 'Safe'
+          : hf === undefined ? 'Stable'
+          : hf >= 70 ? 'Stable'
+          : hf >= 30 ? 'Moderate'
+          : 'At-risk'
+        const stabilityCls = {
+          Safe: 'bg-gray-50 text-gray-700 border border-gray-200',
+          Stable: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+          Moderate: 'bg-amber-50 text-amber-900 border border-amber-300',
+          'At-risk': 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40',
+        }[stability]
+        const leasedUSD = listing.totalCapacityUSD - listing.availableCapacityUSD
+        const leasedPct = listing.totalCapacityUSD > 0 ? (leasedUSD / listing.totalCapacityUSD) * 100 : 0
+        return (
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <h3 className="text-sm font-semibold mb-3">Listing summary</h3>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-sm">
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  Min Premium APY
+                  <HelpPopover label="Min Premium APY" width="w-64">
+                    <p>Минимум, с которого начинается аукцион для трейдеров. Трейдер должен предложить ≥ этой ставки. Если subsidized — ты платишь трейдерам (negative).</p>
+                  </HelpPopover>
+                </dt>
+                <dd className="font-semibold num" style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
+                  {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  Total APY
+                  <HelpPopover label="Total APY" width="w-64">
+                    <p>Сумма: <strong>min Premium APY + Uniswap APY</strong>. То, на что в сумме можно рассчитывать при текущих условиях аукциона и Uniswap pool yield.</p>
+                  </HelpPopover>
+                </dt>
+                <dd className="font-semibold text-gray-900 num">{fmtPct(totalApyBps)}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  Active positions
+                  <HelpPopover label="Active positions" width="w-72">
+                    <p>Сколько отдельных трейдер-позиций сейчас открыто на твоём листинге. Каждая платит Premium APY на свою долю notional. <strong>0</strong> = арендаторов нет → надо снизить Min APY или ждать.</p>
+                  </HelpPopover>
+                </dt>
+                <dd className="font-semibold text-gray-900 num">{activeCount}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  LP stability
+                  <HelpPopover label="LP stability" width="w-80">
+                    <p className="font-semibold mb-1">Унифицированный risk grade</p>
+                    <ul className="text-xs space-y-1">
+                      <li><strong>Safe</strong> — Conservative (1×), NFT не collateral, ликвидации невозможны.</li>
+                      <li><strong>Stable</strong> — Pro с health factor &gt; 70, дистанция до ликвидации большая.</li>
+                      <li><strong>Moderate</strong> — Pro, HF 30–70, можно тюнить.</li>
+                      <li><strong>At-risk</strong> — Pro, HF &lt; 30, близко к listing-level ликвидации.</li>
+                    </ul>
+                  </HelpPopover>
+                </dt>
+                <dd>
+                  <span className={'text-[11px] font-semibold px-1.5 py-0.5 rounded ' + stabilityCls}>
+                    {stability}
+                  </span>
+                  {isAdvanced && <span className="text-[11px] text-gray-500 ml-2 num">{listing.providerLeverage}×</span>}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  Used / Total capacity
+                  <HelpPopover label="Used / Total" width="w-72">
+                    <p>Сколько из доступной capacity сейчас арендовано трейдерами. <strong>Used</strong> = занято · <strong>Total</strong> = весь capacity (включая amplified leverage). Premium APY идёт только на Used.</p>
+                  </HelpPopover>
+                </dt>
+                <dd className="num flex items-baseline gap-2 mt-0.5">
+                  <span className="font-semibold text-gray-900">{fmtUSD(leasedUSD)}</span>
+                  <span className="text-gray-400">/</span>
+                  <span className="text-gray-500">{fmtUSD(listing.totalCapacityUSD)}</span>
+                  <span className="text-[11px] text-gray-500">({Math.round(leasedPct)}% used)</span>
+                </dd>
+                <div className="mt-1 h-1 w-full rounded-sm bg-gray-200 overflow-hidden">
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${Math.round(leasedPct)}%`,
+                      background: leasedPct >= 99.5 ? 'var(--color-status-success)' : 'var(--color-role-lp)',
+                    }}
+                  />
+                </div>
+              </div>
+            </dl>
+          </div>
+        )
+      })()}
+
+      {/* Position Info — underlying Uniswap pool facts. Listed-since + NFT id are
+          already in the page header above, so we don't duplicate them here. */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="flex items-baseline justify-between mb-3 gap-2 flex-wrap">
+          <h3 className="text-sm font-semibold inline-flex items-center gap-1">Position info</h3>
+          <a
+            href={`https://app.uniswap.org/positions/v3/arbitrum/${listing.tokenId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-medium text-[var(--color-role-lp)] hover:underline inline-flex items-center gap-1"
+          >
+            View on Uniswap →
+          </a>
+        </div>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6 text-sm">
+          <div>
+            <dt className="text-[11px] uppercase tracking-wide text-gray-500">Pool size</dt>
+            <dd className="font-semibold text-gray-900 num">{fmtUSD(listing.initialLiquidityUSD)}</dd>
+            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">
+              {(() => {
+                const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
+                return t0Amt !== null && t1Amt !== null
+                  ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
+                  : `${fmtUSD(listing.initialLiquidityUSD / 2)} ${listing.pair.token0} · ${fmtUSD(listing.initialLiquidityUSD / 2)} ${listing.pair.token1}`
+              })()}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] uppercase tracking-wide text-gray-500">Range</dt>
+            <dd className="font-medium text-gray-900 num">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
+            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">price · {listing.pair.token0}/{listing.pair.token1}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+              Uniswap APY
+              <HelpPopover label="Uniswap APY" width="w-64">
+                <p>Realized Uniswap fees APY на underlying V3 пуле за последние 30 дней. Это базовая доходность позиции от Uniswap, без учёта sLiq Premium.</p>
+              </HelpPopover>
+            </dt>
+            <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
+            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5">от Uniswap pool · 30d</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] uppercase tracking-wide text-gray-500">Protocol · fee tier</dt>
+            <dd className="font-medium text-gray-900">Uniswap v3 <span className="num">· {fmtFeeTier(listing.feeTierBps)}</span></dd>
+            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5 num">NFT #{listing.tokenId}</dd>
+          </div>
+        </dl>
+      </div>
+
+      {/* Fees panel — positive perspective (user feedback 2026-05-15):
+          Uniswap → Premium → Total → Accrued/Claimable breakdown → IL. */}
       <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <div className="flex items-baseline justify-between mb-3">
+        <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
           <h2 className="text-base font-semibold inline-flex items-center gap-1">
-            Earnings since listing
-            <HelpPopover label="Что показывает Net PnL" width="w-80">
-              <p className="font-semibold mb-1">Net PnL (IL-adjusted) — то что Uniswap скрывает</p>
-              <p className="mb-1.5">Uniswap UI показывает только «fees earned» — misleading metric. Real PnL = gross fees − Impermanent Loss.</p>
-              <p>С sLiq добавляются Reference Fees + Premium APY от lessees → итог часто positive даже когда Uniswap-only был бы в минусе.</p>
+            Fees · earnings
+            <HelpPopover label="Fees · earnings" width="w-80">
+              <p className="font-semibold mb-1">Что заработала позиция</p>
+              <p className="mb-1.5">Две статьи дохода LP — Uniswap fees от underlying pool + Premium APY от sLiq trader auction. Каждая в USD и в разбивке по паре активов.</p>
+              <p className="mb-1"><strong>Total</strong> — суммарно с момента листинга.</p>
+              <p className="mb-1"><strong>Accrued / Claimable</strong> — сколько уже зачислено на твой кошелёк vs сколько можно забрать прямо сейчас (одной tx).</p>
+              <p><strong>IL</strong> — оценка impermanent loss vs HODL underlying. Net PnL = Total fees − IL.</p>
             </HelpPopover>
           </h2>
-          <span
-            className="num font-bold text-2xl"
-            style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
-          >
-            {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
-            <span className="text-xs font-medium text-gray-500 ml-2">net · IL-adjusted</span>
-          </span>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">Net PnL (IL-adjusted)</div>
+            <div
+              className="num font-bold text-xl leading-tight"
+              style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+            >
+              {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
+            </div>
+          </div>
         </div>
-        <div className="space-y-1.5 text-sm">
-          <BreakdownRow label="Uniswap fees (baseline)" hint={`real fees from V3 pool · ${fmtUSD(uniPerHour)}/h avg`} value={
-            <span className="num font-medium text-[var(--color-status-success)]">+{fmtUSD(lifetimeUni)}</span>
-          } />
-          <BreakdownRow label="Reference Fees" hint={`paid by lessees, ${listing.providerLeverage}× amplified`} value={
-            <span className="num text-[var(--color-status-success)]">+{fmtUSD(lifetimeRef)}</span>
-          } />
-          <BreakdownRow
-            label={subsidized ? 'Premium APY (you pay traders)' : 'Premium APY (paid by lessees)'}
-            hint={`${subsidized ? 'paid out' : 'collected'} · ${fmtUSD(Math.abs(premPerHour))}/h`}
-            value={
-              <span className="num" style={{ color: subsidized ? 'var(--color-status-danger)' : 'var(--color-status-success)' }}>
-                {subsidized ? '−' : '+'}{fmtUSD(Math.abs(lifetimePremium))}
-              </span>
-            }
-          />
-          <BreakdownRow label="Impermanent Loss" hint="vs HODL value (V3 IL math)" value={
+        <div className="space-y-1">
+          <FeeRow label="Uniswap fees" usd={uniswapFeesTotal} listing={listing} />
+          <FeeRow label="Premium APY" usd={premiumFeesTotal} listing={listing} />
+          <div className="border-t border-gray-200 mt-2 pt-2" />
+          <FeeRow label="Total fees" usd={totalFees} listing={listing} bold />
+          {/* Accrued / Claimable breakdown — sub-row under Total */}
+          <div className="ml-3 mt-1.5 grid grid-cols-2 gap-3 text-[11px]">
+            <div className="flex items-baseline justify-between border-l-2 border-gray-200 pl-2">
+              <span className="text-gray-500">Accrued (уже на кошельке)</span>
+              <span className="num text-gray-700">{fmtUSD(accruedClaimed)}</span>
+            </div>
+            <div className="flex items-baseline justify-between border-l-2 pl-2" style={{ borderColor: 'var(--color-role-lp)' }}>
+              <span className="text-gray-500">Claimable now</span>
+              <span className="num font-semibold" style={{ color: 'var(--color-role-lp)' }}>{fmtUSD(claimableNow)}</span>
+            </div>
+          </div>
+        </div>
+        {/* IL line — always shown when negative (it's a real cost the LP needs to see) */}
+        {ilProxy < -0.01 && (
+          <div className="mt-3 flex items-baseline justify-between text-[11px]">
+            <span className="text-gray-600">Impermanent Loss <span className="text-gray-400">vs HODL</span></span>
             <span className="num text-[var(--color-status-danger)]">{fmtUSD(ilProxy)}</span>
-          } />
+          </div>
+        )}
+        {/* Primary action — single Claim tx (Kolya open action: paid/unpaid merge under the hood) */}
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            disabled={claimableNow <= 0.01}
+            onClick={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
+            className={
+              'text-sm font-semibold px-4 py-2 rounded transition border ' +
+              (claimableNow > 0.01
+                ? 'bg-[var(--color-role-lp)] text-white border-[var(--color-role-lp)] hover:opacity-90'
+                : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed')
+            }
+          >
+            {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Нечего клеймить'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setWithdrawOpen(true)}
+            disabled={withdrawing}
+            className="text-sm font-semibold px-4 py-2 rounded border border-[var(--color-status-danger)] text-[var(--color-status-danger)] hover:bg-red-50 transition disabled:opacity-50"
+          >
+            {withdrawing ? 'Withdrawing…' : 'Withdraw NFT'}
+          </button>
         </div>
         {netPnL < 0 && (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
-            <div className="text-xs font-semibold text-amber-900 mb-1">💡 What to do</div>
+            <div className="text-xs font-semibold text-amber-900 mb-1">💡 Что делать</div>
             <ul className="text-[11px] text-amber-900 space-y-1 leading-snug list-disc list-outside ml-4">
               {hitRate < 50 && (
-                <li><strong>Range hit-rate {hitRate}% слишком низкий</strong> — NFT часто out-of-range. Withdraw + re-list через Uniswap с wider range.</li>
+                <li><strong>Range hit-rate {hitRate}% низкий</strong> — NFT часто out-of-range. Withdraw + re-list через Uniswap с wider range.</li>
               )}
               {hitRate >= 50 && hitRate < 70 && (
                 <li>Range hit-rate {hitRate}% — норм, но можно расширить для стабильности fees.</li>
               )}
-              {Math.abs(ilProxy) > lifetimeUni + lifetimePremium + lifetimeRef && (
-                <li><strong>IL превышает earnings</strong> — цена двинулась против range. Если ждёшь mean-reversion, оставь; если нет — закрой через Request withdrawal.</li>
+              {Math.abs(ilProxy) > totalFees && (
+                <li><strong>IL превышает заработок</strong> — цена двинулась против range. Если ждёшь mean-reversion, оставь; если нет — закрой через Request withdrawal.</li>
               )}
               {!isAdvanced && (
-                <li>Consider Advanced mode для больше Reference Fees — но только если ты конfident в pair direction.</li>
+                <li>Подумай про Pro mode — там Premium APY на amplified pool, больше carry. Но NFT становится collateral.</li>
               )}
               {activeLessees.length === 0 && (
-                <li>Нет lessees — listing simply not attractive at current Min APY. Снизь Min APY чтобы привлечь traders.</li>
+                <li>Нет арендаторов — listing не привлекателен при текущем Min APY. Снизь его.</li>
               )}
             </ul>
           </div>
         )}
       </div>
 
-      {/* Range hit-rate */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <div className="flex items-baseline justify-between mb-2">
-          <h3 className="text-sm font-semibold">Range hit-rate · last 30d</h3>
-          <span
-            className="num font-bold text-lg"
-            style={{ color: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
-          >
-            {hitRate}%
-          </span>
+      {/* Position analytics — Pro only. Two complementary signals:
+          – Range hit-rate (% time price was inside Uniswap range)
+          – Avg leased · 30d (intensity of trader demand — how much of pool was rented on average) */}
+      {isPro && (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Range hit-rate */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <div className="flex items-baseline justify-between mb-2">
+            <h3 className="text-sm font-semibold inline-flex items-center gap-1">
+              Range hit-rate · 30d
+              <HelpPopover label="Range hit-rate" width="w-64">
+                <p>% времени, когда цена была внутри твоего Uniswap range. Низкий hit-rate = NFT часто out-of-range, Uniswap fees не идут. Сигнал расширить range или перелистить.</p>
+              </HelpPopover>
+            </h3>
+            <span
+              className="num font-bold text-lg"
+              style={{ color: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
+            >
+              {hitRate}%
+            </span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full transition-all"
+              style={{
+                width: `${hitRate}%`,
+                background: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)',
+              }}
+            />
+          </div>
+          <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+            {hitRate > 70 ? 'Хорошо — Uniswap fees регулярно начисляются.'
+             : hitRate > 40 ? 'Средне — рассмотри расширение range.'
+             : 'Низко — NFT часто out-of-range. Withdraw + re-list с новым range.'}
+          </p>
         </div>
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full transition-all"
-            style={{
-              width: `${hitRate}%`,
-              background: hitRate > 70 ? 'var(--color-status-success)' : hitRate > 40 ? 'var(--color-status-warning)' : 'var(--color-status-danger)',
-            }}
+
+        {/* Avg leased — utilization */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <div className="flex items-baseline justify-between mb-2">
+            <h3 className="text-sm font-semibold inline-flex items-center gap-1">
+              Avg leased · 30d
+              <HelpPopover label="Avg leased · 30d" width="w-72">
+                <p className="font-semibold mb-1">Средняя загруженность за 30 дней</p>
+                <p className="mb-1.5">Какая доля пула в среднем была арендована трейдерами за период. Это сигнал спроса: высокая utilization → можно поднять min Premium APY; низкая → надо снизить чтобы привлечь.</p>
+                <p className="text-[11px] text-gray-500">Сейчас в таблице ты видишь snapshot (текущий leased %). Здесь — time-weighted среднее.</p>
+              </HelpPopover>
+            </h3>
+            <span
+              className="num font-bold text-lg"
+              style={{ color: avgLeased > 70 ? 'var(--color-status-success)' : avgLeased > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}
+            >
+              {avgLeased}%
+            </span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full transition-all"
+              style={{
+                width: `${avgLeased}%`,
+                background: avgLeased > 70 ? 'var(--color-status-success)' : avgLeased > 30 ? 'var(--color-role-lp)' : 'var(--color-status-danger)',
+              }}
+            />
+          </div>
+          <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+            {avgLeased > 70 ? 'Высокий спрос — можно поднять min Premium APY.'
+             : avgLeased > 30 ? 'Умеренный — позиция в work, можно тюнить min APY.'
+             : 'Низкий — спрос слабый. Снизь min Premium APY чтобы привлечь арендаторов.'}
+          </p>
+        </div>
+      </div>
+      )}
+
+      {/* Manage listing — Pro only.
+          (Claim + Withdraw moved up into the Fees panel — those are core actions, always available.
+          Manage section is for advanced settings: leverage, min APY, Top up, Health factor, auto-compound.) */}
+      {isPro && (
+      <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-base font-semibold">Manage listing · Pro</h2>
+          {isAdvanced && (listing.healthFactorPct !== undefined) && (
+            <span className="text-[11px] inline-flex items-center gap-1">
+              Health
+              <span
+                className="font-semibold num"
+                style={{
+                  color: (listing.healthFactorPct ?? 0) > 60 ? 'var(--color-status-success)'
+                    : (listing.healthFactorPct ?? 0) > 30 ? 'var(--color-status-warning)'
+                    : 'var(--color-status-danger)',
+                }}
+              >
+                {listing.healthFactorPct}%
+              </span>
+              <HelpPopover label="Health Factor" width="w-72">
+                <p>Aave-style 0–100% scale. Только для Pro с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
+              </HelpPopover>
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Leverage editor — opens inline form rather than a confirm modal directly */}
+          <ActionButton
+            title={isAdvanced ? 'Update Provider Leverage' : 'Enable Advanced mode'}
+            subtitle={`Сейчас: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
+            onClick={() => setLeverageOpen(true)}
+            tooltipLabel={isAdvanced ? 'Update Leverage' : 'Enable Advanced'}
+            tooltipBody={isAdvanced
+              ? 'Provider Leverage 2-100×. Выше = amplified pool под Premium APY, ниже = безопаснее.'
+              : 'Переключиться с Safe · 1× на At-risk · N×. NFT становится collateral. Только для high-conviction LPs.'}
+          />
+          <ActionButton
+            title="Update Min Premium APY"
+            subtitle={`Сейчас: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
+            onClick={() => setUpdateApyOpen(true)}
+            tooltipLabel="Update Min APY"
+            tooltipBody="Floor для auction. Трейдер должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь арендаторов."
+          />
+          <ActionButton
+            title="Top up liquidity"
+            subtitle="Soon — добавить ликвидность к позиции"
+            onClick={() => {}}
+            disabled
+            tooltipLabel="Top up — Soon"
+            tooltipBody="Per Kolya 2026-05-14 @01:21:54: margin = NFT, его докинуть нельзя. Но добавить liquidity к позиции — да, фича в плане."
+          />
+          <ActionButton
+            title="Auto-compound Uniswap fees"
+            subtitle="Soon — keeper compound на каждом settlement"
+            onClick={() => {}}
+            disabled
+            tooltipLabel="Auto-compound — Soon"
+            tooltipBody="Не в текущем sprint. Когда включится — keeper будет автоматически делать collect Uniswap fees и re-добавлять к NFT, без ручных claim/re-deposit."
           />
         </div>
-        <p className="text-[11px] text-gray-500 mt-2 leading-snug">
-          % времени когда price была в твоём range. <strong>{hitRate}% / 30d.</strong>{' '}
-          {hitRate > 70 ? 'Хорошо — fees регулярно начисляются.'
-           : hitRate > 40 ? 'Средне — рассмотри расширение range.'
-           : 'Низко — NFT часто out-of-range, fees не идут. Withdraw + re-list с новым range.'}
-        </p>
       </div>
+      )}
 
-      {/* Manage actions panel */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
-        <h2 className="text-base font-semibold">Manage listing</h2>
-
-        {/* PRIMARY action — Collect accrued earnings (NOT withdraw NFT) */}
-        {claimable > 1 ? (
-          <div className="rounded-lg border-2 border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)]/40 p-4 flex items-baseline justify-between gap-3 flex-wrap">
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] uppercase tracking-wide text-[var(--color-role-lp)] font-semibold inline-flex items-center gap-1">
-                Ready to collect
-                <HelpPopover label="Что значит «Collect»" width="w-80">
-                  <p className="font-semibold mb-1">Collect earnings = забрать accrued fees</p>
-                  <p className="mb-1.5">Это <strong>не</strong> withdraw NFT — это получить на кошелёк все накопленные fees + Premium APY + Reference Fees. NFT остаётся листингом дальше зарабатывать.</p>
-                  <p className="text-[11px] text-gray-500">Чтобы забрать NFT обратно → отдельная кнопка «Request NFT withdrawal» ниже.</p>
-                </HelpPopover>
-              </div>
-              <div className="text-2xl num font-bold text-[var(--color-role-lp)] mt-0.5">{fmtUSD(claimable)}</div>
-              <div className="text-[11px] text-gray-600 mt-0.5">
-                Uniswap fees {fmtUSD(lifetimeUni * 0.3)} + Reference {fmtUSD(lifetimeRef * 0.4)} + Premium {fmtUSD(lifetimePremium * 0.2)}
-              </div>
-            </div>
-            <Link
-              to="/lp/claims"
-              className="text-sm font-bold px-5 py-2.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition whitespace-nowrap"
-            >
-              Collect earnings →
-            </Link>
-          </div>
-        ) : (
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
-            <strong>No earnings ready to collect yet.</strong> Auto-compound{autoCompound ? ' ON — fees added back to NFT automatically.' : ' OFF — fees accumulate, will appear here.'}
-          </div>
-        )}
-
-        {/* SECONDARY actions — settings */}
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold mb-2">Settings</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <ActionButton
-              title={isAdvanced ? 'Update Provider Leverage' : 'Enable Advanced mode'}
-              subtitle={`Now: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
-              onClick={() => setLeverageOpen(true)}
-              tooltipLabel={isAdvanced ? 'Update Leverage' : 'Enable Advanced'}
-              tooltipBody={isAdvanced
-                ? 'Adjust Provider Leverage 2-100×. Higher = amplified Reference Fees pool, ниже = безопаснее.'
-                : 'Switch from Safe · 1× to At-risk · N×. NFT becomes collateral. Только для high-conviction LPs.'}
-            />
-            <ActionButton
-              title="Update Min Premium APY"
-              subtitle={`Now: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
-              onClick={() => setUpdateApyOpen(true)}
-              tooltipLabel="Update Min APY"
-              tooltipBody="Floor для auction. Trader должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь lessees."
-            />
-            <ToggleAction
-              title="Pause new lessees"
-              subtitle={paused ? 'Paused — existing keep' : 'Active — accepting opens'}
-              active={paused}
-              onClick={() => setPaused(p => !p)}
-              tooltipLabel="Pause"
-              tooltipBody="Pause blocks new opens, existing lessees продолжают сидеть и платить. To force-close everyone → use Request withdrawal instead."
-            />
-            <ToggleAction
-              title="Auto-compound Uniswap fees"
-              subtitle={autoCompound ? 'ON — keeper compounds на каждом settlement' : 'OFF — fees collect-only'}
-              active={autoCompound}
-              onClick={() => setAutoCompound(a => !a)}
-              tooltipLabel="Auto-compound"
-              tooltipBody="Keeper автоматически collect Uniswap fees и re-добавляет к NFT при каждом settlement event. No manual collect+re-add."
-            />
-          </div>
-        </div>
-
-        <hr className="border-gray-100" />
-
-        {/* DESTRUCTIVE action — withdraw */}
-        <div className="flex items-baseline justify-between gap-3 flex-wrap">
-          <div>
-            <h3 className="text-sm font-semibold">Request NFT withdrawal</h3>
-            <p className="text-[11px] text-gray-600 mt-0.5">
-              Force-closes все existing lessees. NFT возвращается на твой wallet через 2-block keeper settlement.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setWithdrawOpen(true)}
-            disabled={withdrawing}
-            className="text-sm font-semibold px-4 py-2 rounded-md border border-[var(--color-status-danger)] text-[var(--color-status-danger)] hover:bg-red-50 transition disabled:opacity-50"
-          >
-            {withdrawing ? 'Withdrawing…' : 'Request withdraw'}
-          </button>
-        </div>
-      </div>
-
-      {/* Active lessees — summary one-liner + expandable */}
-      {activeLessees.length > 0 && (() => {
-        const totalLeased = activeLessees.reduce((s, p) => s + p.notionalUSD, 0)
-        const avgApy = activeLessees.reduce((s, p) => s + p.apyBps, 0) / activeLessees.length
-        const totalLesseePnl = activeLessees.reduce((s, p) => s + estimatePositionPnL(p), 0)
-        const lesseesProfitable = totalLesseePnl > 0
-        return (
-          <details className="rounded-lg border border-gray-200 bg-white p-4">
-            <summary className="cursor-pointer hover:text-gray-700 list-none">
-              <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                <div className="text-sm">
-                  <strong>{activeLessees.length} active {activeLessees.length === 1 ? 'lessee' : 'lessees'}</strong>
-                  <span className="text-gray-500 num"> · {fmtUSD(totalLeased)} leased · avg {fmtPct(avgApy)} APY paid to you</span>
-                </div>
-                <span className="text-[11px] text-gray-500 inline-flex items-center gap-1">
-                  {lesseesProfitable ? (
-                    <>
-                      💡 They're profitable (+{fmtUSD(totalLesseePnl)} aggregate) — consider raising Min APY
-                    </>
-                  ) : (
-                    <>Aggregate PnL: <span style={{ color: 'var(--color-status-danger)' }}>{fmtUSD(totalLesseePnl)}</span></>
-                  )}
-                  <span className="ml-1 underline decoration-dotted">show all ▾</span>
-                </span>
-              </div>
-            </summary>
-            <table className="w-full text-sm mt-3">
-              <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="text-left font-medium pb-2">Trader</th>
-                  <th className="text-right font-medium pb-2">Notional</th>
-                  <th className="text-right font-medium pb-2">APY paid to you</th>
-                  <th className="text-right font-medium pb-2">Their PnL</th>
-                  <th className="text-right font-medium pb-2">Opened</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeLessees.map(p => {
-                  const pnl = estimatePositionPnL(p)
-                  return (
-                    <tr key={p.id} className="border-t border-gray-100">
-                      <td className="py-2 num text-xs">{shortAddr(p.trader)}</td>
-                      <td className="py-2 text-right num">{fmtUSD(p.notionalUSD)}</td>
-                      <td className="py-2 text-right num font-medium" style={{ color: p.apyBps < 0 ? 'var(--color-negative-apy)' : undefined }}>
-                        {fmtPct(p.apyBps, { signed: true })}
-                      </td>
-                      <td className="py-2 text-right num text-xs" style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
-                        {pnl >= 0 ? '+' : '−'}{fmtUSD(Math.abs(pnl))}
-                      </td>
-                      <td className="py-2 text-right num text-xs text-gray-500">{fmtTimeAgo(p.openedAt)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </details>
-        )
-      })()}
-
-      {/* Vs HODL + Pro Metrics consolidated → right-rail ProMetrics (LP-side sub-sections) */}
+      {/* Active lessees block removed (call 2026-05-14): «lessees» as a term wasn't used —
+          Liquidity Used / Leased % already conveys "how much rented". Per-trader history is
+          not on the LP card. */}
 
       {/* === Modals === */}
 
@@ -1354,27 +1549,33 @@ function OwnerPanel({ listing }: { listing: import('@/lib/types').Listing }) {
       {/* Withdrawal modal */}
       <HighStakesConfirmModal
         open={withdrawOpen}
-        title="Request NFT withdrawal — confirm"
-        subtitle="Force-closes все existing lessees. NFT возвращается на wallet через 2-block keeper settlement."
+        title="Запрос вывода NFT — подтверди"
+        subtitle="Принудительно закрывает всех текущих арендаторов. Тот же NFT (#{listing.tokenId}) возвращается в кошелёк через 2-block keeper settlement — но с текущим P&L (если margin съел часть, NFT придёт с уменьшенной стоимостью)."
         currentState={[
-          { label: 'Active lessees', value: String(activeLessees.length) },
-          { label: 'Listing status', value: listing.status },
+          { label: 'Active арендаторы', value: String(activeLessees.length) },
+          { label: 'Pool size (now)', value: fmtUSD(listing.initialLiquidityUSD) },
+          { label: 'Net PnL · IL-adjusted', value: `${netPnL >= 0 ? '+' : '−'}${fmtUSD(Math.abs(netPnL))}` },
           { label: 'NFT in protocol', value: `#${listing.tokenId}` },
         ]}
         newState={[
           { label: 'Listing status', value: 'withdrawing · LP exit', deltaTone: 'neutral' },
-          { label: 'New lessees', value: 'Blocked', deltaTone: 'neutral' },
-          { label: 'Existing lessees', value: 'Force-closed at next-block price', deltaTone: 'negative' },
+          { label: 'NFT после settlement', value: `#${listing.tokenId} обратно (тот же ID)`, deltaTone: 'neutral' },
+          {
+            label: 'Estimated NFT value',
+            value: fmtUSD(Math.max(0, listing.initialLiquidityUSD + netPnL)),
+            deltaTone: netPnL < 0 ? 'negative' : 'positive',
+          },
+          { label: 'Claimable now (auto-paid)', value: fmtUSD(claimableNow), deltaTone: 'positive' },
         ]}
         risks={[
-          'Lessees могут заработать меньше Premium чем при wait-out',
-          'Pending Reference + Premium списываются from each lessee\'s reserve at close',
-          'Withdrawal can\'t be cancelled after submit',
+          'NFT возвращается с текущим P&L — если margin съел часть позиции, ты получаешь NFT с reduced value (proof-of-deposit ID тот же)',
+          'Pending Premium + Uniswap fees списываются from each lessee reserve и идут тебе при settlement',
+          'Withdrawal нельзя отменить после submit — relisting требует свежий deposit',
         ]}
-        irreversibilityNote="Re-listing requires fresh deposit (new NFT import)."
+        irreversibilityNote="Re-listing требует свежего deposit (новый NFT import flow)."
         confirmType="type-to-confirm"
         typeWord="WITHDRAW"
-        confirmButtonLabel="Confirm withdrawal"
+        confirmButtonLabel="Подтвердить вывод"
         onConfirm={() => {
           setWithdrawOpen(false)
           setWithdrawing(true)
@@ -1397,23 +1598,62 @@ function BreakdownRow({ label, hint, value }: { label: string; hint?: string; va
   )
 }
 
+// Split a USD amount into the listing pair's two token amounts at midprice (V3 in-range ≈ 50/50).
+// Returns null token amounts for non-USD-quoted pairs (we then fall back to USD-split display).
+const STABLE_TOKENS = new Set(['USDC', 'USDT', 'DAI', 'PYUSD', 'crvUSD'])
+function splitToTokens(usd: number, listing: import('@/lib/types').Listing): { t0Amt: number | null; t1Amt: number | null } {
+  const half = usd / 2
+  const t0IsUSD = STABLE_TOKENS.has(listing.pair.token0)
+  const t1IsUSD = STABLE_TOKENS.has(listing.pair.token1)
+  if (t1IsUSD) return { t0Amt: half / Math.max(listing.currentPrice, 1e-12), t1Amt: half }
+  if (t0IsUSD) return { t0Amt: half, t1Amt: half * listing.currentPrice }
+  return { t0Amt: null, t1Amt: null }
+}
+
+function FeeRow({ label, usd, listing, highlight, bold }: {
+  label: string
+  usd: number
+  listing: import('@/lib/types').Listing
+  highlight?: boolean
+  bold?: boolean
+}) {
+  const { t0Amt, t1Amt } = splitToTokens(usd, listing)
+  const tokenLine = t0Amt !== null && t1Amt !== null
+    ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
+    : `${fmtUSD(usd / 2)} ${listing.pair.token0} · ${fmtUSD(usd / 2)} ${listing.pair.token1}`
+  const valueColor = highlight ? 'var(--color-role-lp)' : undefined
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className={'text-sm ' + (bold ? 'font-semibold text-gray-900' : 'text-gray-700')}>{label}</span>
+      <div className="text-right">
+        <div className={'num ' + (bold ? 'font-semibold text-base' : highlight ? 'font-semibold' : '')} style={{ color: valueColor }}>
+          {fmtUSD(usd)}
+        </div>
+        <div className="text-[10px] text-gray-500 num leading-tight">{tokenLine}</div>
+      </div>
+    </div>
+  )
+}
+
 function ActionButton({
   title,
   subtitle,
   onClick,
   tooltipLabel,
   tooltipBody,
+  disabled,
 }: {
   title: string
   subtitle: string
   onClick: () => void
   tooltipLabel: string
   tooltipBody: string
+  disabled?: boolean
 }) {
   return (
-    <div className="rounded-md border border-gray-200 bg-white p-3 flex items-baseline justify-between gap-2">
+    <div className={'rounded-md border p-3 flex items-baseline justify-between gap-2 ' + (disabled ? 'border-gray-200 bg-gray-50' : 'border-gray-200 bg-white')}>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium inline-flex items-center gap-1">
+        <div className={'text-sm font-medium inline-flex items-center gap-1 ' + (disabled ? 'text-gray-400' : '')}>
           {title}
           <HelpPopover label={tooltipLabel} width="w-64">
             <p>{tooltipBody}</p>
@@ -1424,9 +1664,15 @@ function ActionButton({
       <button
         type="button"
         onClick={onClick}
-        className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--color-role-lp)] text-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)] transition whitespace-nowrap"
+        disabled={disabled}
+        className={
+          'text-xs font-medium px-2.5 py-1 rounded border whitespace-nowrap transition ' +
+          (disabled
+            ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
+            : 'border-[var(--color-role-lp)] text-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)]')
+        }
       >
-        Edit
+        {disabled ? 'Soon' : 'Edit'}
       </button>
     </div>
   )

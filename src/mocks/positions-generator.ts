@@ -37,8 +37,8 @@ export function generatePositions({ listings, trader, count, startId, now }: Gen
     ;[statuses[i], statuses[j]] = [statuses[j], statuses[i]]
   }
 
-  // Use only ACTIVE/FULL listings not owned by trader
-  const tradableListings = listings.filter(l => l.owner !== trader && (l.status === 'ACTIVE' || l.status === 'FULL'))
+  // Use only ACTIVE listings not owned by trader (FULL retired — full capacity is now a display of ACTIVE+leased=100%)
+  const tradableListings = listings.filter(l => l.owner !== trader && l.status === 'ACTIVE')
   if (tradableListings.length === 0) return out
 
   for (let i = 0; i < count; i++) {
