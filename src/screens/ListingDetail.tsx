@@ -2,7 +2,7 @@
 // One page per listing, role-aware tabs (About | Open as Trader | Manage as Owner).
 // Listing is the spine of the product — every link points here.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { listings, positions, closedPositions, connectedWallet } from '@/mocks/data'
 import {
@@ -1108,29 +1108,16 @@ function OwnerPanel({
           read-only data first. Convention: Uniswap V3 / OpenSea / Aave all put
           owner actions in the page header. */}
       <div className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:flex-wrap">
-        {/* Primary actions cluster (Claim + Manage) — order-1 on mobile so it sits ABOVE
-            the view-mode toggle (Eugene 2026-05-15: «как уместить в 1 строчку кнопки» —
-            на мобилке всё 3-в-ряд не лезет, разводим в 2 ряда: primary action сверху,
-            view-toggle отдельной строкой ниже как meta-control). */}
-        <div className="flex items-center gap-2 order-1 sm:order-2">
-          {/* Claim always rendered — disabled placeholder when nothing to claim so
-              Withdraw inside Manage▾ doesn't become the visual primary on a clean
-              listing (UX audit P1, Eugene 2026-05-15). */}
-          <button
-            type="button"
-            disabled={claimableNow <= 0.01}
-            onClick={() => claimableNow > 0.01 && alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
-            className={
-              'flex-1 sm:flex-initial text-sm font-semibold px-3.5 py-1.5 rounded-md transition ' +
-              (claimableNow > 0.01
-                ? 'bg-[var(--color-role-lp)] text-white hover:opacity-90'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed')
-            }
-          >
-            {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Claim'}
-          </button>
+        {/* Action cluster — single Manage dropdown holds Claim + Withdraw (+ Update
+            Leverage / Update Min APY in Pro). Standalone Claim button retired
+            (Eugene 2026-05-15). Manage button itself shows «+$X» badge when
+            claimable > 0, with LP-color fill — keeps primary-action visibility
+            despite the action being inside the menu. */}
+        <div className="flex items-center gap-2 order-1 sm:order-2 justify-end">
           <ManageMenu
             isPro={isPro}
+            claimableNow={claimableNow}
+            onClaim={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
             onUpdateLeverage={() => setLeverageOpen(true)}
             onUpdateApy={() => setUpdateApyOpen(true)}
             onWithdraw={() => setWithdrawOpen(true)}
@@ -2200,19 +2187,37 @@ function fmtHeld(hours: number): string {
 //   Pro mode   → dropdown with Update Leverage / Update Min APY / Withdraw.
 // View-on-Uniswap link removed (Eugene 2026-05-15) — already in Position
 // info card's «View on Uniswap →» header; duplicate.
+// ManageMenu — single action surface on the listing detail header.
+// All actions collapsed into this dropdown (Eugene 2026-05-15):
+//   Lite mode → [Claim, Withdraw NFT]
+//   Pro mode  → [Claim, Update Leverage, Update Min Premium APY, Withdraw NFT]
+// Claim sits first; Withdraw sits last (destructive, divided). Manage button
+// gains LP-color accent + claimable amount badge when there's something to claim
+// — preserves primary-action visibility despite the action being in a dropdown.
+//
+// Positioning: pixel-clamp the dropdown panel to the viewport (mirror of the
+// HelpPopover fix) — was clipping off-screen on mobile when Manage button sat
+// near the right edge of a narrow viewport.
 function ManageMenu({
   isPro,
+  claimableNow,
+  onClaim,
   onUpdateLeverage,
   onUpdateApy,
   onWithdraw,
 }: {
   isPro: boolean
+  claimableNow: number
+  onClaim: () => void
   onUpdateLeverage: () => void
   onUpdateApy: () => void
   onWithdraw: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [offsetX, setOffsetX] = useState<number | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const hasClaimable = claimableNow > 0.01
 
   useEffect(() => {
     if (!open) return
@@ -2230,49 +2235,96 @@ function ManageMenu({
     }
   }, [open])
 
-  // Lite: single inline Withdraw button. No dropdown needed.
-  if (!isPro) {
-    return (
-      <button
-        type="button"
-        onClick={onWithdraw}
-        className="text-sm font-semibold px-3.5 py-1.5 rounded-md border border-[var(--color-status-danger)]/40 bg-white text-[var(--color-status-danger)] hover:bg-red-50 transition"
-      >
-        Withdraw NFT
-      </button>
-    )
-  }
+  // Pixel-clamp panel to viewport so it never clips on narrow screens.
+  useLayoutEffect(() => {
+    if (!open || !ref.current || !panelRef.current) {
+      setOffsetX(null)
+      return
+    }
+    const triggerRect = ref.current.getBoundingClientRect()
+    const panelWidth = panelRef.current.offsetWidth
+    const viewportW = window.innerWidth
+    const padding = 8
+    // Prefer anchoring panel's right edge to the trigger's right edge (default),
+    // but clamp so left edge stays ≥ padding.
+    const idealLeft = triggerRect.right - panelWidth
+    const clampedLeft = Math.max(padding, Math.min(idealLeft, viewportW - panelWidth - padding))
+    setOffsetX(clampedLeft - triggerRect.left)
+  }, [open])
 
-  // Pro: dropdown with parameter edits + destructive Withdraw at the bottom.
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="text-sm font-semibold px-3.5 py-1.5 rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 transition inline-flex items-center gap-1"
+        className={
+          'text-sm font-semibold px-3.5 py-1.5 rounded-md inline-flex items-center gap-1.5 transition ' +
+          (hasClaimable
+            ? 'bg-[var(--color-role-lp)] text-white hover:opacity-90 border border-[var(--color-role-lp)]'
+            : 'bg-white text-gray-800 hover:bg-gray-50 border border-gray-300')
+        }
         aria-haspopup="menu"
         aria-expanded={open}
       >
         Manage
+        {hasClaimable && (
+          <span className="text-[10px] font-bold num bg-white/20 rounded px-1.5 py-0.5 leading-none">
+            +{fmtUSD(claimableNow)}
+          </span>
+        )}
         <svg width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true">
           <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
       {open && (
         <div
+          ref={panelRef}
           role="menu"
-          className="absolute right-0 top-full mt-1 w-60 rounded-md border border-gray-200 bg-white shadow-lg overflow-hidden z-30 py-1"
+          style={{
+            left: offsetX !== null ? `${offsetX}px` : undefined,
+            right: offsetX !== null ? 'auto' : 0,
+            visibility: offsetX === null ? 'hidden' : 'visible',
+          }}
+          className="absolute top-full mt-1 w-64 max-w-[calc(100vw-1rem)] rounded-md border border-gray-200 bg-white shadow-lg overflow-hidden z-30 py-1"
         >
-          <MenuRow
-            label="Update leverage"
-            hint="Re-lists slices below new floor"
-            onClick={() => { setOpen(false); onUpdateLeverage() }}
-          />
-          <MenuRow
-            label="Update Min Premium APY"
-            hint="Re-lists slices below new floor"
-            onClick={() => { setOpen(false); onUpdateApy() }}
-          />
+          {/* Claim — first menu item. Disabled when nothing to claim, so the
+              row stays visible (action discoverability) but inert. */}
+          <button
+            type="button"
+            disabled={!hasClaimable}
+            onClick={() => { setOpen(false); onClaim() }}
+            className={
+              'w-full text-left px-3 py-2 text-sm transition ' +
+              (hasClaimable
+                ? 'hover:bg-[var(--color-role-lp-bg)]'
+                : 'cursor-not-allowed opacity-50')
+            }
+            role="menuitem"
+          >
+            <div className="font-medium inline-flex items-center gap-2" style={{ color: hasClaimable ? 'var(--color-role-lp)' : '#9ca3af' }}>
+              Claim {hasClaimable ? <span className="num">{fmtUSD(claimableNow)}</span> : <span className="text-[11px] font-normal">— nothing to claim</span>}
+            </div>
+            <div className="text-[11px] text-gray-500 mt-0.5">Sweep fees (Uniswap + Premium) in one tx</div>
+          </button>
+
+          {/* Pro-only parameter edits */}
+          {isPro && (
+            <>
+              <div className="border-t border-gray-100 my-1" />
+              <MenuRow
+                label="Update leverage"
+                hint="Re-lists slices below new floor"
+                onClick={() => { setOpen(false); onUpdateLeverage() }}
+              />
+              <MenuRow
+                label="Update Min Premium APY"
+                hint="Re-lists slices below new floor"
+                onClick={() => { setOpen(false); onUpdateApy() }}
+              />
+            </>
+          )}
+
+          {/* Destructive Withdraw — last, separated, danger-coloured */}
           <div className="border-t border-gray-100 my-1" />
           <button
             type="button"
