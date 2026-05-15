@@ -1147,7 +1147,7 @@ function OwnerPanel({
         const summary = (
           <div className="rounded-lg border border-gray-200 bg-white p-4">
             <h3 className="text-sm font-semibold mb-3">Listing summary</h3>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-sm">
+            <dl className="grid grid-cols-2 gap-y-2.5 gap-x-3 sm:gap-x-6 text-sm">
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   Min Premium APY
@@ -1168,7 +1168,7 @@ function OwnerPanel({
                 </dt>
                 <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
               </div>
-              <div className="sm:col-span-2">
+              <div className="col-span-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   Total APY
                   <HelpPopover label="Total APY" width="w-64">
@@ -1230,7 +1230,7 @@ function OwnerPanel({
                   )}
                 </dd>
               </div>
-              <div className="sm:col-span-2">
+              <div className="col-span-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   Used / Total capacity
                   <HelpPopover label="Used / Total" width="w-72">
@@ -1343,7 +1343,7 @@ function OwnerPanel({
             View on Uniswap →
           </a>
         </div>
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6 text-sm">
+        <dl className="grid grid-cols-2 gap-y-2 gap-x-3 sm:gap-x-6 text-sm">
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Pool size</dt>
             <dd className="font-semibold text-gray-900 num">{fmtUSD(listing.initialLiquidityUSD)}</dd>
@@ -1485,7 +1485,7 @@ function OwnerPanel({
                 : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed')
             }
           >
-            {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Нечего клеймить'}
+            {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Claim'}
           </button>
         </div>
         {netPnL < 0 && (

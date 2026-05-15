@@ -292,16 +292,19 @@ function ListingsView() {
             )
           })}
         </div>
-        {/* Mobile: dropdown (matches All pairs / All protocols style) */}
+        {/* Mobile: status dropdown. Prefix «Status:» so the «All» isn't naked next
+            to the other All-prefixed selects (All pairs / All protocols) — Eugene
+            2026-05-15: «1й селектор, что за All? Все кто?». */}
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as StatusFilter)}
           className="sm:hidden rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+          aria-label="Filter by status"
         >
-          <option value="all">All ({mine.length})</option>
-          <option value="earning">Earning{summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}</option>
-          <option value="waiting">Waiting{summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}</option>
-          <option value="attention">Attention{attentionTotal > 0 ? ` (${attentionTotal})` : ''}</option>
+          <option value="all">Status: All ({mine.length})</option>
+          <option value="earning">Status: Earning{summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}</option>
+          <option value="waiting">Status: Waiting{summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}</option>
+          <option value="attention">Status: Attention{attentionTotal > 0 ? ` (${attentionTotal})` : ''}</option>
         </select>
 
         {myPairs.length > 1 && (
@@ -1201,15 +1204,36 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
 
   return (
     <div className="w-full px-4 py-3 bg-white hover:bg-gray-50 transition">
-      <button
-        type="button"
+      {/* Outer wrapper is a div+role=button (not <button>) because HelpPopover
+          renders an inner <button>; nested buttons = invalid HTML. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onClick}
-        className="w-full text-left"
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+        className="w-full text-left cursor-pointer"
       >
         <div className="flex items-baseline justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             <span className="font-semibold truncate">{pairLabel(listing)}</span>
             <span className="text-[10px] text-gray-500 num">{fmtFeeTier(listing.feeTierBps)}</span>
+            {/* Single card-level info popover — per Eugene 2026-05-15: «на мобилке нет
+                тултипов ни к чему, может сделать общий тултип к карточке». Avoids 5
+                tiny (i) icons next to every metric. One ⓘ next to the pair opens
+                a sheet explaining all metrics on this card. */}
+            <span onClick={e => e.stopPropagation()}>
+              <HelpPopover label="Card metrics — explained" width="w-72">
+                <p className="font-semibold mb-1.5">What's on this card</p>
+                <ul className="space-y-1.5 text-[11px] leading-relaxed">
+                  <li><strong>Pool size</strong> — USD value locked in your NFT at listing time.</li>
+                  <li><strong>% leased</strong> — share of your liquidity currently rented out by traders. Premium APY accrues only on the leased portion.</li>
+                  <li><strong>APY</strong> — Uniswap fees baseline + min Premium APY (auction floor).</li>
+                  {isPro && <li><strong>Health</strong> — Aave-style 0–100. Only for Pro+leverage&gt;1. Below 30 = at-risk of listing-level liquidation.</li>}
+                  <li><strong>Fees</strong> — lifetime gross earned · green +$ = claimable now in one tx.</li>
+                  <li><strong>+/− $</strong> (top-right) — Net PnL since listing, IL-adjusted vs HODL.</li>
+                </ul>
+              </HelpPopover>
+            </span>
           </div>
           <span className="num font-semibold" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
             {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
@@ -1229,23 +1253,20 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
             <span className="text-gray-500">Pool size</span>
             <div className="font-medium">{fmtUSD(listing.initialLiquidityUSD)}</div>
             <div className="text-[10px] text-gray-500 mt-0.5">{Math.round(leasedPct)}% leased</div>
-            <div className="mt-0.5 h-1 w-full rounded-sm bg-gray-200 overflow-hidden">
-              <div
-                className="h-full"
-                style={{
-                  width: `${Math.round(leasedPct)}%`,
-                  background: leasedPct >= 99.5 ? 'var(--color-status-success)' : leasedPct < 0.5 ? 'transparent' : 'var(--color-role-lp)',
-                }}
-              />
-            </div>
+            {/* Progress-bar dropped on mobile per Eugene 2026-05-15 — desktop already
+                surfaces this via Used/Total bar; mobile card kept a duplicate. */}
           </div>
           <div>
-            <span className="text-gray-500">{isPro ? 'Health' : 'APY'}</span>
-            <div className="font-medium">
-              {isPro && hf !== undefined
-                ? <span style={{ color: hf > 60 ? 'var(--color-status-success)' : hf > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}>{hf}%</span>
-                : isTerminal ? '—' : `${totalApy.toFixed(1)}%`}
-            </div>
+            <span className="text-gray-500">APY</span>
+            <div className="font-medium">{isTerminal ? '—' : `${totalApy.toFixed(1)}%`}</div>
+            {/* HF rendered as a separate row when Pro+leverage>1 — was overriding APY
+                before; APY too important to hide. */}
+            {isPro && hf !== undefined && (
+              <div className="text-[10px] mt-0.5">
+                <span className="text-gray-500">Health </span>
+                <span className="font-medium" style={{ color: hf > 60 ? 'var(--color-status-success)' : hf > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}>{hf}%</span>
+              </div>
+            )}
           </div>
           <div className="col-span-2">
             <span className="text-gray-500">Fees</span>
@@ -1257,8 +1278,18 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
             </div>
           </div>
         </div>
-      </button>
+      </div>
+      {/* Action row — Manage left, Claim right (under the right-aligned PnL number).
+          Claim button shows only «Claim» label (the $ amount is right there in Fees row above).
+          Per Eugene 2026-05-15. */}
       <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onClick() }}
+          className="inline-flex items-center justify-center text-xs font-semibold px-2 py-1.5 rounded border border-gray-300 bg-white text-gray-700"
+        >
+          Manage
+        </button>
         <button
           type="button"
           disabled={claimable <= 0.01 || isTerminal}
@@ -1270,14 +1301,7 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
               : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed')
           }
         >
-          {claimable > 0.01 && !isTerminal ? `Claim ${fmtUSD(claimable)}` : 'Claim'}
-        </button>
-        <button
-          type="button"
-          onClick={e => { e.stopPropagation(); onClick() }}
-          className="inline-flex items-center justify-center text-xs font-semibold px-2 py-1.5 rounded border border-gray-300 bg-white text-gray-700"
-        >
-          Manage
+          Claim
         </button>
       </div>
     </div>
