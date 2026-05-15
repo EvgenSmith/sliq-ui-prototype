@@ -1556,7 +1556,7 @@ function OwnerPanel({
               <p className="font-semibold mb-1">Что заработала позиция</p>
               <p className="mb-1.5">Две статьи дохода LP — Uniswap fees от underlying pool + Premium APY от sLiq trader auction. Каждая в USD и в разбивке по паре активов.</p>
               <p className="mb-1"><strong>Total</strong> — суммарно с момента листинга.</p>
-              <p className="mb-1"><strong>Accrued / Claimable</strong> — сколько уже зачислено на твой кошелёк vs сколько можно забрать прямо сейчас (одной tx).</p>
+              <p className="mb-1"><strong>Already claimed / Claimable now</strong> — сколько уже зачислено в кошелёк vs сколько можно забрать в одной транзакции.</p>
               <p><strong>IL</strong> — оценка impermanent loss vs HODL underlying. Net PnL = Total fees − IL.</p>
             </HelpPopover>
           </h2>
@@ -1579,13 +1579,18 @@ function OwnerPanel({
               Indented under Total to read as «split of the number above».
               Per Eugene 2026-05-15 the old two-column «Accrued | Claimable» layout
               with vertical bars was confusing — numbers didn't add up visually. */}
+          {/* Total fees breakdown — Already-claimed line hidden when zero (clutter).
+              «(одной tx)» qualifier dropped — implicit. «(в кошельке)» translated to
+              English for locale consistency (Eugene 2026-05-15). */}
           <div className="mt-2 ml-3 pl-3 border-l border-gray-200 space-y-1 text-[11px]">
+            {accruedClaimed > 0.01 && (
+              <div className="flex items-baseline justify-between">
+                <span className="text-gray-500">Already claimed <span className="text-gray-400">(in wallet)</span></span>
+                <span className="num text-gray-700">{fmtUSD(accruedClaimed)}</span>
+              </div>
+            )}
             <div className="flex items-baseline justify-between">
-              <span className="text-gray-500">Already claimed <span className="text-gray-400">(в кошельке)</span></span>
-              <span className="num text-gray-700">{fmtUSD(accruedClaimed)}</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-gray-500">Claimable now <span className="text-gray-400">(одной tx)</span></span>
+              <span className="text-gray-500">Claimable now</span>
               <span className="num font-semibold" style={{ color: 'var(--color-role-lp)' }}>{fmtUSD(claimableNow)}</span>
             </div>
           </div>
@@ -1597,27 +1602,25 @@ function OwnerPanel({
             <span className="num text-[var(--color-status-danger)]">{fmtUSD(ilProxy)}</span>
           </div>
         )}
-        {/* Inline Claim button removed (Eugene 2026-05-15 UX audit synthesis) —
-            duplicated the header Claim, читалось как «я уже клеймил?». Header is
-            the single canonical Claim. Fees panel is now read-only breakdown. */}
+        {/* Suggestions block — all-English copy (was mixed RU/EN per UX audit). */}
         {netPnL < 0 && (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
-            <div className="text-xs font-semibold text-amber-900 mb-1">💡 Что делать</div>
+            <div className="text-xs font-semibold text-amber-900 mb-1">💡 Suggestions</div>
             <ul className="text-[11px] text-amber-900 space-y-1 leading-snug list-disc list-outside ml-4">
               {hitRate < 50 && (
-                <li><strong>Range hit-rate {hitRate}% низкий</strong> — NFT часто out-of-range. Withdraw + re-list через Uniswap с wider range.</li>
+                <li><strong>Range hit-rate {hitRate}% low</strong> — NFT is often out-of-range. Withdraw + re-list on Uniswap with a wider range.</li>
               )}
               {hitRate >= 50 && hitRate < 70 && (
-                <li>Range hit-rate {hitRate}% — норм, но можно расширить для стабильности fees.</li>
+                <li>Range hit-rate {hitRate}% — OK, but a wider range would stabilise fees.</li>
               )}
               {Math.abs(ilProxy) > totalFees && (
-                <li><strong>IL превышает заработок</strong> — цена двинулась против range. Если ждёшь mean-reversion, оставь; если нет — закрой через Request withdrawal.</li>
+                <li><strong>IL exceeds earnings</strong> — price moved against your range. If you expect mean-reversion, hold; otherwise close via Request withdrawal.</li>
               )}
               {!isAdvanced && (
-                <li>Подумай про Pro mode — там Premium APY на amplified pool, больше carry. Но NFT становится collateral.</li>
+                <li>Consider Pro mode — Premium APY on the amplified pool yields more carry. But the NFT becomes collateral.</li>
               )}
               {activeLessees.length === 0 && (
-                <li>Нет арендаторов — listing не привлекателен при текущем Min APY. Снизь его.</li>
+                <li>No lessees — the listing isn't attractive at the current Min APY. Lower it.</li>
               )}
             </ul>
           </div>
