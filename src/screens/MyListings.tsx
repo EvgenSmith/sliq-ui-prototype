@@ -248,25 +248,41 @@ function ListingsView() {
           )}
         </div>
 
-        {/* «N of M shown · Clear filters» line removed entirely (Eugene 2026-05-15):
-            counts already live in summary cards + filter chips; «Clear filters»
-            functionality covered by tapping back to «All» on individual filter
-            controls. Line surfaces only when there's actually an attention signal,
-            plus the «+ List NFT» quick-action shortcut on the right. */}
-        <p className="text-xs text-gray-500 num mt-3 flex items-center gap-3 flex-wrap">
-          {attentionTotal > 0 && (
-            <button
-              type="button"
-              onClick={() => setAttentionExpanded(e => !e)}
-              className="text-[var(--color-status-danger)] font-medium underline decoration-dotted hover:no-underline inline-flex items-center gap-1"
-            >
-              {attentionTotal} need attention <span aria-hidden="true">{attentionExpanded ? '▴' : '▾'}</span>
-            </button>
-          )}
-          <Link to="/lp/deposit" className="ml-auto text-[var(--color-role-lp)] hover:underline">
-            + List NFT
-          </Link>
-        </p>
+        {/* Strip layout (Eugene 2026-05-15 round 5):
+              Left  → «Clear filters» (when any filter ≠ all)
+              Right → «N need attention ▾» (when attentionTotal > 0)
+            «+ List NFT» dropped — already available as a tab in AppSubNav. */}
+        {(() => {
+          const filtersActive = statusFilter !== 'all' || pairFilter !== 'all' || protocolFilter !== 'all'
+          const showStrip = filtersActive || attentionTotal > 0
+          if (!showStrip) return null
+          return (
+            <p className="text-xs text-gray-500 num mt-3 flex items-center gap-3 flex-wrap">
+              {filtersActive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('all')
+                    setPairFilter('all')
+                    setProtocolFilter('all')
+                  }}
+                  className="text-[var(--color-role-lp)] hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+              {attentionTotal > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAttentionExpanded(e => !e)}
+                  className="ml-auto text-[var(--color-status-danger)] font-medium underline decoration-dotted hover:no-underline inline-flex items-center gap-1"
+                >
+                  {attentionTotal} need attention <span aria-hidden="true">{attentionExpanded ? '▴' : '▾'}</span>
+                </button>
+              )}
+            </p>
+          )
+        })()}
       </header>
 
       {/* Attention expandable */}
