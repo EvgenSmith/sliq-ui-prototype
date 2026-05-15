@@ -1086,22 +1086,25 @@ function ListingsTable({
                   </HelpPopover>
                 </span>
               </th>
-              {/* Risk column — chip + HF inline + distance-to-liq sub-line.
-                  Always rendered (Eugene 2026-05-15: «перенести тег с риском
-                  в колонку Health»). Conservative listings show gray
-                  «No Risk» chip; Pro listings show «Risk N×» + HF % + sub-line. */}
+              {/* Health column — risk chip (top) + HF (bottom). Always rendered.
+                  Eugene 2026-05-15: renamed back from Risk → Health since the
+                  cell carries both risk grade (chip) AND Health Factor (HF).
+                  Distance-to-liq sub-line dropped — too noisy at table-row
+                  scale; lives in the listing-detail HF tooltip. */}
               <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
                 <span className="inline-flex items-center gap-1 justify-end">
-                  Risk
-                  <HelpPopover label="Risk" width="w-80">
+                  Health
+                  <HelpPopover label="Health" width="w-80">
                     <p className="font-semibold mb-1">Per-listing risk read</p>
+                    <p className="text-[11px] text-gray-600 mb-2 leading-relaxed">Top line — risk grade (chip). Bottom line — Health Factor (Pro only).</p>
+                    <p className="text-[11px] font-semibold mb-1">Risk chip</p>
                     <ul className="text-[11px] leading-relaxed space-y-1">
                       <li><strong className="text-gray-500">No Risk</strong> — Conservative (1×), NFT не collateral, listing-level ликвидации невозможны.</li>
                       <li><strong className="text-amber-800">Risk N×</strong> — Pro с плечом. NFT под collateral, возможна ликвидация при vol-event.</li>
                       <li><strong className="text-amber-800">Subsidized</strong> — negative Premium APY (LP платит трейдерам).</li>
-                      <li className="text-gray-600 pt-1"><strong>HF</strong> — Aave-style 0–100%. Только для Pro. Зелёный &gt; 60, amber 30–60, красный &lt; 30. Ниже HF — ближе к ликвидации.</li>
-                      <li className="text-gray-600"><strong>−X% to liq</strong> — sub-line: насколько pool должен двинуться против range, чтобы триггернуть ликвидацию.</li>
                     </ul>
+                    <p className="text-[11px] font-semibold mt-2.5 mb-1">HF (Health Factor)</p>
+                    <p className="text-[11px] text-gray-600 leading-relaxed">Aave-style 0–100%, Pro-only. <span className="text-[var(--color-status-success)] font-semibold">&gt; 60</span> safe · <span className="text-[var(--color-status-warning)] font-semibold">30–60</span> watch · <span className="text-[var(--color-status-danger)] font-semibold">&lt; 30</span> close to listing-level liquidation.</p>
                   </HelpPopover>
                 </span>
               </th>
@@ -1209,9 +1212,10 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
           </>
         )}
       </td>
-      {/* 6. Risk cell — relocated risk chip + HF inline + distance-to-liq sub-line
-            (Eugene 2026-05-15). Always rendered (gray «No Risk» chip for
-            Conservative listings, amber chip + colored HF for Pro). */}
+      {/* 6. Health cell — two lines: risk chip on top, HF below (Pro only).
+            Eugene 2026-05-15 v2: distance-to-liq sub-line dropped (too noisy
+            for table glance; lives in listing-detail HF tooltip). Always
+            rendered — gray «No Risk» for Conservative, amber «Risk N×» for Pro. */}
       <td className="px-3 py-3 text-right num hidden md:table-cell">
         {(() => {
           const advanced = listing.providerMode === 'advanced'
@@ -1226,38 +1230,25 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
             ? `Risk ${listing.providerLeverage}×`
             : 'No Risk'
           return (
-            <>
-              <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
-                <span className={'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-medium num whitespace-nowrap ' + chipCls}>
-                  {chipLabel}
+            <div className="inline-flex flex-col items-end gap-0.5">
+              <span className={'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-medium num whitespace-nowrap ' + chipCls}>
+                {chipLabel}
+              </span>
+              {isPro && hf !== undefined && (
+                <span
+                  className="text-[11px] font-semibold num whitespace-nowrap"
+                  style={{
+                    color: hf > 60
+                      ? 'var(--color-status-success)'
+                      : hf > 30
+                      ? 'var(--color-status-warning)'
+                      : 'var(--color-status-danger)',
+                  }}
+                >
+                  HF {hf}%
                 </span>
-                {isPro && hf !== undefined && (
-                  <span
-                    className="text-[11px] font-semibold num whitespace-nowrap"
-                    style={{
-                      color: hf > 60
-                        ? 'var(--color-status-success)'
-                        : hf > 30
-                        ? 'var(--color-status-warning)'
-                        : 'var(--color-status-danger)',
-                    }}
-                  >
-                    HF {hf}%
-                  </span>
-                )}
-              </div>
-              {isPro && listing.distanceToLiqPct !== undefined && (
-                <div className="text-[10px] mt-0.5 font-normal" style={{
-                  color: listing.distanceToLiqPct < 5
-                    ? 'var(--color-status-danger)'
-                    : listing.distanceToLiqPct < 15
-                    ? 'var(--color-status-warning)'
-                    : 'var(--color-text-muted, #6b7280)',
-                }}>
-                  −{listing.distanceToLiqPct.toFixed(1)}% to liq
-                </div>
               )}
-            </>
+            </div>
           )
         })()}
       </td>
