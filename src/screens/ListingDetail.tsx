@@ -1184,7 +1184,7 @@ function OwnerPanel({
                     <p>Минимум, с которого начинается аукцион для трейдеров. Трейдер должен предложить ≥ этой ставки. Если subsidized — ты платишь трейдерам (negative).</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold num text-right" style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
+                <dd className="font-semibold num" style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
                   {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
                 </dd>
               </div>
@@ -1195,7 +1195,7 @@ function OwnerPanel({
                     <p>Realised pool fee APY за последние 30d на текущем range. Это та доходность, которую NFT и так зарабатывал бы на Uniswap без sLiq. На вершину этого аукцион добавляет Premium APY.</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num text-right">{fmtPct(listing.uniswapApyBps)}</dd>
+                <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
               </div>
               <div className="col-span-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
@@ -1218,7 +1218,7 @@ function OwnerPanel({
                     <p>Сколько отдельных трейдер-позиций сейчас открыто на твоём листинге. Каждая платит Premium APY на свою долю notional. <strong>0</strong> = арендаторов нет → надо снизить Min APY или ждать.</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num text-right">
+                <dd className="font-semibold text-gray-900 num">
                   {activeCount}
                   {/* CTA when nobody is renting — gives the «0» a next-step (Eugene
                       2026-05-15 P2.14). Pro-mode owners can deep-link to the Min APY
@@ -1253,7 +1253,7 @@ function OwnerPanel({
                     </ul>
                   </HelpPopover>
                 </dt>
-                <dd className="flex items-center gap-2 flex-wrap justify-end">
+                <dd className="flex items-center gap-2 flex-wrap">
                   <span className={'text-[11px] font-semibold px-1.5 py-0.5 rounded ' + stabilityCls}>
                     {stability}
                   </span>
@@ -1395,11 +1395,11 @@ function OwnerPanel({
         <dl className="grid grid-cols-2 gap-y-2 gap-x-3 sm:gap-x-6 text-sm">
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Pool size</dt>
-            <dd className="font-semibold text-gray-900 num text-right">{fmtUSD(listing.initialLiquidityUSD)}</dd>
-            {/* Token-pair sub-line: 2-line right-aligned format per Eugene 2026-05-15
-                («Pool size и трейдер маркет выравнивать по правому краю в 2 строчки»).
-                Was one line with `·` separator that wrapped awkwardly on mobile. */}
-            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 flex flex-col items-end">
+            <dd className="font-semibold text-gray-900 num">{fmtUSD(listing.initialLiquidityUSD)}</dd>
+            {/* Token-pair sub-line: 2-line LEFT-aligned (Eugene 2026-05-15 mobile
+                review reversed earlier right-align decision — label and value
+                both flush-left reads cleaner inside narrow card columns). */}
+            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 flex flex-col items-start">
               {(() => {
                 const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
                 if (t0Amt !== null && t1Amt !== null) {
@@ -1436,13 +1436,13 @@ function OwnerPanel({
                     Trader-market size. At 1× leverage Trader market = Pool size.
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num text-right">
+                <dd className="font-semibold text-gray-900 num">
                   {fmtUSD(traderMarketUSD)}
                   <span className="block text-[11px] text-gray-500 font-normal">
                     = {fmtUSD(listing.initialLiquidityUSD)} × {listing.providerLeverage}×
                   </span>
                 </dd>
-                <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 flex flex-col items-end">
+                <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 flex flex-col items-start">
                   {(() => {
                     const { t0Amt, t1Amt } = splitToTokens(traderMarketUSD, listing)
                     if (t0Amt !== null && t1Amt !== null) {
@@ -1462,8 +1462,8 @@ function OwnerPanel({
           })()}
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Range</dt>
-            <dd className="font-medium text-gray-900 num text-right">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
-            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 text-right">price · {listing.pair.token0}/{listing.pair.token1}</dd>
+            <dd className="font-medium text-gray-900 num">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
+            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">price · {listing.pair.token0}/{listing.pair.token1}</dd>
           </div>
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
@@ -1472,12 +1472,12 @@ function OwnerPanel({
                 <p>Realized Uniswap fees APY на underlying V3 пуле за последние 30 дней. Это базовая доходность позиции от Uniswap, без учёта sLiq Premium.</p>
               </HelpPopover>
             </dt>
-            <dd className="font-semibold text-gray-900 num text-right">{fmtPct(listing.uniswapApyBps)}</dd>
-            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5 text-right">от Uniswap pool · 30d</dd>
+            <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
+            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5">от Uniswap pool · 30d</dd>
           </div>
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Protocol · fee tier</dt>
-            <dd className="font-medium text-gray-900 text-right">Uniswap v3 <span className="num">· {fmtFeeTier(listing.feeTierBps)}</span></dd>
+            <dd className="font-medium text-gray-900">Uniswap v3 <span className="num">· {fmtFeeTier(listing.feeTierBps)}</span></dd>
             {/* NFT #X removed per Eugene 2026-05-15 — already shown in the page header
                 (breadcrumb area). Was duplicated here. */}
           </div>
