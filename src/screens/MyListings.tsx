@@ -160,6 +160,10 @@ function ListingsView() {
   }, [mine])
 
   const attentionTotal = summary.atRisk
+  // Pro vocabulary (HF, At-risk, Liquidation) is gated by ownership of at least one
+  // Advanced listing. Lite-only LPs never see liq language → no anxiety about
+  // «what's HF? why am I at risk?» (UX audit P0, Eugene 2026-05-15).
+  const hasAnyPro = mine.some(l => l.providerMode === 'advanced')
 
   // (Empty-state early return removed — handled by 1.1-1.3 state branches at the top.)
 
@@ -185,9 +189,13 @@ function ListingsView() {
           <SummaryCard label="Total pool size" subtitle={`${mine.length} listing${mine.length === 1 ? '' : 's'}`} valueColor="neutral">
             {fmtUSD(summary.totalTVL)}
           </SummaryCard>
-          <SummaryCard label="At risk" subtitle="Advanced near liq" valueColor={summary.atRisk > 0 ? 'danger' : 'neutral'}>
-            {summary.atRisk}
-          </SummaryCard>
+          {/* «At risk» card only for portfolios with at least one Pro listing.
+              Lite-only LPs never have liquidation risk → no need to surface 0/0 anxiety. */}
+          {hasAnyPro && (
+            <SummaryCard label="At risk" subtitle="Pro listings near liq" valueColor={summary.atRisk > 0 ? 'danger' : 'neutral'}>
+              {summary.atRisk}
+            </SummaryCard>
+          )}
         </div>
 
         {/* Counts duplicated by filter chips below + Total-pool-size summary card above
@@ -261,12 +269,14 @@ function ListingsView() {
       <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3 flex flex-wrap items-center gap-2">
         {/* Desktop: segmented control */}
         <div className="hidden sm:flex items-center rounded-md border border-gray-300 overflow-hidden">
-          {([
+          {(([
             { id: 'all', label: `All (${mine.length})` },
             { id: 'earning', label: `Earning${summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}` },
-            { id: 'waiting', label: `Waiting${summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}` },
-            { id: 'attention', label: `Attention${attentionTotal > 0 ? ` (${attentionTotal})` : ''}` },
-          ] as const).map(o => {
+            { id: 'waiting', label: `Idle${summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}` },
+            // Attention chip surfaced only when user owns at least one Pro listing
+            // — for Lite-only portfolios «At-risk» concept is irrelevant.
+            ...(hasAnyPro ? [{ id: 'attention' as const, label: `Attention${attentionTotal > 0 ? ` (${attentionTotal})` : ''}` }] : []),
+          ] as const)).map(o => {
             const active = statusFilter === o.id
             const attentionHot = o.id === 'attention' && attentionTotal > 0
             // Attention chip is the only chip that signals urgency by colour:
@@ -303,8 +313,10 @@ function ListingsView() {
         >
           <option value="all">Status: All ({mine.length})</option>
           <option value="earning">Status: Earning{summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}</option>
-          <option value="waiting">Status: Waiting{summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}</option>
-          <option value="attention">Status: Attention{attentionTotal > 0 ? ` (${attentionTotal})` : ''}</option>
+          <option value="waiting">Status: Idle{summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}</option>
+          {hasAnyPro && (
+            <option value="attention">Status: Attention{attentionTotal > 0 ? ` (${attentionTotal})` : ''}</option>
+          )}
         </select>
 
         {myPairs.length > 1 && (
@@ -356,6 +368,7 @@ function ListingsView() {
         <>
           <ListingsTable
             listings={visible}
+            hasAnyPro={hasAnyPro}
             onClick={id => navigate(`/listings/${id}`)}
             onClaim={id => {
               const l = listings.find(x => x.id === id)
@@ -585,7 +598,10 @@ function GuestState() {
         <div className="mt-8 grid sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
           <ValueChip n="+3–7% APR" label="Premium APY carry" />
           <ValueChip n="Up to 100×" label="Provider Leverage (Pro mode)" />
-          <ValueChip n="Your NFT" label="Stays yours · custody preserved" />
+          {/* Strengthened NFT-custody chip per Eugene 2026-05-15 — Semen's anxiety
+              about losing NFT custody is the #1 friction; an explicit «pull back
+              anytime» signal beats generic «custody preserved». */}
+          <ValueChip n="Pull back anytime" label="NFT stays in your wallet" />
         </div>
       </div>
     </div>
@@ -947,10 +963,12 @@ function AllListedFooter() {
 
 function ListingsTable({
   listings,
+  hasAnyPro,
   onClick,
   onClaim,
 }: {
   listings: Listing[]
+  hasAnyPro: boolean
   onClick: (id: string) => void
   onClaim: (id: string) => void
 }) {
@@ -959,23 +977,21 @@ function ListingsTable({
       {/* Desktop */}
       <div className="hidden md:block rounded-lg border border-gray-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
+          <thead className="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200 sticky top-[180px] z-10">
             <tr>
               <th className="text-left font-medium px-4 py-2.5">Pair · NFT</th>
               <th className="text-left font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1">
                   Status
                   <HelpPopover label="Статусы листинга" width="w-80">
-                    <p className="font-semibold mb-2">Статусы листинга (5)</p>
+                    <p className="font-semibold mb-2">Статусы листинга — 3 primary + edge</p>
                     <ul className="space-y-1.5 text-xs">
-                      <li><strong className="text-amber-800">Listed · waiting</strong> — активен, арендаторов пока нет (leased 0%). Снизь min Premium APY чтобы привлечь.</li>
-                      <li><strong className="text-emerald-700">Earning</strong> — активен, есть арендаторы. Premium APY идёт на занятую долю.</li>
-                      <li><strong className="text-emerald-700">Earning · full</strong> — активен, 100% занят. Новые входы только через outbid.</li>
-                      <li><strong className="text-amber-800">Withdrawing</strong> — запрошен вывод. 2-блочный guard до возврата NFT.</li>
-                      <li><strong className="text-[var(--color-status-danger)]">Liquidating</strong> — идёт listing-level ликвидация (только Pro + плечо&gt;1).</li>
-                      <li><strong className="text-gray-500">Liquidated / Closed</strong> — терминальные.</li>
+                      <li><strong className="text-emerald-700">Earning</strong> — активен, есть арендаторы. Premium APY идёт на занятую долю (% leased виден в Pool size cell).</li>
+                      <li><strong className="text-gray-700">Idle</strong> — залистен, но арендаторов пока нет (0% leased). Снизь min Premium APY чтобы привлечь.</li>
+                      <li><strong className="text-[var(--color-status-danger)]">At Risk</strong> — Pro+плечо: позиция близка к listing-level ликвидации или уже в процессе.</li>
                     </ul>
-                    <p className="mt-2 text-[11px] text-gray-500"><strong>Out of range</strong> — ортогональный sub-badge, появляется на любом активном статусе, когда цена вышла из Uniswap range.</p>
+                    <p className="mt-2 text-[11px] text-gray-500">Edge: <strong>Withdrawing</strong> (запрошен вывод) · <strong>Closed</strong> (NFT вернулся) · <strong>Liquidated</strong> (Pro-листинг ликвидирован).</p>
+                    <p className="mt-1.5 text-[11px] text-gray-500"><strong>Out of range</strong> — ортогональный sub-badge, появляется на любом активном статусе, когда цена вышла из Uniswap range.</p>
                   </HelpPopover>
                 </span>
               </th>
@@ -999,14 +1015,19 @@ function ListingsTable({
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  Health
-                  <HelpPopover label="Health Factor (только Pro)" width="w-72">
-                    <p>Aave-style шкала 0–100%. Показывается только для Pro-листингов с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
-                  </HelpPopover>
-                </span>
-              </th>
+              {/* HF column rendered only when portfolio has at least one Pro listing —
+                  for Lite-only LPs the column would always show «—» and create
+                  «у меня чего-то не хватает» anxiety (UX audit P0). */}
+              {hasAnyPro && (
+                <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
+                  <span className="inline-flex items-center gap-1 justify-end">
+                    Health
+                    <HelpPopover label="Health Factor (только Pro)" width="w-72">
+                      <p>Aave-style шкала 0–100%. Показывается только для Pro-листингов с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
+                    </HelpPopover>
+                  </span>
+                </th>
+              )}
               <th className="text-right font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1 justify-end">
                   Net PnL
@@ -1016,7 +1037,9 @@ function ListingsTable({
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5 hidden sm:table-cell">
+              {/* Fees column lifted to lg-only (was sm+). On md we collapse to just the
+                  Claimable sub-line inside Net PnL cell — keeps the row scannable. */}
+              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
                 <span className="inline-flex items-center gap-1 justify-end">
                   Fees
                   <HelpPopover label="Fees" width="w-72">
@@ -1032,7 +1055,7 @@ function ListingsTable({
           </thead>
           <tbody>
             {listings.map(l => (
-              <ListingRow key={l.id} listing={l} onClick={() => onClick(l.id)} onClaim={onClaim} />
+              <ListingRow key={l.id} listing={l} hasAnyPro={hasAnyPro} onClick={() => onClick(l.id)} onClaim={onClaim} />
             ))}
           </tbody>
         </table>
@@ -1048,7 +1071,7 @@ function ListingsTable({
   )
 }
 
-function ListingRow({ listing, onClick, onClaim }: { listing: Listing; onClick: () => void; onClaim: (id: string) => void }) {
+function ListingRow({ listing, hasAnyPro, onClick, onClaim }: { listing: Listing; hasAnyPro: boolean; onClick: () => void; onClaim: (id: string) => void }) {
   const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
   const leasedPct = 100 - capacityFreePct(listing)
@@ -1072,19 +1095,24 @@ function ListingRow({ listing, onClick, onClaim }: { listing: Listing; onClick: 
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       className="group cursor-pointer transition border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
     >
-      {/* 1. Pair · NFT */}
+      {/* 1. Pair · NFT — risk chips merged into a single «Risk» chip
+            (subsidized + at-risk previously rendered as two separate chips,
+            cognitive overload per UX audit P1). Single chip handles all 4 cases:
+              • neither      → no chip
+              • subsidized   → «Subsidized» (amber low-key)
+              • at-risk      → «Pro N×» (amber)
+              • both         → «Sub · Pro N×» (amber, both signals) */}
       <td className="px-4 py-3">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-medium text-gray-900 group-hover:text-[var(--color-role-lp)] transition">{pairLabel(listing)}</span>
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200 num">{fmtFeeTier(listing.feeTierBps)}</span>
-          {subsidized && (
-            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold">
-              you pay
-            </span>
-          )}
-          {listing.providerMode === 'advanced' && (
-            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-              at-risk · {listing.providerLeverage}×
+          {(subsidized || listing.providerMode === 'advanced') && (
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium num">
+              {subsidized && listing.providerMode === 'advanced'
+                ? `Sub · Pro ${listing.providerLeverage}×`
+                : subsidized
+                ? 'Subsidized'
+                : `Pro ${listing.providerLeverage}×`}
             </span>
           )}
         </div>
@@ -1116,36 +1144,48 @@ function ListingRow({ listing, onClick, onClaim }: { listing: Listing; onClick: 
           </>
         )}
       </td>
-      {/* 6. Health Factor (Pro only) */}
-      <td className="px-3 py-3 text-right num hidden lg:table-cell">
-        {isPro && hf !== undefined ? (
-          <span
-            className="font-semibold"
-            style={{
-              color: hf > 60
-                ? 'var(--color-status-success)'
-                : hf > 30
-                ? 'var(--color-status-warning)'
-                : 'var(--color-status-danger)',
-            }}
-          >
-            {hf}%
-          </span>
-        ) : (
-          <span className="text-gray-300">—</span>
-        )}
-      </td>
-      {/* 7. Net PnL */}
+      {/* 6. Health Factor — rendered only when ANY listing in portfolio is Pro.
+            Per-row, falls back to «—» for Conservative entries. */}
+      {hasAnyPro && (
+        <td className="px-3 py-3 text-right num hidden lg:table-cell">
+          {isPro && hf !== undefined ? (
+            <span
+              className="font-semibold"
+              style={{
+                color: hf > 60
+                  ? 'var(--color-status-success)'
+                  : hf > 30
+                  ? 'var(--color-status-warning)'
+                  : 'var(--color-status-danger)',
+              }}
+            >
+              {hf}%
+            </span>
+          ) : (
+            <span className="text-gray-300">—</span>
+          )}
+        </td>
+      )}
+      {/* 7. Net PnL — promoted to visual anchor: text-base font-bold so the eye
+            lands here first (UX audit P1: «promote Net PnL до visual anchor»).
+            On md (where Fees column collapses to lg-only), Claimable line moves
+            into this cell as a small LP-coloured sub-line. */}
       <td className="px-3 py-3 text-right">
-        <span className="num font-semibold" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
+        <span className="num font-bold text-base" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
           {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
         </span>
         {!isTerminal && (
           <div className="text-[10px] text-gray-500 num">{dailyEarnings >= 0 ? '+' : '−'}{fmtUSD(Math.abs(dailyEarnings))}/day</div>
         )}
+        {/* On md only — show Claimable inline (Fees column hidden until lg). */}
+        {claimable > 0.01 && (
+          <div className="lg:hidden text-[10px] num mt-0.5" style={{ color: 'var(--color-role-lp)' }}>
+            +{fmtUSD(claimable)} claimable
+          </div>
+        )}
       </td>
-      {/* 8. Fees — gross earned (top) + claimable now (bottom, LP-color) */}
-      <td className="px-3 py-3 text-right hidden sm:table-cell">
+      {/* 8. Fees — gross earned (top) + claimable now (bottom, LP-color). lg-only now. */}
+      <td className="px-3 py-3 text-right hidden lg:table-cell">
         <div className="num font-medium text-gray-700">{fmtUSD(grossEarned)}</div>
         <div className="text-[10px] num mt-0.5 leading-tight" style={{ color: claimable > 0.01 ? 'var(--color-role-lp)' : 'var(--color-text-muted, #9ca3af)' }}>
           {claimable > 0.01 ? `+${fmtUSD(claimable)}` : '—'}
@@ -1241,11 +1281,14 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
         </div>
         <div className="mt-1 flex items-center gap-1.5 flex-wrap text-[11px]">
           <ListingStatusChip status={listing.status} leasedPct={leasedPct} rangeStatus={rangeStatus} tiny />
-          {listing.providerMode === 'advanced' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium">{listing.providerLeverage}×</span>
-          )}
-          {subsidized && (
-            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold">you pay</span>
+          {(subsidized || listing.providerMode === 'advanced') && (
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium num">
+              {subsidized && listing.providerMode === 'advanced'
+                ? `Sub · Pro ${listing.providerLeverage}×`
+                : subsidized
+                ? 'Subsidized'
+                : `Pro ${listing.providerLeverage}×`}
+            </span>
           )}
         </div>
         <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] num">
@@ -1308,23 +1351,26 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
   )
 }
 
-// Single source of truth for status display (chip + tooltip).
-// 5 contract statuses; ACTIVE has 3 display variants based on leased%.
-// Out-of-range is orthogonal to status — surfaced as a sub-badge.
+// Status display — 3 primary labels (Earning / Idle / At Risk) + edge (Withdrawing /
+// Closed / Liquidated). UX audit consensus: invented 5-variant chip language
+// («earning · full», «listed · waiting») added cognitive load vs Uniswap/Aave's
+// 3-state convention. Leased % moved to its own Pool size sub-line; full=100%
+// loses its dedicated chip variant. Out-of-range remains orthogonal sub-badge.
 type StatusDisplay = { label: string; cls: string; tip: string }
 function statusDisplay(status: string, leasedPct: number): StatusDisplay {
   if (status === 'LIQUIDATING')
-    return { label: '💥 liquidating', cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40', tip: 'Идёт listing-level ликвидация (только Pro + плечо>1).' }
+    return { label: 'At Risk', cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40', tip: 'Идёт listing-level ликвидация (только Pro + плечо>1).' }
   if (status === 'LIQUIDATED')
-    return { label: 'liquidated', cls: 'bg-red-50/60 text-red-900/70 border border-red-200', tip: 'Терминальный статус — позиция ликвидирована. Residual NFT (если остался) можно claim.' }
+    return { label: 'Liquidated', cls: 'bg-red-50/60 text-red-900/70 border border-red-200', tip: 'Терминальный статус — позиция ликвидирована. Residual NFT (если остался) можно claim.' }
   if (status === 'WITHDRAWAL_REQUESTED')
-    return { label: 'withdrawing', cls: 'bg-amber-50 text-amber-900 border border-amber-300', tip: 'Вывод запрошен — 2-блочный guard перед возвратом NFT в кошелёк.' }
+    return { label: 'Withdrawing', cls: 'bg-amber-50 text-amber-900 border border-amber-300', tip: 'Вывод запрошен — 2-блочный guard перед возвратом NFT в кошелёк.' }
   if (status === 'WITHDRAWN')
-    return { label: 'closed', cls: 'bg-gray-100 text-gray-500 border border-gray-300', tip: 'Терминальный — NFT возвращён в кошелёк.' }
-  // ACTIVE — three display variants by leased%
-  if (leasedPct >= 99.5) return { label: 'earning · full', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200', tip: 'Capacity 100% занят. Новые арендаторы только через outbid (надо предложить выше Premium APY).' }
-  if (leasedPct <= 0.5) return { label: 'listed · waiting', cls: 'bg-amber-50 text-amber-900 border border-amber-200', tip: 'Залистен, арендаторов пока нет. Снизь min Premium APY чтобы привлечь трейдеров.' }
-  return { label: 'earning', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200', tip: 'Зарабатывает: Uniswap fees + Premium APY на занятую долю.' }
+    return { label: 'Closed', cls: 'bg-gray-100 text-gray-500 border border-gray-300', tip: 'Терминальный — NFT возвращён в кошелёк.' }
+  // ACTIVE — two display variants by leased%. 100%-full no longer gets its own chip
+  // (the «leased %» sub-line in Pool size cell carries that signal).
+  if (leasedPct <= 0.5)
+    return { label: 'Idle', cls: 'bg-gray-50 text-gray-700 border border-gray-200', tip: 'Залистен, арендаторов пока нет. Снизь min Premium APY чтобы привлечь трейдеров.' }
+  return { label: 'Earning', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200', tip: 'Зарабатывает: Uniswap fees + Premium APY на занятую долю.' }
 }
 
 function ListingStatusChip({ status, leasedPct, rangeStatus, tiny }: { status: string; leasedPct: number; rangeStatus: 'in-range' | 'out-of-range'; tiny?: boolean }) {

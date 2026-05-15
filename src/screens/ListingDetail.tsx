@@ -1101,15 +1101,22 @@ function OwnerPanel({
             на мобилке всё 3-в-ряд не лезет, разводим в 2 ряда: primary action сверху,
             view-toggle отдельной строкой ниже как meta-control). */}
         <div className="flex items-center gap-2 order-1 sm:order-2">
-          {claimableNow > 0.01 && (
-            <button
-              type="button"
-              onClick={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
-              className="flex-1 sm:flex-initial text-sm font-semibold px-3.5 py-1.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
-            >
-              Claim {fmtUSD(claimableNow)}
-            </button>
-          )}
+          {/* Claim always rendered — disabled placeholder when nothing to claim so
+              Withdraw inside Manage▾ doesn't become the visual primary on a clean
+              listing (UX audit P1, Eugene 2026-05-15). */}
+          <button
+            type="button"
+            disabled={claimableNow <= 0.01}
+            onClick={() => claimableNow > 0.01 && alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
+            className={
+              'flex-1 sm:flex-initial text-sm font-semibold px-3.5 py-1.5 rounded-md transition ' +
+              (claimableNow > 0.01
+                ? 'bg-[var(--color-role-lp)] text-white hover:opacity-90'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+            }
+          >
+            {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Claim'}
+          </button>
           <ManageMenu
             isPro={isPro}
             onUpdateLeverage={() => setLeverageOpen(true)}
@@ -1118,19 +1125,27 @@ function OwnerPanel({
           />
         </div>
 
-        {/* Lite / Pro view-mode toggle (orthogonal to listing's providerMode).
-            On mobile dropped to second row (smaller priority than Claim/Manage). */}
-        <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm order-2 sm:order-1">
-          <button
-            type="button"
-            onClick={() => setOwnerMode('lite')}
-            className={'text-xs px-3.5 py-1.5 transition ' + (!isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
-          >Lite</button>
-          <button
-            type="button"
-            onClick={() => setOwnerMode('pro')}
-            className={'text-xs px-3.5 py-1.5 transition ' + (isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
-          >Pro</button>
+        {/* Lite / Pro view-mode toggle + explicit risk subtitle. Subtitle makes the
+            real difference between modes visible at-a-glance — previously hidden
+            inside a tooltip Help-popover (UX audit P1, Eugene 2026-05-15). */}
+        <div className="order-2 sm:order-1 inline-flex flex-col gap-0.5">
+          <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm">
+            <button
+              type="button"
+              onClick={() => setOwnerMode('lite')}
+              className={'text-xs px-3.5 py-1.5 transition ' + (!isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
+            >Lite</button>
+            <button
+              type="button"
+              onClick={() => setOwnerMode('pro')}
+              className={'text-xs px-3.5 py-1.5 transition ' + (isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
+            >Pro</button>
+          </div>
+          <span className="text-[10px] text-gray-500 leading-tight">
+            {isPro
+              ? <>Pro — <span className="text-[var(--color-status-danger)]">NFT becomes collateral</span></>
+              : 'Lite — no liquidation risk'}
+          </span>
         </div>
       </div>
 
@@ -1501,25 +1516,9 @@ function OwnerPanel({
             <span className="num text-[var(--color-status-danger)]">{fmtUSD(ilProxy)}</span>
           </div>
         )}
-        {/* Inline Claim — duplicates the header action by design: same intent,
-            different context. Header = «I came here to claim», here = «I'm reading
-            the fee breakdown and tap claim from the number I just saw».
-            Withdraw moved to header Manage▾ (destructive, doesn't belong next to fees). */}
-        <div className="mt-4 flex items-center justify-end">
-          <button
-            type="button"
-            disabled={claimableNow <= 0.01}
-            onClick={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
-            className={
-              'text-sm font-semibold px-4 py-2 rounded transition border ' +
-              (claimableNow > 0.01
-                ? 'bg-[var(--color-role-lp)] text-white border-[var(--color-role-lp)] hover:opacity-90'
-                : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed')
-            }
-          >
-            {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Claim'}
-          </button>
-        </div>
+        {/* Inline Claim button removed (Eugene 2026-05-15 UX audit synthesis) —
+            duplicated the header Claim, читалось как «я уже клеймил?». Header is
+            the single canonical Claim. Fees panel is now read-only breakdown. */}
         {netPnL < 0 && (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
             <div className="text-xs font-semibold text-amber-900 mb-1">💡 Что делать</div>
@@ -1644,14 +1643,48 @@ function OwnerPanel({
             </div>
           )
         })()}
-        currentState={[
-          { label: 'Mode', value: listing.providerMode === 'advanced' ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×' },
-          { label: 'NFT at risk', value: isAdvanced ? 'Yes' : 'No' },
-        ]}
-        newState={[
-          { label: 'Mode', value: newMode === 'advanced' ? `at-risk · ${newLeverage}×` : 'safe · 1×', deltaTone: newLeverage > listing.providerLeverage ? 'negative' : 'positive' },
-          { label: 'NFT at risk', value: newMode === 'advanced' ? 'Yes' : 'No', deltaTone: newMode === 'advanced' && !isAdvanced ? 'negative' : 'neutral' },
-        ]}
+        currentState={(() => {
+          const currentHF = listing.healthFactorPct
+          const rows: import('@/components/HighStakesConfirmModal').KeyValue[] = [
+            { label: 'Mode', value: listing.providerMode === 'advanced' ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×' },
+            { label: 'NFT at risk', value: isAdvanced ? 'Yes' : 'No' },
+          ]
+          // HF row only when current position has it (Pro+leverage>1)
+          if (isAdvanced && currentHF !== undefined) {
+            rows.push({ label: 'Health Factor', value: `${currentHF}%` })
+          }
+          return rows
+        })()}
+        newState={(() => {
+          // HF scales roughly inversely with leverage. Rough est: HF_new ≈ HF_current × (current_lev / new_lev).
+          // For Conservative→Advanced switch (no current HF), start from neutral 80% baseline.
+          const currentHF = listing.healthFactorPct ?? (isAdvanced ? 50 : 80)
+          const currentLev = Math.max(1, listing.providerLeverage)
+          const estHF = newMode === 'advanced'
+            ? Math.max(0, Math.round(currentHF * (currentLev / Math.max(1, newLeverage))))
+            : null // Switching to Safe = no HF concept
+          const hfDelta = estHF !== null && listing.healthFactorPct !== undefined
+            ? estHF - listing.healthFactorPct
+            : null
+          const rows: import('@/components/HighStakesConfirmModal').KeyValueWithDelta[] = [
+            { label: 'Mode', value: newMode === 'advanced' ? `at-risk · ${newLeverage}×` : 'safe · 1×', deltaTone: newLeverage > listing.providerLeverage ? 'negative' : 'positive' },
+            { label: 'NFT at risk', value: newMode === 'advanced' ? 'Yes' : 'No', deltaTone: newMode === 'advanced' && !isAdvanced ? 'negative' : 'neutral' },
+          ]
+          // Live HF preview — critical for Pro decision (UX audit P1, Eugene 2026-05-15).
+          if (newMode === 'advanced') {
+            const deltaStr = hfDelta !== null
+              ? ` (${hfDelta >= 0 ? '+' : '−'}${Math.abs(hfDelta)}pp)`
+              : ''
+            rows.push({
+              label: 'Health Factor (est.)',
+              value: `${estHF}%${deltaStr}`,
+              deltaTone: hfDelta !== null
+                ? (hfDelta < -10 ? 'negative' : hfDelta > 0 ? 'positive' : 'neutral')
+                : 'neutral',
+            })
+          }
+          return rows
+        })()}
         risks={[
           newLeverage > listing.providerLeverage ? 'Higher leverage tightens distance to listing-level liquidation' : 'Lower leverage safer but reduces Reference Fees',
           'Existing lessees keep their original leverage (per excerpt 1 §3 — open positions don\'t re-quote)',
