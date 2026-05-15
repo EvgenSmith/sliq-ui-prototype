@@ -315,7 +315,7 @@ function ListingsView() {
           {(([
             { id: 'all', label: `All (${mine.length})` },
             { id: 'earning', label: `Earning${summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}` },
-            { id: 'waiting', label: `Idle${summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}` },
+            { id: 'waiting', label: `Listed${summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}` },
             // Attention chip surfaced only when user owns at least one Pro listing
             // — for Lite-only portfolios «At-risk» concept is irrelevant.
             ...(hasAnyPro ? [{ id: 'attention' as const, label: `Attention${attentionTotal > 0 ? ` (${attentionTotal})` : ''}` }] : []),
@@ -357,7 +357,7 @@ function ListingsView() {
         >
           <option value="all">Status: All ({mine.length})</option>
           <option value="earning">Status: Earning{summary.earningCount > 0 ? ` (${summary.earningCount})` : ''}</option>
-          <option value="waiting">Status: Idle{summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}</option>
+          <option value="waiting">Status: Listed{summary.waitingCount > 0 ? ` (${summary.waitingCount})` : ''}</option>
           {hasAnyPro && (
             <option value="attention">Status: Attention{attentionTotal > 0 ? ` (${attentionTotal})` : ''}</option>
           )}
@@ -1106,14 +1106,15 @@ function ListingsTable({
                 <span className="inline-flex items-center gap-1">
                   Status
                   <HelpPopover label="Статусы листинга" width="w-80">
-                    <p className="font-semibold mb-2">Статусы листинга — 3 primary + edge</p>
+                    <p className="font-semibold mb-2">Статусы листинга (final spec)</p>
                     <ul className="space-y-1.5 text-xs">
-                      <li><strong className="text-emerald-700">Earning</strong> — активен, есть арендаторы. Premium APY идёт на занятую долю (% leased виден в Pool size cell).</li>
-                      <li><strong className="text-gray-700">Idle</strong> — залистен, но арендаторов пока нет (0% leased). Снизь min Premium APY чтобы привлечь.</li>
-                      <li><strong className="text-[var(--color-status-danger)]">At Risk</strong> — Pro+плечо: позиция близка к listing-level ликвидации или уже в процессе.</li>
+                      <li><strong className="text-emerald-700">Earning</strong> — арендаторы есть, Premium APY идёт на занятую долю.</li>
+                      <li><strong className="text-gray-700">Listed</strong> — залистен, арендаторов пока нет (0% leased). Снизь min Premium APY чтобы привлечь.</li>
+                      <li><strong className="text-amber-800">Withdrawing</strong> — запрошен вывод, 2-блочный guard.</li>
+                      <li><strong className="text-[var(--color-status-danger)]">Liquidating</strong> — listing-level ликвидация в процессе (Pro + плечо&gt;1).</li>
+                      <li><strong className="text-gray-500">Liquidated</strong> / <strong className="text-gray-500">Closed</strong> — терминальные.</li>
                     </ul>
-                    <p className="mt-2 text-[11px] text-gray-500">Edge: <strong>Withdrawing</strong> (запрошен вывод) · <strong>Closed</strong> (NFT вернулся) · <strong>Liquidated</strong> (Pro-листинг ликвидирован).</p>
-                    <p className="mt-1.5 text-[11px] text-gray-500"><strong>Out of range</strong> — ортогональный sub-badge, появляется на любом активном статусе, когда цена вышла из Uniswap range.</p>
+                    <p className="mt-2 text-[11px] text-gray-500"><strong>Out of range</strong> — ортогональный sub-badge, появляется на любом активном статусе, когда цена вышла из Uniswap range.</p>
                   </HelpPopover>
                 </span>
               </th>
@@ -1566,11 +1567,17 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
   )
 }
 
-// Status display — 3 primary labels (Earning / Idle / At Risk) + edge (Withdrawing /
-// Closed / Liquidated). UX audit consensus: invented 5-variant chip language
-// («earning · full», «listed · waiting») added cognitive load vs Uniswap/Aave's
-// 3-state convention. Leased % moved to its own Pool size sub-line; full=100%
-// loses its dedicated chip variant. Out-of-range remains orthogonal sub-badge.
+// Status display — final spec per Eugene 2026-05-15 «final status spec»:
+//   ACTIVE leased=0   → Listed      (gray)       — sLiq-native verb («I listed it»);
+//                                                  «Idle» retired (too technical, читалось
+//                                                  как «сломалось»).
+//   ACTIVE leased>0   → Earning     (green)      — leased% lives in Pool size sub-line.
+//   WITHDRAWAL_REQUE… → Withdrawing (amber)      — transient, 2-block guard.
+//   LIQUIDATING       → Liquidating (red)        — «At Risk» retired (too vague — в момент
+//                                                  ликвидации это уже не «риск», а сам процесс).
+//   LIQUIDATED        → Liquidated  (gray-red)   — terminal, Pro only.
+//   WITHDRAWN         → Closed      (gray)       — terminal.
+//   Out-of-range — orthogonal sub-badge, может висеть на любом active-варианте.
 type StatusDisplay = { label: string; cls: string; tip: string }
 // CompareDrawer — bottom-sheet style drawer comparing 2-3 listings side-by-side.
 // Per Viktor (P3.25) — «select 2-3 → drawer side-by-side: hit-rate, avg leased, HF,
@@ -1671,9 +1678,9 @@ function Sparkline7d({ listingId, dailyAvg, className = '' }: { listingId: strin
 
 function statusDisplay(status: string, leasedPct: number): StatusDisplay {
   if (status === 'LIQUIDATING')
-    return { label: 'At Risk', cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40', tip: 'Идёт listing-level ликвидация (только Pro + плечо>1).' }
+    return { label: 'Liquidating', cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40', tip: 'Listing-level ликвидация в процессе. Только Pro + плечо > 1.' }
   if (status === 'LIQUIDATED')
-    return { label: 'Liquidated', cls: 'bg-red-50/60 text-red-900/70 border border-red-200', tip: 'Терминальный статус — позиция ликвидирована. Residual NFT (если остался) можно claim.' }
+    return { label: 'Liquidated', cls: 'bg-red-50/60 text-red-900/70 border border-red-200', tip: 'Терминальный — NFT ликвидирован. Residual (если остался) можно claim.' }
   if (status === 'WITHDRAWAL_REQUESTED')
     return { label: 'Withdrawing', cls: 'bg-amber-50 text-amber-900 border border-amber-300', tip: 'Вывод запрошен — 2-блочный guard перед возвратом NFT в кошелёк.' }
   if (status === 'WITHDRAWN')
@@ -1681,7 +1688,7 @@ function statusDisplay(status: string, leasedPct: number): StatusDisplay {
   // ACTIVE — two display variants by leased%. 100%-full no longer gets its own chip
   // (the «leased %» sub-line in Pool size cell carries that signal).
   if (leasedPct <= 0.5)
-    return { label: 'Idle', cls: 'bg-gray-50 text-gray-700 border border-gray-200', tip: 'Залистен, арендаторов пока нет. Снизь min Premium APY чтобы привлечь трейдеров.' }
+    return { label: 'Listed', cls: 'bg-gray-50 text-gray-700 border border-gray-200', tip: 'Залистен, арендаторов пока нет. Снизь min Premium APY чтобы привлечь трейдеров.' }
   return { label: 'Earning', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200', tip: 'Зарабатывает: Uniswap fees + Premium APY на занятую долю.' }
 }
 
