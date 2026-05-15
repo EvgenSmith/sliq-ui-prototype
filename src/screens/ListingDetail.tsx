@@ -2858,22 +2858,30 @@ function splitToTokens(usd: number, listing: import('@/lib/types').Listing): { t
   return { t0Amt: null, t1Amt: null }
 }
 
-function FeeRow({ label, usd, highlight, bold }: {
+function FeeRow({ label, usd, listing, highlight, bold }: {
   label: string
   usd: number
-  listing: import('@/lib/types').Listing // kept for API compatibility; pair-line moved up
+  listing: import('@/lib/types').Listing
   highlight?: boolean
   bold?: boolean
 }) {
-  // Per-row pair breakdown (0.0024 WBTC · 233.63 USDC) dropped per Eugene
-  // 2026-05-15. The token split is now shown ONCE under the top-right Total
-  // fees KPI — single canonical breakdown, no duplication across rows.
+  // Per-row pair breakdown restored per Eugene 2026-05-15 («ты из раздела по
+  // фи везде убрал фи в паре пула, нужно вернуть»). KPI-level summed pair
+  // also kept above — both surfaces are useful: per-row to see how each
+  // stream splits, KPI to see the total in tokens.
+  const { t0Amt, t1Amt } = splitToTokens(usd, listing)
+  const tokenLine = t0Amt !== null && t1Amt !== null
+    ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
+    : `${fmtUSD(usd / 2)} ${listing.pair.token0} · ${fmtUSD(usd / 2)} ${listing.pair.token1}`
   const valueColor = highlight ? 'var(--color-role-lp)' : undefined
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className={'text-sm ' + (bold ? 'font-semibold text-gray-900' : 'text-gray-700')}>{label}</span>
-      <div className={'num text-right ' + (bold ? 'font-semibold text-base' : highlight ? 'font-semibold' : '')} style={{ color: valueColor }}>
-        {fmtUSD(usd)}
+      <div className="text-right">
+        <div className={'num ' + (bold ? 'font-semibold text-base' : highlight ? 'font-semibold' : '')} style={{ color: valueColor }}>
+          {fmtUSD(usd)}
+        </div>
+        <div className="text-[10px] text-gray-500 num leading-tight">{tokenLine}</div>
       </div>
     </div>
   )
