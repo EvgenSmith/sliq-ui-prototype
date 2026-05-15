@@ -1657,9 +1657,11 @@ function OwnerPanel({
               <p><strong>Already claimed / Claimable now</strong> — сколько уже зачислено в кошелёк vs сколько можно забрать в одной транзакции.</p>
             </HelpPopover>
           </h2>
-          {/* Header KPI: Total fees (gross) + Claimable now sub-line. Per Eugene
-              2026-05-15 — Net PnL (IL-adjusted) header dropped in favour of
-              positive-framing total + immediate-action claimable. */}
+          {/* Header KPI: Total fees (gross) + pair breakdown + Claimable now.
+              Per Eugene 2026-05-15 — Net PnL (IL-adjusted) header dropped in
+              favour of positive-framing total + immediate-action claimable.
+              v2 (2026-05-15): single canonical pair breakdown lives here
+              (was duplicated under each FeeRow). */}
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-wide text-gray-500">Total fees</div>
             <div
@@ -1668,8 +1670,17 @@ function OwnerPanel({
             >
               +{fmtUSD(totalFees)}
             </div>
+            {(() => {
+              const { t0Amt, t1Amt } = splitToTokens(totalFees, listing)
+              if (t0Amt === null || t1Amt === null) return null
+              return (
+                <div className="text-[10px] text-gray-500 num leading-tight mt-0.5">
+                  {fmtToken(t0Amt, listing.pair.token0)} · {fmtToken(t1Amt, listing.pair.token1)}
+                </div>
+              )
+            })()}
             {claimableNow > 0.01 && (
-              <div className="text-[11px] num mt-0.5">
+              <div className="text-[11px] num mt-1">
                 <span className="text-gray-500">Claimable now </span>
                 <span className="font-semibold" style={{ color: 'var(--color-role-lp)' }}>+{fmtUSD(claimableNow)}</span>
               </div>
@@ -1696,19 +1707,16 @@ function OwnerPanel({
             </div>
           </div>
         </div>
-        {/* Vs HODL section — Pro-only (Eugene 2026-05-15: IL / PnL-vs-HODL
-            are leverage-relevant signals; on Conservative listings they're
-            just noise — LP didn't take a directional stance, HODL comparison
-            is academic). Section header «Vs HODL» carries the context, so
-            row labels drop the trailing «vs HODL» (was visually duplicated:
-            «Vs HODL» + «Impermanent Loss» + «PnL vs HODL»). */}
+        {/* Vs HODL — Pro-only (Eugene 2026-05-15: IL / PnL-vs-HODL are
+            leverage-relevant signals; on Conservative listings they're noise).
+            v2 (2026-05-15): section header dropped to save a row. «vs HODL»
+            now lives inline as grey suffix per row label. */}
         {isAdvanced && (
           <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">
-            <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-1">Vs HODL</div>
             <div className="flex items-baseline justify-between text-[12px]">
               <span className="text-gray-600 inline-flex items-center gap-1">
-                Impermanent Loss
-                <HelpPopover label="Impermanent Loss" width="w-72">
+                Impermanent Loss <span className="text-gray-400">vs HODL</span>
+                <HelpPopover label="Impermanent Loss vs HODL" width="w-72">
                   <p>Difference between the current value of the LP position and the value you'd have if you simply held the original token amounts (no LP, no fees). Always ≤ 0 by construction — that's why it's not coloured red.</p>
                 </HelpPopover>
               </span>
@@ -1716,7 +1724,7 @@ function OwnerPanel({
             </div>
             <div className="flex items-baseline justify-between text-[12px]">
               <span className="text-gray-600 inline-flex items-center gap-1">
-                PnL
+                PnL <span className="text-gray-400">vs HODL</span>
                 <HelpPopover label="PnL vs HODL" width="w-72">
                   <p>Total fees earned (Uniswap + Premium) minus Impermanent Loss. <strong>Positive</strong> = the listing is earning more than HODL would have. <strong>Negative</strong> = HODL would have beaten this listing so far.</p>
                 </HelpPopover>
@@ -2835,26 +2843,22 @@ function splitToTokens(usd: number, listing: import('@/lib/types').Listing): { t
   return { t0Amt: null, t1Amt: null }
 }
 
-function FeeRow({ label, usd, listing, highlight, bold }: {
+function FeeRow({ label, usd, highlight, bold }: {
   label: string
   usd: number
-  listing: import('@/lib/types').Listing
+  listing: import('@/lib/types').Listing // kept for API compatibility; pair-line moved up
   highlight?: boolean
   bold?: boolean
 }) {
-  const { t0Amt, t1Amt } = splitToTokens(usd, listing)
-  const tokenLine = t0Amt !== null && t1Amt !== null
-    ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
-    : `${fmtUSD(usd / 2)} ${listing.pair.token0} · ${fmtUSD(usd / 2)} ${listing.pair.token1}`
+  // Per-row pair breakdown (0.0024 WBTC · 233.63 USDC) dropped per Eugene
+  // 2026-05-15. The token split is now shown ONCE under the top-right Total
+  // fees KPI — single canonical breakdown, no duplication across rows.
   const valueColor = highlight ? 'var(--color-role-lp)' : undefined
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className={'text-sm ' + (bold ? 'font-semibold text-gray-900' : 'text-gray-700')}>{label}</span>
-      <div className="text-right">
-        <div className={'num ' + (bold ? 'font-semibold text-base' : highlight ? 'font-semibold' : '')} style={{ color: valueColor }}>
-          {fmtUSD(usd)}
-        </div>
-        <div className="text-[10px] text-gray-500 num leading-tight">{tokenLine}</div>
+      <div className={'num text-right ' + (bold ? 'font-semibold text-base' : highlight ? 'font-semibold' : '')} style={{ color: valueColor }}>
+        {fmtUSD(usd)}
       </div>
     </div>
   )
