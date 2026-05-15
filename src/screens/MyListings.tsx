@@ -25,7 +25,7 @@ function dexLabel(d: DexProtocol): string {
 }
 
 type StatusFilter = 'all' | 'earning' | 'waiting' | 'attention'
-type SortId = 'pnl-desc' | 'pnl-asc' | 'apy-desc' | 'claimable-desc' | 'earnings-desc' | 'tvl-desc' | 'newest'
+type SortId = 'pnl-desc' | 'pnl-asc' | 'apy-desc' | 'claimable-desc' | 'activity' | 'tvl-desc' | 'newest'
 
 const PAGE_SIZES = [25, 50, 100, -1] as const
 
@@ -176,10 +176,29 @@ function ListingsView() {
     switch (sort) {
       case 'pnl-desc': out.sort((a, b) => (b.netPnLUSD ?? 0) - (a.netPnLUSD ?? 0)); break
       case 'pnl-asc': out.sort((a, b) => (a.netPnLUSD ?? 0) - (b.netPnLUSD ?? 0)); break
-      case 'earnings-desc': out.sort((a, b) => {
-        const aDaily = ((a.lifetimeUniFeesUSD ?? 0) + (a.lifetimePremiumUSD ?? 0)) / Math.max(1, (Date.now() - a.listedAt) / (1000 * 60 * 60 * 24))
-        const bDaily = ((b.lifetimeUniFeesUSD ?? 0) + (b.lifetimePremiumUSD ?? 0)) / Math.max(1, (Date.now() - b.listedAt) / (1000 * 60 * 60 * 24))
-        return bDaily - aDaily
+      case 'activity': out.sort((a, b) => {
+        // Activity rank — lower = more active = ranks higher in the list.
+        //   0 Earning      (ACTIVE, leased>0)
+        //   1 Listed       (ACTIVE, leased=0)
+        //   2 Withdrawing  (WITHDRAWAL_REQUESTED — transient exit)
+        //   3 Liquidating  (in-flight Pro liquidation)
+        //   4 Liquidated   (terminal bad)
+        //   5 Closed       (terminal neutral)
+        const rank = (l: Listing) => {
+          if (l.status === 'WITHDRAWN') return 5
+          if (l.status === 'LIQUIDATED') return 4
+          if (l.status === 'LIQUIDATING') return 3
+          if (l.status === 'WITHDRAWAL_REQUESTED') return 2
+          if (l.status === 'ACTIVE') {
+            const leasedPct = l.totalCapacityUSD > 0 ? ((l.totalCapacityUSD - l.availableCapacityUSD) / l.totalCapacityUSD) * 100 : 0
+            return leasedPct > 0.5 ? 0 : 1
+          }
+          return 99
+        }
+        const rA = rank(a), rB = rank(b)
+        if (rA !== rB) return rA - rB
+        // Tie-break by Net PnL desc — within same activity bucket, profitable first.
+        return (b.netPnLUSD ?? 0) - (a.netPnLUSD ?? 0)
       }); break
       case 'tvl-desc': out.sort((a, b) => b.initialLiquidityUSD - a.initialLiquidityUSD); break
       case 'apy-desc': out.sort((a, b) =>
@@ -402,7 +421,7 @@ function ListingsView() {
             <option value="pnl-asc">PnL ↑</option>
             <option value="apy-desc">APY ↓</option>
             <option value="claimable-desc">Claimable ↓</option>
-            <option value="earnings-desc">Earnings/day ↓</option>
+            <option value="activity">Activity</option>
             <option value="tvl-desc">Pool size ↓</option>
             <option value="newest">Newest</option>
           </select>
