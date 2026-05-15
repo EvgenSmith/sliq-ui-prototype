@@ -1373,7 +1373,10 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
               sub-line. Eugene 2026-05-15: dashboard-wide Net-PnL retired; Fees row
               folded into this top-right block (cleaner than duplicating). */}
           <div className="text-right">
-            <span className="num font-semibold text-[var(--color-status-success)]">
+            {/* Gross fees rendered in default text colour (Eugene 2026-05-15:
+                «верхнее давай сделаем черным»). Claimable sub-line keeps the
+                LP-green so the actionable number stays the visual hook. */}
+            <span className="num font-semibold text-gray-900">
               +{fmtUSD(grossEarned)}
             </span>
             {claimable > 0.01 && (
