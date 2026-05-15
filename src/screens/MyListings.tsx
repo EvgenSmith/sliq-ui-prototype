@@ -25,7 +25,7 @@ function dexLabel(d: DexProtocol): string {
 }
 
 type StatusFilter = 'all' | 'earning' | 'waiting' | 'attention'
-type SortId = 'pnl-desc' | 'pnl-asc' | 'apy-desc' | 'claimable-desc' | 'activity' | 'tvl-desc' | 'newest'
+type SortId = 'activity' | 'newest' | 'apy-desc' | 'claimable-desc' | 'tvl-desc'
 
 const PAGE_SIZES = [25, 50, 100, -1] as const
 
@@ -88,7 +88,14 @@ function ListingsView() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter?.statusFilter ?? 'all')
   const [pairFilter, setPairFilter] = useState<string>(initialFilter?.pairFilter ?? 'all')
   const [protocolFilter, setProtocolFilter] = useState<string>(initialFilter?.protocolFilter ?? 'all')
-  const [sort, setSort] = useState<SortId>(initialFilter?.sort ?? 'pnl-desc')
+  // Default sort = Activity (operationally sorted) per Eugene 2026-05-15.
+  // Map legacy `pnl-desc` / `pnl-asc` from localStorage onto `activity` so
+  // old persisted filters don't break on first load after the change.
+  const persistedSort = initialFilter?.sort
+  const sortFromStorage: SortId = (persistedSort === 'activity' || persistedSort === 'newest' || persistedSort === 'apy-desc' || persistedSort === 'claimable-desc' || persistedSort === 'tvl-desc')
+    ? persistedSort
+    : 'activity'
+  const [sort, setSort] = useState<SortId>(sortFromStorage)
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState<number>(1)
   const [attentionExpanded, setAttentionExpanded] = useState(false)
@@ -125,12 +132,11 @@ function ListingsView() {
 
   // Summary
   const summary = useMemo(() => {
-    const earningToday = mine.reduce((s, l) => {
-      const daily = ((l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0))
-      const ageDays = Math.max(1, (Date.now() - l.listedAt) / (1000 * 60 * 60 * 24))
-      return s + (daily / ageDays)
+    // Lifetime fees aggregate (Uniswap + Premium + Reference) — surfaced as
+    // «Total fees» summary card per Eugene 2026-05-15.
+    const totalFees = mine.reduce((s, l) => {
+      return s + (l.lifetimeUniFeesUSD ?? 0) + (l.lifetimePremiumUSD ?? 0) + (l.lifetimeReferenceUSD ?? 0)
     }, 0)
-    const totalNetPnL = mine.reduce((s, l) => s + (l.netPnLUSD ?? 0), 0)
     const totalTVL = mine.reduce((s, l) => s + l.initialLiquidityUSD, 0)
     const atRisk = mine.filter(l => l.providerMode === 'advanced' && (l.distanceToLiqPct ?? 100) < 30).length
     const earningCount = mine.filter(l => l.status === 'ACTIVE' && l.availableCapacityUSD < l.totalCapacityUSD).length
@@ -142,7 +148,7 @@ function ListingsView() {
       const refClaimable = (l.lifetimeReferenceUSD ?? 0) * 0.15
       return s + uniClaimable + premiumClaimable + refClaimable
     }, 0)
-    return { earningToday, totalNetPnL, totalTVL, atRisk, claimableNow, earningCount, waitingCount }
+    return { totalFees, totalTVL, atRisk, claimableNow, earningCount, waitingCount }
   }, [mine])
 
   // Filter
@@ -159,8 +165,6 @@ function ListingsView() {
     }
 
     switch (sort) {
-      case 'pnl-desc': out.sort((a, b) => (b.netPnLUSD ?? 0) - (a.netPnLUSD ?? 0)); break
-      case 'pnl-asc': out.sort((a, b) => (a.netPnLUSD ?? 0) - (b.netPnLUSD ?? 0)); break
       case 'activity': out.sort((a, b) => {
         // Activity rank — lower = more active = ranks higher in the list.
         //   0 Earning      (ACTIVE, leased>0)
@@ -224,27 +228,34 @@ function ListingsView() {
   return (
     <div>
       <header className="mb-5">
-        {/* Claimable banner — aggregated across all listings, top of page (was a separate /lp/claims tab) */}
-        {summary.claimableNow > 0.01 && (
-          <ClaimableBanner amount={summary.claimableNow} listingsCount={mine.length} />
-        )}
+        {/* Claimable banner removed (Eugene 2026-05-15) — Claimable now lives as a
+            sub-line inside the «Total fees» summary card. One source of truth. */}
 
         {/* Onboarding banner — collapsed by default */}
         <OnboardingBanner />
 
-        {/* Summary cards */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <SummaryCard label="Earning today" subtitle="across all listings" valueColor="success">
-            +{fmtUSD(summary.earningToday)}
-          </SummaryCard>
-          <SummaryCard label="Net PnL" subtitle="IL-aware · since listing" valueColor={summary.totalNetPnL >= 0 ? 'success' : 'danger'}>
-            {summary.totalNetPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(summary.totalNetPnL))}
+        {/* Summary cards — Eugene 2026-05-15:
+              - «Earning today» replaced by «Total fees» (lifetime aggregate)
+                with «Claimable: +$X» as sub-line.
+              - «Net PnL» card dropped — fee/risk signal is enough at dashboard level. */}
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <SummaryCard
+            label="Total fees"
+            valueColor="success"
+            subtitle={
+              summary.claimableNow > 0.01 ? (
+                <span>
+                  Claimable:{' '}
+                  <span className="font-semibold" style={{ color: 'var(--color-role-lp)' }}>+{fmtUSD(summary.claimableNow)}</span>
+                </span>
+              ) : 'across all listings'
+            }
+          >
+            +{fmtUSD(summary.totalFees)}
           </SummaryCard>
           <SummaryCard label="Total pool size" subtitle={`${mine.length} listing${mine.length === 1 ? '' : 's'}`} valueColor="neutral">
             {fmtUSD(summary.totalTVL)}
           </SummaryCard>
-          {/* «At risk» card only for portfolios with at least one Pro listing.
-              Lite-only LPs never have liquidation risk → no need to surface 0/0 anxiety. */}
           {hasAnyPro && (
             <SummaryCard label="At risk" subtitle="Pro listings near liq" valueColor={summary.atRisk > 0 ? 'danger' : 'neutral'}>
               {summary.atRisk}
@@ -402,13 +413,11 @@ function ListingsView() {
             onChange={e => setSort(e.target.value as SortId)}
             className="rounded border border-gray-300 bg-white px-1.5 py-1 text-xs"
           >
-            <option value="pnl-desc">PnL ↓</option>
-            <option value="pnl-asc">PnL ↑</option>
+            <option value="activity">Activity</option>
+            <option value="newest">Newest</option>
             <option value="apy-desc">APY ↓</option>
             <option value="claimable-desc">Claimable ↓</option>
-            <option value="activity">Activity</option>
             <option value="tvl-desc">Pool size ↓</option>
-            <option value="newest">Newest</option>
           </select>
         </div>
       </div>
@@ -1090,25 +1099,15 @@ function ListingsTable({
                   </span>
                 </th>
               )}
-              <th className="text-right font-medium px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  Net PnL
-                  <HelpPopover label="Net PnL с учётом IL" width="w-72">
-                    <p className="font-semibold mb-1">Net PnL (IL-adjusted)</p>
-                    <p>= Uniswap fees + Reference Fees + Premium APY − Impermanent Loss. То, что Uniswap UI <strong>не показывает</strong> — там только «fees earned» (misleading).</p>
-                  </HelpPopover>
-                </span>
-              </th>
-              {/* Fees column lifted to lg-only (was sm+). On md we collapse to just the
-                  Claimable sub-line inside Net PnL cell — keeps the row scannable. */}
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
+              {/* Net PnL column removed per Eugene 2026-05-15 — fee/risk signal carries
+                  the row, IL-adjusted PnL lives on the listing detail page. */}
+              <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
                 <span className="inline-flex items-center gap-1 justify-end">
                   Fees
                   <HelpPopover label="Fees" width="w-72">
                     <p className="font-semibold mb-1">Накопленные / доступные для claim</p>
                     <p>Верхняя строка — gross-fees, заработанные с момента листинга (Uniswap baseline + Premium APY).</p>
                     <p className="mt-1.5">Нижняя — то, что прямо сейчас можно забрать (settled, не реинвестировано autocompound'ом).</p>
-                    <p className="mt-1.5 text-[11px] text-gray-500">В отличие от Net PnL — здесь без вычета IL. Это «сколько ты заработал», без коррекции на убыток от движения цены.</p>
                   </HelpPopover>
                 </span>
               </th>
@@ -1150,9 +1149,7 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
   const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
   const leasedPct = 100 - capacityFreePct(listing)
-  const netPnL = listing.netPnLUSD ?? 0
-  const dailyEarnings = ((listing.lifetimeUniFeesUSD ?? 0) + (listing.lifetimePremiumUSD ?? 0)) /
-    Math.max(1, (Date.now() - listing.listedAt) / (1000 * 60 * 60 * 24))
+  // netPnL / dailyEarnings dropped — column removed per Eugene 2026-05-15.
   const claimable = listing.claimableNowUSD ?? 0
   const grossEarned = (listing.lifetimeUniFeesUSD ?? 0) + (listing.lifetimePremiumUSD ?? 0) + (listing.lifetimeReferenceUSD ?? 0)
   const uniApy = listing.uniswapApyBps / 100
@@ -1267,28 +1264,14 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
           )}
         </td>
       )}
-      {/* 7. Net PnL + 7d sparkline — promoted to visual anchor (text-base font-bold).
-            Mini-sparkline (Viktor P3.29) — shows the recent earnings trend so
-            «затухающие» листинги стучатся сами без drill-in. */}
-      <td className="px-3 py-3 text-right">
-        <span className="num font-bold text-base" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
-          {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
-        </span>
-        {!isTerminal && (
-          <div className="text-[10px] text-gray-500 num">{dailyEarnings >= 0 ? '+' : '−'}{fmtUSD(Math.abs(dailyEarnings))}/day</div>
-        )}
-        {/* On md only — show Claimable inline (Fees column hidden until lg). */}
-        {claimable > 0.01 && (
-          <div className="lg:hidden text-[10px] num mt-0.5" style={{ color: 'var(--color-role-lp)' }}>
-            +{fmtUSD(claimable)} claimable
-          </div>
-        )}
-      </td>
-      {/* 8. Fees — gross earned (top) + claimable now (bottom, LP-color). lg-only now. */}
-      <td className="px-3 py-3 text-right hidden lg:table-cell">
-        <div className="num font-medium text-gray-700">{fmtUSD(grossEarned)}</div>
+      {/* Net PnL column dropped per Eugene 2026-05-15. */}
+      {/* Fees — gross earned (top) + claimable now (bottom, LP-color). md+ visible
+          (was lg-only when Net PnL collapsed Claimable into itself; now Fees is the
+          primary $-signal on this row). */}
+      <td className="px-3 py-3 text-right hidden md:table-cell">
+        <div className="num font-bold text-base text-gray-900">{fmtUSD(grossEarned)}</div>
         <div className="text-[10px] num mt-0.5 leading-tight" style={{ color: claimable > 0.01 ? 'var(--color-role-lp)' : 'var(--color-text-muted, #9ca3af)' }}>
-          {claimable > 0.01 ? `+${fmtUSD(claimable)}` : '—'}
+          {claimable > 0.01 ? `+${fmtUSD(claimable)} claimable` : '—'}
         </div>
       </td>
       {/* 9. Action — two square buttons: Claim (disabled when nothing to claim) + Manage */}
@@ -1332,7 +1315,7 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
   const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
   const leasedPct = 100 - capacityFreePct(listing)
-  const netPnL = listing.netPnLUSD ?? 0
+  // netPnL dropped — replaced by Fees (gross earned) per Eugene 2026-05-15.
   const claimable = listing.claimableNowUSD ?? 0
   const grossEarned = (listing.lifetimeUniFeesUSD ?? 0) + (listing.lifetimePremiumUSD ?? 0) + (listing.lifetimeReferenceUSD ?? 0)
   const uniApy = listing.uniswapApyBps / 100
@@ -1377,9 +1360,19 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
               </HelpPopover>
             </span>
           </div>
-          <span className="num font-semibold" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
-            {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
-          </span>
+          {/* Headline number top-right: Fees (lifetime gross earned) + Claimable
+              sub-line. Eugene 2026-05-15: dashboard-wide Net-PnL retired; Fees row
+              folded into this top-right block (cleaner than duplicating). */}
+          <div className="text-right">
+            <span className="num font-semibold text-[var(--color-status-success)]">
+              +{fmtUSD(grossEarned)}
+            </span>
+            {claimable > 0.01 && (
+              <div className="text-[10px] num mt-0.5" style={{ color: 'var(--color-role-lp)' }}>
+                +{fmtUSD(claimable)} claimable
+              </div>
+            )}
+          </div>
         </div>
         {/* Chip row — status · risk chip · HF inline (Eugene 2026-05-15: «перенести
             в строку со статусом и плечом HF, вместо Health под APY»). HF sits as
@@ -1463,15 +1456,8 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
               </div>
             )}
           </div>
-          <div className="col-span-2">
-            <span className="text-gray-500">Fees</span>
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-medium text-gray-700">{fmtUSD(grossEarned)}</span>
-              <span className="text-[10px] num" style={{ color: claimable > 0.01 ? 'var(--color-role-lp)' : '#9ca3af' }}>
-                {claimable > 0.01 ? `+${fmtUSD(claimable)}` : '—'}
-              </span>
-            </div>
-          </div>
+          {/* Fees row dropped — gross earned + claimable now live in top-right
+              headline block (Eugene 2026-05-15). */}
         </div>
       </div>
       {/* Action row — Withdraw NFT left, Claim right (Eugene 2026-05-15: Manage→Withdraw,
@@ -2168,7 +2154,7 @@ function SummaryCard({
   children,
 }: {
   label: string
-  subtitle?: string
+  subtitle?: React.ReactNode
   valueColor: 'success' | 'danger' | 'neutral'
   children: React.ReactNode
 }) {
