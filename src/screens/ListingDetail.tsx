@@ -100,19 +100,25 @@ export function ListingDetail() {
             <span className="text-xs">listed {fmtTimeAgo(listing.listedAt)}</span>
             <span className="text-xs text-gray-400">·</span>
             <span className="text-xs num">owner {shortAddr(listing.owner)}</span>
+            {/* Full · open-to-outbid chip moved inline into the meta-line
+                (Eugene 2026-05-15) — was a separate row that wasted vertical
+                space on mobile. */}
+            {isFull && (
+              <>
+                <span className="text-xs text-gray-400">·</span>
+                <span className="text-xs whitespace-nowrap px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300 font-medium">
+                  Full · open to outbid
+                </span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Safe/At-risk chip removed per Eugene 2026-05-15 — duplicate of LP stability
-              in Listing summary. Subsidized + Full chips kept (orthogonal signals not in summary). */}
+          {/* Safe/At-risk + Full chips removed from header right (duplicate / inlined).
+              Subsidized stays — orthogonal signal not in summary. */}
           {isSubsidized && (
             <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] border border-[var(--color-negative-apy)]/30 font-medium">
               Subsidized
-            </span>
-          )}
-          {isFull && (
-            <span className="text-xs whitespace-nowrap px-2.5 py-1 rounded-md bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-              Full · open to outbid
             </span>
           )}
         </div>
@@ -1166,7 +1172,9 @@ function OwnerPanel({
           : hf >= 30 ? 'Moderate'
           : 'At-risk'
         const stabilityCls = {
-          Safe: 'bg-gray-50 text-gray-700 border border-gray-200',
+          // Safe — text-only, no border. It's the safe default state; doesn't need to
+          // visually compete with the other variants (Eugene 2026-05-15).
+          Safe: 'text-gray-700',
           Stable: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
           Moderate: 'bg-amber-50 text-amber-900 border border-amber-300',
           'At-risk': 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40',
@@ -1175,48 +1183,78 @@ function OwnerPanel({
         const leasedPct = listing.totalCapacityUSD > 0 ? (leasedUSD / listing.totalCapacityUSD) * 100 : 0
         const summary = (
           <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h3 className="text-sm font-semibold mb-3">Listing summary</h3>
+            <h3 className="text-sm font-semibold mb-3 inline-flex items-center gap-1.5">
+              Listing summary
+              {/* Mobile-only consolidated tooltip: single (i) next to title explains
+                  all metrics in one popover. Per-metric (i) icons hide on mobile
+                  (each wrapped with `hidden sm:inline-flex` below).
+                  Desktop keeps per-metric tooltips for precise context. */}
+              <span className="sm:hidden">
+                <HelpPopover label="Listing summary — all metrics" width="w-80" size="lg">
+                  <p className="font-semibold mb-1.5">All metrics on this card</p>
+                  <ul className="space-y-1.5 text-[11px] leading-relaxed">
+                    <li><strong>Uniswap APY</strong> — realised pool fee APY на underlying V3 пуле за 30d. Базовая доходность без sLiq.</li>
+                    <li><strong>Min Premium APY</strong> — минимум аукциона. Трейдер должен предложить ≥ этой ставки. Negative = subsidized (LP платит трейдерам).</li>
+                    <li><strong>Total APY</strong> = Uniswap + Premium. Сколько ты заработаешь при текущих условиях.</li>
+                    <li><strong>Active positions</strong> — сколько трейдер-позиций открыто. 0 = арендаторов нет → снизь min APY.</li>
+                    <li><strong>LP stability</strong> — Safe / Stable / Moderate / At-risk grade. Safe = no leverage. Pro grades by HF.</li>
+                    <li><strong>Leased / Total capacity</strong> — занятая доля от total. Premium APY идёт только на leased.</li>
+                  </ul>
+                </HelpPopover>
+              </span>
+            </h3>
             <dl className="grid grid-cols-2 gap-y-2.5 gap-x-3 sm:gap-x-6 text-sm">
+              {/* Order swapped (Eugene 2026-05-15): Uniswap left (baseline) →
+                  Premium right (additive carry). Mirrors the Total APY breakdown
+                  «Uniswap + Premium». */}
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
+                  Uniswap APY
+                  <span className="hidden sm:inline-flex">
+                    <HelpPopover label="Uniswap APY" width="w-64">
+                      <p>Realised pool fee APY за последние 30d на текущем range. Это та доходность, которую NFT и так зарабатывал бы на Uniswap без sLiq. На вершину этого аукцион добавляет Premium APY.</p>
+                    </HelpPopover>
+                  </span>
+                </dt>
+                <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
+              </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   Min Premium APY
-                  <HelpPopover label="Min Premium APY" width="w-64">
-                    <p>Минимум, с которого начинается аукцион для трейдеров. Трейдер должен предложить ≥ этой ставки. Если subsidized — ты платишь трейдерам (negative).</p>
-                  </HelpPopover>
+                  <span className="hidden sm:inline-flex">
+                    <HelpPopover label="Min Premium APY" width="w-64">
+                      <p>Минимум, с которого начинается аукцион для трейдеров. Трейдер должен предложить ≥ этой ставки. Если subsidized — ты платишь трейдерам (negative).</p>
+                    </HelpPopover>
+                  </span>
                 </dt>
                 <dd className="font-semibold num" style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
                   {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
-                  Uniswap APY
-                  <HelpPopover label="Uniswap APY" width="w-64">
-                    <p>Realised pool fee APY за последние 30d на текущем range. Это та доходность, которую NFT и так зарабатывал бы на Uniswap без sLiq. На вершину этого аукцион добавляет Premium APY.</p>
-                  </HelpPopover>
-                </dt>
-                <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
-              </div>
               <div className="col-span-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   Total APY
-                  <HelpPopover label="Total APY" width="w-64">
-                    <p>Сумма: <strong>min Premium APY + Uniswap APY</strong>. То, на что в сумме можно рассчитывать при текущих условиях аукциона и Uniswap pool yield.</p>
-                  </HelpPopover>
+                  <span className="hidden sm:inline-flex">
+                    <HelpPopover label="Total APY" width="w-64">
+                      <p>Сумма: <strong>Uniswap APY + min Premium APY</strong>. То, на что в сумме можно рассчитывать при текущих условиях аукциона и Uniswap pool yield.</p>
+                    </HelpPopover>
+                  </span>
                 </dt>
                 <dd className="font-semibold text-gray-900 num text-base flex items-baseline gap-2 flex-wrap">
                   <span>{fmtPct(totalApyBps)}</span>
                   <span className="text-[11px] text-gray-500 font-normal">
-                    = {fmtPct(listing.minPremiumApyBps, { signed: subsidized })} Premium + {fmtPct(listing.uniswapApyBps)} Uniswap
+                    = {fmtPct(listing.uniswapApyBps)} Uniswap + {fmtPct(listing.minPremiumApyBps, { signed: subsidized })} Premium
                   </span>
                 </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   Active positions
-                  <HelpPopover label="Active positions" width="w-72">
-                    <p>Сколько отдельных трейдер-позиций сейчас открыто на твоём листинге. Каждая платит Premium APY на свою долю notional. <strong>0</strong> = арендаторов нет → надо снизить Min APY или ждать.</p>
-                  </HelpPopover>
+                  <span className="hidden sm:inline-flex">
+                    <HelpPopover label="Active positions" width="w-72">
+                      <p>Сколько отдельных трейдер-позиций сейчас открыто на твоём листинге. Каждая платит Premium APY на свою долю notional. <strong>0</strong> = арендаторов нет → надо снизить Min APY или ждать.</p>
+                    </HelpPopover>
+                  </span>
                 </dt>
                 <dd className="font-semibold text-gray-900 num">
                   {activeCount}
@@ -1243,15 +1281,17 @@ function OwnerPanel({
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
                   LP stability
-                  <HelpPopover label="LP stability" width="w-80">
-                    <p className="font-semibold mb-1">Унифицированный risk grade</p>
-                    <ul className="text-xs space-y-1">
-                      <li><strong>Safe</strong> — Conservative (1×), NFT не collateral, ликвидации невозможны.</li>
-                      <li><strong>Stable</strong> — Pro с health factor &gt; 70, дистанция до ликвидации большая.</li>
-                      <li><strong>Moderate</strong> — Pro, HF 30–70, можно тюнить.</li>
-                      <li><strong>At-risk</strong> — Pro, HF &lt; 30, близко к listing-level ликвидации.</li>
-                    </ul>
-                  </HelpPopover>
+                  <span className="hidden sm:inline-flex">
+                    <HelpPopover label="LP stability" width="w-80">
+                      <p className="font-semibold mb-1">Унифицированный risk grade</p>
+                      <ul className="text-xs space-y-1">
+                        <li><strong>Safe</strong> — Conservative (1×), NFT не collateral, ликвидации невозможны.</li>
+                        <li><strong>Stable</strong> — Pro с health factor &gt; 70, дистанция до ликвидации большая.</li>
+                        <li><strong>Moderate</strong> — Pro, HF 30–70, можно тюнить.</li>
+                        <li><strong>At-risk</strong> — Pro, HF &lt; 30, близко к listing-level ликвидации.</li>
+                      </ul>
+                    </HelpPopover>
+                  </span>
                 </dt>
                 <dd className="flex items-center gap-2 flex-wrap">
                   <span className={'text-[11px] font-semibold px-1.5 py-0.5 rounded ' + stabilityCls}>
@@ -1281,16 +1321,18 @@ function OwnerPanel({
               </div>
               <div className="col-span-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
-                  Used / Total capacity
-                  <HelpPopover label="Used / Total" width="w-72">
-                    <p>Сколько из доступной capacity сейчас арендовано трейдерами. <strong>Used</strong> = занято · <strong>Total</strong> = весь capacity (включая amplified leverage). Premium APY идёт только на Used.</p>
-                  </HelpPopover>
+                  Leased / Total capacity
+                  <span className="hidden sm:inline-flex">
+                    <HelpPopover label="Leased / Total" width="w-72">
+                      <p>Сколько из доступной capacity сейчас арендовано трейдерами. <strong>Leased</strong> = занято · <strong>Total</strong> = весь capacity (включая amplified leverage). Premium APY идёт только на leased долю.</p>
+                    </HelpPopover>
+                  </span>
                 </dt>
                 <dd className="num flex items-baseline gap-2 mt-0.5">
                   <span className="font-semibold text-gray-900">{fmtUSD(leasedUSD)}</span>
                   <span className="text-gray-400">/</span>
                   <span className="text-gray-500">{fmtUSD(listing.totalCapacityUSD)}</span>
-                  <span className="text-[11px] text-gray-500">({Math.round(leasedPct)}% used)</span>
+                  <span className="text-[11px] text-gray-500">({Math.round(leasedPct)}% leased)</span>
                 </dd>
                 <div className="mt-1 h-1 w-full rounded-sm bg-gray-200 overflow-hidden">
                   <div
