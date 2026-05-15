@@ -2269,7 +2269,7 @@ function ClaimableBanner({ amount, listingsCount }: { amount: number; listingsCo
             different density. «Claim sweeps all in a single tx» line dropped on
             mobile — the action verb lives on the button itself. */}
         <div className="text-xs text-gray-600 mt-0.5 sm:hidden num">
-          All fees across {listingsCount} listing{listingsCount === 1 ? '' : 's'} · 1 tx
+          All fees across {listingsCount} listing{listingsCount === 1 ? '' : 's'} in 1 tx
         </div>
         <div className="text-xs text-gray-600 mt-0.5 hidden sm:block">
           Accumulated Uniswap fees + Premium APY across {listingsCount} listing{listingsCount === 1 ? '' : 's'}.
