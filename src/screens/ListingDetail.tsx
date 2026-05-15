@@ -1647,43 +1647,40 @@ function OwnerPanel({
           newLeverage / newMode; the before/after comparison reflects what they picked. */}
       <HighStakesConfirmModal
         open={leverageOpen}
-        title="Update Provider Leverage — confirm"
+        compact
+        title="Update Provider Leverage"
         subtitle={
           newMode === 'advanced' && listing.providerMode !== 'advanced'
             ? 'Switching to Advanced. NFT becomes collateral — listing-level liquidation possible at vol-event.'
             : newLeverage > listing.providerLeverage
             ? 'Higher leverage → tighter liquidation distance. Reference Fees pool amplified.'
             : newLeverage < listing.providerLeverage
-            ? 'Lower leverage → safer но Reference Fees pool сокращается.'
+            ? 'Lower leverage → safer, but Reference Fees pool shrinks.'
             : 'Adjust leverage below, then confirm.'
         }
         topSlot={(() => {
           const liqDistancePct = newLeverage > 1 ? (2 / newLeverage) * 100 : null
           return (
             <div className="space-y-3">
-              {/* Mode toggle — only shown when current is Conservative (1×); lets the
-                  LP opt into Advanced from the same surface, no separate modal. */}
-              {!isAdvanced && (
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-gray-600">Mode:</span>
-                  <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => { setNewMode('conservative'); setNewLeverage(1) }}
-                      className={'px-3 py-1 transition ' + (newMode === 'conservative' ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
-                    >Safe · 1×</button>
-                    <button
-                      type="button"
-                      onClick={() => { setNewMode('advanced'); if (newLeverage === 1) setNewLeverage(2) }}
-                      // Red TEXT + outline on selected (was red BG fill) — red bg
-                      // semantics = «destructive action button»; here red conveys
-                      // «this option is dangerous», not «click destroys things»
-                      // (UX audit P2.20).
-                      className={'px-3 py-1 transition ' + (newMode === 'advanced' ? 'bg-white text-[var(--color-status-danger)] border-l-2 border-[var(--color-status-danger)] font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
-                    >At-risk · N×</button>
-                  </div>
+              {/* Mode toggle — always visible (Eugene 2026-05-15: «Mode может
+                  меняться»). LP can downgrade Advanced→Safe or upgrade Safe→Advanced
+                  without leaving the modal. Tapping ticks/slider also auto-flips
+                  this in sync. */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-600">Mode:</span>
+                <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => { setNewMode('conservative'); setNewLeverage(1) }}
+                    className={'px-3 py-1 transition ' + (newMode === 'conservative' ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
+                  >Safe · 1×</button>
+                  <button
+                    type="button"
+                    onClick={() => { setNewMode('advanced'); if (newLeverage === 1) setNewLeverage(2) }}
+                    className={'px-3 py-1 transition ' + (newMode === 'advanced' ? 'bg-white text-[var(--color-status-danger)] border-l-2 border-[var(--color-status-danger)] font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
+                  >At-risk · N×</button>
                 </div>
-              )}
+              </div>
 
               {/* Leverage slider + numeric input — fine-tune via input (Viktor: «slider
                   min step=1 на 1–100 слишком груб, дай fine-tune через number input»).
@@ -1814,10 +1811,11 @@ function OwnerPanel({
           +/- buttons, number input, and preset chips (same pattern as ListNFTModal Pro). */}
       <HighStakesConfirmModal
         open={updateApyOpen}
-        title="Update Min Premium APY — confirm"
+        compact
+        title="Update Min Premium APY"
         subtitle={newMinApyPct < 0
-          ? `⚠️ Negative APY — ты будешь платить ${Math.abs(newMinApyPct)}% годовых traders. Use только если знаешь что делаешь.`
-          : 'Changes the floor для auction. Existing lessees keep their carry rate.'
+          ? `⚠️ Negative APY — you'll pay traders ${Math.abs(newMinApyPct)}% annualised. Use only if you know what you're doing.`
+          : 'Changes the auction floor. Existing lessees keep their carry rate.'
         }
         topSlot={(
           <div>

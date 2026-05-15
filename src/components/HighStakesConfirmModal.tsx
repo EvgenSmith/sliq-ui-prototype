@@ -29,9 +29,14 @@ export interface HighStakesConfirmModalProps {
   // Optional pre-comparison slot — for actions where the user must ACTUALLY
   // configure the new value (slider / input) before the before/after preview
   // makes sense. Used by Update Leverage + Update Min Premium APY where the
-  // generic confirm modal alone is insufficient (Eugene 2026-05-15: «тут
-  // нельзя настроить плечо… нельзя поменять Premium APY»).
+  // generic confirm modal alone is insufficient (Eugene 2026-05-15).
   topSlot?: React.ReactNode
+  // Compact mode (Eugene 2026-05-15) — suppress the high-stakes scaffolding
+  // (before/after cards, risks list, irreversibility note, confirm checkbox /
+  // type-to-confirm). Use for tunable params that aren't truly nuclear —
+  // existing positions remain protected per excerpt 1 §3 (Update Leverage,
+  // Update Min APY). Confirm button is always enabled. Always renders an X.
+  compact?: boolean
 }
 
 export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
@@ -49,6 +54,7 @@ export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
     onConfirm,
     onCancel,
     topSlot,
+    compact = false,
   } = props
 
   const [checkbox, setCheckbox] = useState(false)
@@ -76,8 +82,11 @@ export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
 
   if (!open) return null
 
-  const canConfirm =
-    confirmType === 'checkbox' ? checkbox : typed.trim().toUpperCase() === (typeWord ?? '').toUpperCase()
+  // Compact mode: confirm button always enabled — no checkbox / type-to-confirm
+  // gating. High-stakes mode: checkbox or type-word must match.
+  const canConfirm = compact
+    ? true
+    : (confirmType === 'checkbox' ? checkbox : typed.trim().toUpperCase() === (typeWord ?? '').toUpperCase())
 
   async function handleConfirm() {
     if (!canConfirm) return
@@ -100,12 +109,21 @@ export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
       }}
     >
       <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <header className="px-6 pt-5 pb-3 border-b border-gray-100">
-          <h2 id="hsmodal-title" className="text-lg font-semibold tracking-tight">
+        {/* Header — always renders an explicit close X (Eugene 2026-05-15) */}
+        <header className="px-6 pt-5 pb-3 border-b border-gray-100 relative">
+          <h2 id="hsmodal-title" className="text-lg font-semibold tracking-tight pr-8">
             {title}
           </h2>
-          <p className="text-sm text-gray-600 mt-1">{subtitle}</p>
+          <p className="text-sm text-gray-600 mt-1 pr-8">{subtitle}</p>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            aria-label="Close"
+            className="absolute top-3 right-4 w-8 h-8 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition disabled:opacity-50 text-xl leading-none"
+          >
+            ×
+          </button>
         </header>
 
         {/* Body */}
@@ -113,66 +131,74 @@ export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
           {/* Optional inputs — slider / number-input for actions that need the
               user to set the new value before the comparison reads correctly. */}
           {topSlot && (
-            <div className="pb-2 border-b border-gray-100">
+            <div className={compact ? '' : 'pb-2 border-b border-gray-100'}>
               {topSlot}
             </div>
           )}
 
-          {/* Current vs After */}
-          <div className="grid grid-cols-2 gap-3">
-            <KvBlock title="Current state" entries={currentState} tone="neutral" />
-            <KvBlock title="After this action" entries={newState} tone="next" />
-          </div>
-
-          {/* Risks */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
-              What you're accepting
-            </h3>
-            <ul className="space-y-1 text-sm text-gray-800">
-              {risks.map((r, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="text-gray-400 mt-0.5">•</span>
-                  <span>{r}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Irreversibility */}
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <span className="font-medium">Irreversibility: </span>
-            {irreversibilityNote}
-          </div>
-
-          {/* Confirm input */}
-          <div className="pt-1">
-            {confirmType === 'checkbox' ? (
-              <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={checkbox}
-                  onChange={e => setCheckbox(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 accent-[var(--color-role-trader)]"
-                />
-                <span>I understand.</span>
-              </label>
-            ) : (
-              <div>
-                <label className="text-sm text-gray-700 block mb-1">
-                  Type <code className="font-mono font-semibold bg-gray-100 px-1.5 py-0.5 rounded">{typeWord}</code> to confirm
-                </label>
-                <input
-                  type="text"
-                  value={typed}
-                  onChange={e => setTyped(e.target.value)}
-                  placeholder={typeWord}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--color-role-trader)]/30"
-                  autoFocus
-                />
+          {/* High-stakes scaffolding — suppressed in compact mode. Used for
+              genuinely nuclear actions (Withdraw NFT, Outbid). For tunable
+              params where existing positions are protected (Leverage, Min APY),
+              compact mode is enough. */}
+          {!compact && (
+            <>
+              {/* Current vs After */}
+              <div className="grid grid-cols-2 gap-3">
+                <KvBlock title="Current state" entries={currentState} tone="neutral" />
+                <KvBlock title="After this action" entries={newState} tone="next" />
               </div>
-            )}
-          </div>
+
+              {/* Risks */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                  What you're accepting
+                </h3>
+                <ul className="space-y-1 text-sm text-gray-800">
+                  {risks.map((r, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-gray-400 mt-0.5">•</span>
+                      <span>{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Irreversibility */}
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <span className="font-medium">Irreversibility: </span>
+                {irreversibilityNote}
+              </div>
+
+              {/* Confirm input — checkbox or type-to-confirm */}
+              <div className="pt-1">
+                {confirmType === 'checkbox' ? (
+                  <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={checkbox}
+                      onChange={e => setCheckbox(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[var(--color-role-trader)]"
+                    />
+                    <span>I understand.</span>
+                  </label>
+                ) : (
+                  <div>
+                    <label className="text-sm text-gray-700 block mb-1">
+                      Type <code className="font-mono font-semibold bg-gray-100 px-1.5 py-0.5 rounded">{typeWord}</code> to confirm
+                    </label>
+                    <input
+                      type="text"
+                      value={typed}
+                      onChange={e => setTyped(e.target.value)}
+                      placeholder={typeWord}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--color-role-trader)]/30"
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
@@ -192,7 +218,11 @@ export function HighStakesConfirmModal(props: HighStakesConfirmModalProps) {
             className={
               'ml-auto text-sm font-semibold px-4 py-2 rounded-md transition ' +
               (canConfirm && !busy
-                ? 'bg-[var(--color-status-danger)] text-white hover:opacity-90'
+                // Compact mode uses LP-color (non-destructive action).
+                // High-stakes mode keeps red (Withdraw / Outbid feel).
+                ? (compact
+                    ? 'bg-[var(--color-role-lp)] text-white hover:opacity-90'
+                    : 'bg-[var(--color-status-danger)] text-white hover:opacity-90')
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed')
             }
           >
