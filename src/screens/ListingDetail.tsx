@@ -237,10 +237,36 @@ export function ListingDetail() {
             </div>
           )}
 
-          {/* Pro Metrics — collapsible «advanced» block. Trader sees always
-              (decision context near Open CTA). Owner sees only in Pro mode. */}
-          {(!isOwner || ownerMode === 'pro') && (
+          {/* Pro Metrics:
+              - Trader (non-owner): keeps full ProMetrics block — decision context
+                near the Open CTA.
+              - Owner Pro: per Eugene 2026-05-15 the LP-side analytics here are
+                placeholdered until the option-style metrics suite is ready. The
+                rendered block previews the upcoming surface (IV-based pricing,
+                σ-distance, vega/theta, range-event probabilities) without
+                exposing the half-finished current numbers. */}
+          {!isOwner && (
             <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
+          )}
+          {isOwner && ownerMode === 'pro' && (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+              <div className="flex items-baseline justify-between gap-2 mb-2">
+                <h3 className="text-sm font-semibold text-gray-700 inline-flex items-center gap-1.5">
+                  Option-style metrics
+                  <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">Soon</span>
+                </h3>
+              </div>
+              <p className="text-[11px] text-gray-600 leading-relaxed">
+                Option-pricing primitives for LP risk — IV-implied range pricing, σ-distance to
+                liquidation, vega / theta exposure, hit-rate vs implied range-event probability,
+                OI / capacity decomposition. Designed to read the listing the way a vol desk reads
+                a structured note, not the way a yield aggregator reads APR.
+              </p>
+              <p className="text-[10px] text-gray-500 mt-2 leading-snug">
+                In sprint after Beta · contact us if you want to pilot the metrics with your own
+                positions before they ship.
+              </p>
+            </div>
           )}
         </aside>
       </div>
@@ -1100,6 +1126,10 @@ function OwnerPanel({
   const isPro = ownerMode === 'pro'
 
   const [leverageOpen, setLeverageOpen] = useState2(false)
+  const [topUpOpen, setTopUpOpen] = useState2(false)
+  const [removeLiqOpen, setRemoveLiqOpen] = useState2(false)
+  const [topUpAmountUSD, setTopUpAmountUSD] = useState2(5000)
+  const [removeLiqPct, setRemoveLiqPct] = useState2(25)
   const [withdrawOpen, setWithdrawOpen] = useState2(false)
   const [updateApyOpen, setUpdateApyOpen] = useState2(false)
   const [withdrawing, setWithdrawing] = useState2(false)
@@ -1255,7 +1285,7 @@ function OwnerPanel({
         const leasedUSD = listing.totalCapacityUSD - listing.availableCapacityUSD
         const leasedPct = listing.totalCapacityUSD > 0 ? (leasedUSD / listing.totalCapacityUSD) * 100 : 0
         const summary = (
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <div className="rounded-lg border border-gray-200 bg-white p-4 h-full">
             <h3 className="text-sm font-semibold mb-3 inline-flex items-center gap-1.5">
               Listing summary
               {/* Mobile-only consolidated tooltip: single (i) next to title explains
@@ -1407,7 +1437,7 @@ function OwnerPanel({
         if (!isPro) return summary
         // Manage · Pro — same JSX as before, just relocated next to Summary.
         const managePro = (
-          <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
+          <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4 h-full flex flex-col">
             <div className="flex items-baseline justify-between">
               <h2 className="text-base font-semibold">Manage listing · Pro</h2>
               {isAdvanced && (listing.healthFactorPct !== undefined) && (
@@ -1436,14 +1466,19 @@ function OwnerPanel({
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 2x2 grid of management actions. Subtitles dropped per Eugene
+                2026-05-15 — current values already live in Listing summary card
+                next to this one. Top up + Remove liquidity are the new active
+                pair (replaced disabled Auto-compound). flex-1 + items-stretch so
+                the 4 action cells fill the height. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 items-stretch">
               <ActionButton
                 // Single label both modes — Eugene 2026-05-15: «Enable Advanced mode»
                 // was misleading. Function is the same regardless of current mode:
                 // open the leverage editor. The Safe ↔ At-risk mode toggle lives
-                // inside the modal where it belongs. Subtitle reflects current state.
+                // inside the modal where it belongs.
                 title="Provider Leverage"
-                subtitle={`Сейчас: ${isAdvanced ? `at-risk · ${listing.providerLeverage}×` : 'safe · 1×'}`}
+                subtitle=""
                 onClick={() => setLeverageOpen(true)}
                 tooltipLabel="Update Provider Leverage"
                 tooltipBody={isAdvanced
@@ -1452,7 +1487,7 @@ function OwnerPanel({
               />
               <ActionButton
                 title="Min Premium APY"
-                subtitle={`Сейчас: ${fmtPct(listing.minPremiumApyBps, { signed: true })}`}
+                subtitle=""
                 onClick={() => setUpdateApyOpen(true)}
                 tooltipLabel="Update Min APY"
                 tooltipBody="Floor для auction. Трейдер должен предложить ≥ этой ставки чтобы зайти. Подними если есть demand, опусти чтобы привлечь арендаторов."
@@ -1460,24 +1495,26 @@ function OwnerPanel({
               <ActionButton
                 title="Top up liquidity"
                 subtitle=""
-                onClick={() => {}}
-                disabled
-                tooltipLabel="Top up — Soon"
-                tooltipBody="Per Kolya 2026-05-14 @01:21:54: margin = NFT, его докинуть нельзя. Но добавить liquidity к позиции — да, фича в плане."
+                onClick={() => setTopUpOpen(true)}
+                tooltipLabel="Top up liquidity"
+                tooltipBody="Add more liquidity to this NFT position. Increases your share of Uniswap fees and the capacity traders can rent. Existing lessees are not affected."
               />
               <ActionButton
-                title="Auto-compound fees"
+                title="Remove liquidity"
                 subtitle=""
-                onClick={() => {}}
-                disabled
-                tooltipLabel="Auto-compound — Soon"
-                tooltipBody="Не в текущем sprint. Когда включится — keeper будет автоматически делать collect Uniswap fees и re-добавлять к NFT, без ручных claim/re-deposit."
+                onClick={() => setRemoveLiqOpen(true)}
+                tooltipLabel="Remove liquidity"
+                tooltipBody="Pull part of your NFT's liquidity. Only the unleased portion can be removed — existing lessees stay protected. For full exit use «Request withdrawal» from the header menu."
               />
             </div>
           </div>
         )
+        // items-stretch + h-full on both cards equalises Manage block to
+        // Listing summary height (Eugene 2026-05-15 — Pro view had visible
+        // height mismatch since Listing summary has 6 dl rows and Manage has
+        // only 4 actions; now both extend to the taller one).
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
             {summary}
             {managePro}
           </div>
@@ -1646,9 +1683,36 @@ function OwnerPanel({
             </div>
           </div>
         </div>
-        {/* IL line removed per Eugene 2026-05-15 — Fees · earnings card now
-            shows Total fees + Claimable only; IL-vs-HODL signal lives in the
-            Vs HODL analytics block (LP-only) elsewhere on the page. */}
+        {/* Vs HODL section — IL and PnL relative to «just held the tokens».
+            Per Eugene 2026-05-15: IL line stays grey (IL is always negative,
+            colouring it red is noise); PnL line gets the success/danger colour
+            because its sign carries real signal (am I beating HODL or not). */}
+        <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-1">Vs HODL</div>
+          <div className="flex items-baseline justify-between text-[12px]">
+            <span className="text-gray-600 inline-flex items-center gap-1">
+              Impermanent Loss
+              <HelpPopover label="Impermanent Loss vs HODL" width="w-72">
+                <p>Difference between the current value of the LP position and the value you'd have if you simply held the original token amounts (no LP, no fees). Always ≤ 0 by construction — that's why it's not coloured red.</p>
+              </HelpPopover>
+            </span>
+            <span className="num text-gray-800">{ilProxy >= 0 ? '' : '−'}{fmtUSD(Math.abs(ilProxy))}</span>
+          </div>
+          <div className="flex items-baseline justify-between text-[12px]">
+            <span className="text-gray-600 inline-flex items-center gap-1">
+              PnL vs HODL
+              <HelpPopover label="PnL vs HODL" width="w-72">
+                <p>Total fees earned (Uniswap + Premium) minus Impermanent Loss. <strong>Positive</strong> = the listing is earning more than HODL would have. <strong>Negative</strong> = HODL would have beaten this listing so far.</p>
+              </HelpPopover>
+            </span>
+            <span
+              className="num font-semibold"
+              style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+            >
+              {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
+            </span>
+          </div>
+        </div>
         {/* Suggestions block — all-English copy (was mixed RU/EN per UX audit). */}
         {netPnL < 0 && (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
@@ -1707,8 +1771,27 @@ function OwnerPanel({
         }
         topSlot={(() => {
           const liqDistancePct = newLeverage > 1 ? (2 / newLeverage) * 100 : null
+          const newTraderMarketUSD = listing.initialLiquidityUSD * newLeverage
           return (
             <div className="space-y-3">
+              {/* Pool size + Trader market preview — mirrors the ListNFTModal Pro
+                  pre-listing card (Eugene 2026-05-15: «как на окне листинга в про
+                  режиме»). Pool size is fixed (= initial NFT liquidity); Trader
+                  market scales with the leverage slider below, so LP sees the
+                  exact carry surface the change will create. */}
+              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500">Pool size</div>
+                  <div className="num font-semibold text-gray-900 mt-0.5">{fmtUSD(listing.initialLiquidityUSD)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500">Trader market</div>
+                  <div className="num font-semibold text-gray-900 mt-0.5">
+                    {newMode === 'advanced' ? fmtUSD(newTraderMarketUSD) : <span className="text-gray-400">—</span>}
+                  </div>
+                </div>
+              </div>
+
               {/* Mode toggle — always visible (Eugene 2026-05-15: «Mode может
                   меняться»). LP can downgrade Advanced→Safe or upgrade Safe→Advanced
                   without leaving the modal. Tapping ticks/slider also auto-flips
@@ -1731,11 +1814,23 @@ function OwnerPanel({
 
               {/* Leverage slider + numeric input — fine-tune via input (Viktor: «slider
                   min step=1 на 1–100 слишком груб, дай fine-tune через number input»).
+                  ± buttons left/right (Eugene 2026-05-15: matches Min APY modal pattern).
                   Disabled in Safe mode. */}
               <div>
                 <div className="flex items-baseline justify-between mb-1">
                   <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
-                  <div className="inline-flex items-center gap-1">
+                  <div className="inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const v = Math.max(1, newLeverage - 1)
+                        setNewLeverage(v)
+                        if (v === 1) setNewMode('conservative')
+                      }}
+                      disabled={newMode === 'conservative'}
+                      className="w-7 h-7 inline-flex items-center justify-center rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Decrease leverage"
+                    >−</button>
                     <input
                       type="number"
                       min={1}
@@ -1749,9 +1844,22 @@ function OwnerPanel({
                         else setNewMode('conservative')
                       }}
                       disabled={newMode === 'conservative'}
-                      className="w-14 text-sm font-semibold num text-gray-900 text-right border border-gray-200 rounded px-1.5 py-0.5 focus:border-[var(--color-role-lp)] focus:outline-none disabled:opacity-50"
+                      className="w-14 text-sm font-semibold num text-gray-900 text-right border border-gray-200 rounded px-1.5 py-1 focus:border-[var(--color-role-lp)] focus:outline-none disabled:opacity-50"
                     />
                     <span className="text-sm font-semibold num text-gray-900">×</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // + always enabled — bumps 1×→2× (and auto-switches to advanced),
+                        // otherwise just increments by 1 within [1, 100].
+                        const v = Math.min(100, Math.max(2, newLeverage + 1))
+                        setNewLeverage(v)
+                        setNewMode('advanced')
+                      }}
+                      disabled={newLeverage >= 100}
+                      className="w-7 h-7 inline-flex items-center justify-center rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Increase leverage"
+                    >+</button>
                   </div>
                 </div>
                 <input
@@ -1897,9 +2005,10 @@ function OwnerPanel({
                 aria-label="Increase by 1%"
               >+</button>
             </div>
-            {/* Presets — py-2 + grid-cols-5 for reliable touch target on mobile (P2.15). */}
-            <div className="mt-2 grid grid-cols-5 gap-1.5">
-              {[10, 20, 30, 50, 100].map(p => (
+            {/* Presets — 100% dropped per Eugene 2026-05-15 (unrealistic Min APY
+                floor; if LP wants extreme rates they'll type the number). */}
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              {[10, 20, 30, 50].map(p => (
                 <button
                   key={p}
                   type="button"
@@ -1931,6 +2040,231 @@ function OwnerPanel({
         onConfirm={() => setUpdateApyOpen(false)}
         onCancel={() => setUpdateApyOpen(false)}
       />
+
+      {/* Top up liquidity modal — designed 2026-05-15.
+          Compact: existing lessees stay protected (we're only growing the
+          pool), so no checkbox/risk-list. User enters USD amount → preview
+          shows token split + Pool size before/after. */}
+      <HighStakesConfirmModal
+        open={topUpOpen}
+        compact
+        title="Top up liquidity"
+        subtitle={`Add liquidity to NFT #${listing.tokenId}. Increases your Uniswap-fee share and the capacity traders can rent. Existing lessees keep their carry rate.`}
+        topSlot={(() => {
+          const newPoolSize = listing.initialLiquidityUSD + topUpAmountUSD
+          const { t0Amt, t1Amt } = splitToTokens(topUpAmountUSD, listing)
+          return (
+            <div className="space-y-3">
+              {/* Pool size before/after — what the deposit looks like */}
+              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500">Pool size now</div>
+                  <div className="num font-semibold text-gray-900 mt-0.5">{fmtUSD(listing.initialLiquidityUSD)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500">After top up</div>
+                  <div className="num font-semibold mt-0.5" style={{ color: 'var(--color-role-lp)' }}>{fmtUSD(newPoolSize)}</div>
+                </div>
+              </div>
+
+              {/* Amount input with ± controls + presets */}
+              <div>
+                <div className="flex items-baseline justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-700">Amount to add</label>
+                  <span className="text-[10px] text-gray-500">USD value · auto-split at pool ratio</span>
+                </div>
+                <div className="flex items-stretch gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTopUpAmountUSD(v => Math.max(100, v - 1000))}
+                    className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                    aria-label="Decrease by $1k"
+                  >−</button>
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
+                    <input
+                      type="number"
+                      min={100}
+                      step={500}
+                      value={topUpAmountUSD}
+                      onChange={e => setTopUpAmountUSD(Math.max(100, Number(e.target.value) || 100))}
+                      className="w-full pl-7 pr-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition text-center"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTopUpAmountUSD(v => v + 1000)}
+                    className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                    aria-label="Increase by $1k"
+                  >+</button>
+                </div>
+                <div className="mt-2 grid grid-cols-4 gap-1.5">
+                  {[1000, 5000, 10000, 25000].map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setTopUpAmountUSD(p)}
+                      className={
+                        'px-2 py-1.5 text-[11px] font-medium rounded border transition num ' +
+                        (topUpAmountUSD === p
+                          ? 'bg-[var(--color-role-lp-bg)] border-[var(--color-role-lp)] text-[var(--color-role-lp)]'
+                          : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900')
+                      }
+                    >+{fmtUSD(p)}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Token split preview */}
+              {t0Amt !== null && t1Amt !== null && (
+                <div className="rounded-md border border-gray-200 px-3 py-2 text-xs">
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">You'll deposit</div>
+                  <div className="num font-medium text-gray-900 flex items-baseline justify-between">
+                    <span>{fmtToken(t0Amt, listing.pair.token0)}</span>
+                    <span className="text-gray-400">+</span>
+                    <span>{fmtToken(t1Amt, listing.pair.token1)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+        currentState={[]}
+        newState={[]}
+        risks={[]}
+        irreversibilityNote=""
+        confirmType="checkbox"
+        confirmButtonLabel="Confirm top up"
+        onConfirm={() => setTopUpOpen(false)}
+        onCancel={() => setTopUpOpen(false)}
+      />
+
+      {/* Remove liquidity modal — designed 2026-05-15.
+          Compact: removal is bounded by available (unleased) capacity, so it
+          can never break existing positions — no nuclear-action scaffolding.
+          For full exit the LP uses Request withdrawal from the header menu. */}
+      {(() => {
+        const totalCap = listing.totalCapacityUSD
+        const leasedUSD = totalCap - listing.availableCapacityUSD
+        const maxRemovablePct = totalCap > 0 ? Math.floor((listing.availableCapacityUSD / totalCap) * 100) : 0
+        // Clamp the slider so user can't try to remove leased portion
+        const effectivePct = Math.min(removeLiqPct, maxRemovablePct)
+        const removeUSDOfNFT = listing.initialLiquidityUSD * (effectivePct / 100)
+        const newPoolSize = listing.initialLiquidityUSD - removeUSDOfNFT
+        const { t0Amt: t0Remove, t1Amt: t1Remove } = splitToTokens(removeUSDOfNFT, listing)
+        return (
+          <HighStakesConfirmModal
+            open={removeLiqOpen}
+            compact
+            title="Remove liquidity"
+            subtitle={`Pull part of NFT #${listing.tokenId}. Only the unleased portion can be removed — existing lessees stay protected. For a full exit use Request withdrawal from the menu.`}
+            topSlot={(
+              <div className="space-y-3">
+                {/* Pool size before/after */}
+                <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500">Pool size now</div>
+                    <div className="num font-semibold text-gray-900 mt-0.5">{fmtUSD(listing.initialLiquidityUSD)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500">After remove</div>
+                    <div className="num font-semibold mt-0.5" style={{ color: 'var(--color-status-warning)' }}>{fmtUSD(newPoolSize)}</div>
+                  </div>
+                </div>
+
+                {/* Removable cap notice */}
+                <div className="text-[11px] text-gray-600 leading-snug rounded-md border border-gray-200 bg-white px-3 py-2">
+                  <span className="font-medium">Removable now: </span>
+                  <span className="num font-semibold text-gray-900">{maxRemovablePct}%</span>
+                  <span className="text-gray-500"> · leased {fmtUSD(leasedUSD)} locked until lessees close</span>
+                </div>
+
+                {/* % slider + presets */}
+                <div>
+                  <div className="flex items-baseline justify-between mb-1">
+                    <label className="text-xs font-medium text-gray-700">Remove</label>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setRemoveLiqPct(v => Math.max(1, v - 5))}
+                        className="w-7 h-7 inline-flex items-center justify-center rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                        aria-label="Decrease by 5%"
+                      >−</button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxRemovablePct}
+                        step={1}
+                        value={effectivePct}
+                        onChange={e => setRemoveLiqPct(Math.max(1, Math.min(maxRemovablePct, Number(e.target.value) || 1)))}
+                        className="w-14 text-sm font-semibold num text-gray-900 text-right border border-gray-200 rounded px-1.5 py-1 focus:border-[var(--color-role-lp)] focus:outline-none"
+                      />
+                      <span className="text-sm font-semibold num text-gray-900">%</span>
+                      <button
+                        type="button"
+                        onClick={() => setRemoveLiqPct(v => Math.min(maxRemovablePct, v + 5))}
+                        className="w-7 h-7 inline-flex items-center justify-center rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                        aria-label="Increase by 5%"
+                      >+</button>
+                    </div>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={Math.max(1, maxRemovablePct)}
+                    step={1}
+                    value={effectivePct}
+                    onChange={e => setRemoveLiqPct(Number(e.target.value))}
+                    className="w-full accent-[var(--color-role-lp)]"
+                  />
+                  <div className="grid grid-cols-4 gap-0.5 mt-1.5">
+                    {[25, 50, 75, 100].map(tick => {
+                      const clamped = Math.min(tick, maxRemovablePct)
+                      const disabled = clamped < tick && tick !== 100
+                      return (
+                        <button
+                          key={tick}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setRemoveLiqPct(tick === 100 ? maxRemovablePct : tick)}
+                          className={
+                            'text-[10px] num py-1 rounded transition ' +
+                            (effectivePct === (tick === 100 ? maxRemovablePct : tick)
+                              ? 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] font-semibold'
+                              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed')
+                          }
+                        >
+                          {tick === 100 ? 'Max' : `${tick}%`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Token receive preview */}
+                {t0Remove !== null && t1Remove !== null && (
+                  <div className="rounded-md border border-gray-200 px-3 py-2 text-xs">
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">You'll receive</div>
+                    <div className="num font-medium text-gray-900 flex items-baseline justify-between">
+                      <span>{fmtToken(t0Remove, listing.pair.token0)}</span>
+                      <span className="text-gray-400">+</span>
+                      <span>{fmtToken(t1Remove, listing.pair.token1)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            currentState={[]}
+            newState={[]}
+            risks={[]}
+            irreversibilityNote=""
+            confirmType="checkbox"
+            confirmButtonLabel="Confirm remove"
+            onConfirm={() => setRemoveLiqOpen(false)}
+            onCancel={() => setRemoveLiqOpen(false)}
+          />
+        )
+      })()}
 
       {/* Withdrawal modal */}
       <HighStakesConfirmModal
