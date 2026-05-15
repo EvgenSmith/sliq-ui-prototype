@@ -1077,20 +1077,14 @@ function ListingsTable({
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  APY
-                  <HelpPopover label="APY (Uniswap + Premium)" width="w-72">
-                    <p className="font-semibold mb-1">Total APY = Uniswap baseline + Premium</p>
-                    <p>Uniswap fees от underlying pool + Premium APY, который платят арендаторы на занятую долю. Сверху — сумма (bold); ниже — разбивка <span className="num">Uni · Prem</span>.</p>
-                  </HelpPopover>
-                </span>
-              </th>
               {/* Health column — risk chip (top) + HF (bottom). Always rendered.
                   Eugene 2026-05-15: renamed back from Risk → Health since the
                   cell carries both risk grade (chip) AND Health Factor (HF).
                   Distance-to-liq sub-line dropped — too noisy at table-row
-                  scale; lives in the listing-detail HF tooltip. */}
+                  scale; lives in the listing-detail HF tooltip.
+                  Eugene 2026-05-15 v3: column moved BEFORE APY — risk read
+                  needs to land before yield (decide if you're comfortable
+                  with the listing's risk, then assess the carry). */}
               <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
                 <span className="inline-flex items-center gap-1 justify-end">
                   Health
@@ -1105,6 +1099,15 @@ function ListingsTable({
                     </ul>
                     <p className="text-[11px] font-semibold mt-2.5 mb-1">HF (Health Factor)</p>
                     <p className="text-[11px] text-gray-600 leading-relaxed">Aave-style 0–100%, Pro-only. <span className="text-[var(--color-status-success)] font-semibold">&gt; 60</span> safe · <span className="text-[var(--color-status-warning)] font-semibold">30–60</span> watch · <span className="text-[var(--color-status-danger)] font-semibold">&lt; 30</span> close to listing-level liquidation.</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  APY
+                  <HelpPopover label="APY (Uniswap + Premium)" width="w-72">
+                    <p className="font-semibold mb-1">Total APY = Uniswap baseline + Premium</p>
+                    <p>Uniswap fees от underlying pool + Premium APY, который платят арендаторы на занятую долю. Сверху — сумма (bold); ниже — разбивка <span className="num">Uni · Prem</span>.</p>
                   </HelpPopover>
                 </span>
               </th>
@@ -1199,23 +1202,9 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
         <div className="font-medium text-gray-900">{fmtUSD(listing.initialLiquidityUSD)}</div>
         <div className="text-[10px] text-gray-500 mt-0.5">{Math.round(leasedPct)}% leased</div>
       </td>
-      {/* 5. APY (Uniswap + Premium) */}
-      <td className="px-3 py-3 text-right num hidden md:table-cell">
-        {isTerminal ? (
-          <span className="text-gray-300">—</span>
-        ) : (
-          <>
-            <div className="font-semibold text-gray-900">{totalApy.toFixed(1)}%</div>
-            <div className="text-[10px] text-gray-500 mt-0.5 leading-tight num">
-              {uniApy.toFixed(1)}% {premApy >= 0 ? '+' : '−'} {Math.abs(premApy).toFixed(1)}%
-            </div>
-          </>
-        )}
-      </td>
-      {/* 6. Health cell — two lines: risk chip on top, HF below (Pro only).
-            Eugene 2026-05-15 v2: distance-to-liq sub-line dropped (too noisy
-            for table glance; lives in listing-detail HF tooltip). Always
-            rendered — gray «No Risk» for Conservative, amber «Risk N×» for Pro. */}
+      {/* 5. Health cell — two lines: risk chip on top, HF below (Pro only).
+            Eugene 2026-05-15 v3: moved before APY — risk read lands before
+            yield (decide on risk, then assess carry). */}
       <td className="px-3 py-3 text-right num hidden md:table-cell">
         {(() => {
           const advanced = listing.providerMode === 'advanced'
@@ -1251,6 +1240,19 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
             </div>
           )
         })()}
+      </td>
+      {/* 6. APY (Uniswap + Premium) */}
+      <td className="px-3 py-3 text-right num hidden md:table-cell">
+        {isTerminal ? (
+          <span className="text-gray-300">—</span>
+        ) : (
+          <>
+            <div className="font-semibold text-gray-900">{totalApy.toFixed(1)}%</div>
+            <div className="text-[10px] text-gray-500 mt-0.5 leading-tight num">
+              {uniApy.toFixed(1)}% {premApy >= 0 ? '+' : '−'} {Math.abs(premApy).toFixed(1)}%
+            </div>
+          </>
+        )}
       </td>
       {/* Net PnL column dropped per Eugene 2026-05-15. */}
       {/* Fees — gross earned (top, bold) + claimable now (bottom, LP-color,
