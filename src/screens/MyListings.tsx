@@ -1258,15 +1258,27 @@ function ListingRow({ listing, hasAnyPro, selected, onToggleSelect, onClick, onC
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-medium text-gray-900 group-hover:text-[var(--color-role-lp)] transition">{pairLabel(listing)}</span>
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200 num">{fmtFeeTier(listing.feeTierBps)}</span>
-          {(subsidized || listing.providerMode === 'advanced') && (
-            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium num">
-              {subsidized && listing.providerMode === 'advanced'
-                ? `Sub · Risk ${listing.providerLeverage}×`
-                : subsidized
-                ? 'Subsidized'
-                : `Risk ${listing.providerLeverage}×`}
-            </span>
-          )}
+          {/* Risk chip — always rendered. «No Risk» gray for Conservative; amber
+              «Risk N×» / «Subsidized» / «Sub · Risk N×» otherwise. Eugene
+              2026-05-15: у позиций без плеча всегда видим No Risk сереньким. */}
+          {(() => {
+            const advanced = listing.providerMode === 'advanced'
+            const cls = (subsidized || advanced)
+              ? 'bg-amber-50 text-amber-900 border-amber-300'
+              : 'bg-gray-50 text-gray-500 border-gray-200'
+            const label = subsidized && advanced
+              ? `Sub · Risk ${listing.providerLeverage}×`
+              : subsidized
+              ? 'Subsidized'
+              : advanced
+              ? `Risk ${listing.providerLeverage}×`
+              : 'No Risk'
+            return (
+              <span className={'text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border font-medium num ' + cls}>
+                {label}
+              </span>
+            )
+          })()}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[10px] text-gray-500 font-medium">{dexLabel(listing.dex)}</span>
@@ -1453,15 +1465,24 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
             its own colored chip next to leverage. */}
         <div className="mt-1 flex items-center gap-1.5 flex-wrap text-[11px]">
           <ListingStatusChip status={listing.status} leasedPct={leasedPct} rangeStatus={rangeStatus} tiny />
-          {(subsidized || listing.providerMode === 'advanced') && (
-            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium num">
-              {subsidized && listing.providerMode === 'advanced'
-                ? `Sub · Risk ${listing.providerLeverage}×`
-                : subsidized
-                ? 'Subsidized'
-                : `Risk ${listing.providerLeverage}×`}
-            </span>
-          )}
+          {(() => {
+            const advanced = listing.providerMode === 'advanced'
+            const cls = (subsidized || advanced)
+              ? 'bg-amber-50 text-amber-900 border-amber-300'
+              : 'bg-gray-50 text-gray-500 border-gray-200'
+            const label = subsidized && advanced
+              ? `Sub · Risk ${listing.providerLeverage}×`
+              : subsidized
+              ? 'Subsidized'
+              : advanced
+              ? `Risk ${listing.providerLeverage}×`
+              : 'No Risk'
+            return (
+              <span className={'text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border font-medium num ' + cls}>
+                {label}
+              </span>
+            )
+          })()}
           {isPro && hf !== undefined && (
             <span
               className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-medium num inline-flex items-center gap-1 border"
