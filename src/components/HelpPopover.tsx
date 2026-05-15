@@ -69,7 +69,10 @@ export function HelpPopover({ children, label = 'More info', width = 'w-80' }: P
           e.stopPropagation()
           setOpen(o => !o)
         }}
-        className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[11px] font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition cursor-help leading-none"
+        // Bumped tap target ≈18px from 16px + larger glyph (Eugene 2026-05-15
+        // mobile review: (i) был слишком маленький для пальца). text-[13px]
+        // keeps the icon optically light next to body copy.
+        className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[13px] font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition cursor-help leading-none align-middle"
         aria-label={label}
         aria-expanded={open}
       >

@@ -248,48 +248,25 @@ function ListingsView() {
           )}
         </div>
 
-        {/* Counts duplicated by filter chips below + Total-pool-size summary card above
-            — only surface this line when there's a real signal to deliver:
-              (a) some filter is active (show «N of M shown · clear filters»)
-              (b) attentionTotal > 0 (show the expandable «N need attention» CTA)
-            In default «no filters, nothing wrong» state the line collapses to just the
-            «+ List NFT» shortcut on the right. */}
-        {(() => {
-          const filtersActive = statusFilter !== 'all' || pairFilter !== 'all' || protocolFilter !== 'all'
-          return (
-            <p className="text-xs text-gray-500 num mt-3 flex items-center gap-3 flex-wrap">
-              {filtersActive && (
-                <span>
-                  {filtered.length} of {mine.length} shown
-                  {' · '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter('all')
-                      setPairFilter('all')
-                      setProtocolFilter('all')
-                    }}
-                    className="text-[var(--color-role-lp)] hover:underline"
-                  >
-                    Clear filters
-                  </button>
-                </span>
-              )}
-              {attentionTotal > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setAttentionExpanded(e => !e)}
-                  className="text-[var(--color-status-danger)] font-medium underline decoration-dotted hover:no-underline inline-flex items-center gap-1"
-                >
-                  {attentionTotal} need attention <span aria-hidden="true">{attentionExpanded ? '▴' : '▾'}</span>
-                </button>
-              )}
-              <Link to="/lp/deposit" className="ml-auto text-[var(--color-role-lp)] hover:underline">
-                + List NFT
-              </Link>
-            </p>
-          )
-        })()}
+        {/* «N of M shown · Clear filters» line removed entirely (Eugene 2026-05-15):
+            counts already live in summary cards + filter chips; «Clear filters»
+            functionality covered by tapping back to «All» on individual filter
+            controls. Line surfaces only when there's actually an attention signal,
+            plus the «+ List NFT» quick-action shortcut on the right. */}
+        <p className="text-xs text-gray-500 num mt-3 flex items-center gap-3 flex-wrap">
+          {attentionTotal > 0 && (
+            <button
+              type="button"
+              onClick={() => setAttentionExpanded(e => !e)}
+              className="text-[var(--color-status-danger)] font-medium underline decoration-dotted hover:no-underline inline-flex items-center gap-1"
+            >
+              {attentionTotal} need attention <span aria-hidden="true">{attentionExpanded ? '▴' : '▾'}</span>
+            </button>
+          )}
+          <Link to="/lp/deposit" className="ml-auto text-[var(--color-role-lp)] hover:underline">
+            + List NFT
+          </Link>
+        </p>
       </header>
 
       {/* Attention expandable */}
@@ -392,7 +369,10 @@ function ListingsView() {
           </select>
         )}
 
-        <div className="ml-auto flex items-center gap-1">
+        {/* Sort dropdown: left-aligned on mobile (matches the filter selects),
+            pushed to the right on sm+ where the filter row has slack space.
+            Eugene 2026-05-15: «на мобилке лучше слева». */}
+        <div className="sm:ml-auto flex items-center gap-1">
           <span className="text-[11px] text-gray-500">Sort</span>
           <select
             value={sort}
@@ -1195,8 +1175,10 @@ function ListingsTable({
         </table>
       </div>
 
-      {/* Mobile */}
-      <div className="md:hidden rounded-lg border border-gray-200 bg-white overflow-hidden divide-y divide-gray-100">
+      {/* Mobile — each row a distinct rounded card with gap between, per Eugene
+          2026-05-15. Was a single container with divide-y splitting flat rows;
+          new pattern reads as «tap-into-this-card», not «row in a table». */}
+      <div className="md:hidden space-y-2">
         {listings.map(l => (
           <MobileListingRow key={l.id} listing={l} onClick={() => onClick(l.id)} onClaim={onClaim} />
         ))}
@@ -1413,7 +1395,10 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
   const isTerminal = listing.status === 'LIQUIDATED' || listing.status === 'WITHDRAWN'
 
   return (
-    <div className="w-full px-4 py-3 bg-white hover:bg-gray-50 transition">
+    // Card per listing — distinct rounded border + subtle shadow + own border-radius.
+    // Eugene 2026-05-15 mobile review: previously rows shared one container divided
+    // by hairline; new pattern reads as «tap into this card», not «row in a list».
+    <div className="w-full px-4 py-3 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow hover:border-gray-300 transition">
       {/* Outer wrapper is a div+role=button (not <button>) because HelpPopover
           renders an inner <button>; nested buttons = invalid HTML. */}
       <div
@@ -1427,18 +1412,16 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="font-semibold truncate">{pairLabel(listing)}</span>
             <span className="text-[10px] text-gray-500 num">{fmtFeeTier(listing.feeTierBps)}</span>
-            {/* Single card-level info popover — per Eugene 2026-05-15: «на мобилке нет
-                тултипов ни к чему, может сделать общий тултип к карточке». Avoids 5
-                tiny (i) icons next to every metric. One ⓘ next to the pair opens
-                a sheet explaining all metrics on this card. */}
+            {/* Single card-level info popover. Enlarged tap target (HelpPopover now
+                18px) per Eugene 2026-05-15. */}
             <span onClick={e => e.stopPropagation()}>
               <HelpPopover label="Card metrics — explained" width="w-72">
                 <p className="font-semibold mb-1.5">What's on this card</p>
                 <ul className="space-y-1.5 text-[11px] leading-relaxed">
                   <li><strong>Pool size</strong> — USD value locked in your NFT at listing time.</li>
                   <li><strong>% leased</strong> — share of your liquidity currently rented out by traders. Premium APY accrues only on the leased portion.</li>
-                  <li><strong>APY</strong> — Uniswap fees baseline + min Premium APY (auction floor).</li>
-                  {isPro && <li><strong>Health</strong> — Aave-style 0–100. Only for Pro+leverage&gt;1. Below 30 = at-risk of listing-level liquidation.</li>}
+                  <li><strong>Total APY</strong> — Uniswap fees baseline + Premium APY (auction floor). Breakdown shown as sub-line.</li>
+                  {isPro && <li><strong>HF</strong> (in the chip row) — Aave-style 0–100 Health Factor. Only for Pro+leverage&gt;1. Below 30 = at-risk of listing-level liquidation.</li>}
                   <li><strong>Fees</strong> — lifetime gross earned · green +$ = claimable now in one tx.</li>
                   <li><strong>+/− $</strong> (top-right) — Net PnL since listing, IL-adjusted vs HODL.</li>
                 </ul>
@@ -1449,6 +1432,9 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
             {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
           </span>
         </div>
+        {/* Chip row — status · risk chip · HF inline (Eugene 2026-05-15: «перенести
+            в строку со статусом и плечом HF, вместо Health под APY»). HF sits as
+            its own colored chip next to leverage. */}
         <div className="mt-1 flex items-center gap-1.5 flex-wrap text-[11px]">
           <ListingStatusChip status={listing.status} leasedPct={leasedPct} rangeStatus={rangeStatus} tiny />
           {(subsidized || listing.providerMode === 'advanced') && (
@@ -1460,24 +1446,34 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
                 : `Pro ${listing.providerLeverage}×`}
             </span>
           )}
+          {isPro && hf !== undefined && (
+            <span
+              className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-medium num inline-flex items-center gap-1 border"
+              style={{
+                color: hf > 60 ? 'var(--color-status-success)' : hf > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)',
+                background: hf > 60 ? 'rgba(16,185,129,0.08)' : hf > 30 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)',
+                borderColor: hf > 60 ? 'rgba(16,185,129,0.30)' : hf > 30 ? 'rgba(245,158,11,0.30)' : 'rgba(239,68,68,0.30)',
+              }}
+            >
+              HF {hf}%
+            </span>
+          )}
         </div>
         <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] num">
           <div>
             <span className="text-gray-500">Pool size</span>
             <div className="font-medium">{fmtUSD(listing.initialLiquidityUSD)}</div>
             <div className="text-[10px] text-gray-500 mt-0.5">{Math.round(leasedPct)}% leased</div>
-            {/* Progress-bar dropped on mobile per Eugene 2026-05-15 — desktop already
-                surfaces this via Used/Total bar; mobile card kept a duplicate. */}
           </div>
           <div>
-            <span className="text-gray-500">APY</span>
+            <span className="text-gray-500">Total APY</span>
             <div className="font-medium">{isTerminal ? '—' : `${totalApy.toFixed(1)}%`}</div>
-            {/* HF rendered as a separate row when Pro+leverage>1 — was overriding APY
-                before; APY too important to hide. */}
-            {isPro && hf !== undefined && (
-              <div className="text-[10px] mt-0.5">
-                <span className="text-gray-500">Health </span>
-                <span className="font-medium" style={{ color: hf > 60 ? 'var(--color-status-success)' : hf > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)' }}>{hf}%</span>
+            {/* Under Total APY — breakdown «Uni + Premium» (Eugene 2026-05-15:
+                «вместо Health под Total APY показывать сумму APY как от юнисвапа +
+                Premium»). HF moved up to the chip row. */}
+            {!isTerminal && (
+              <div className="text-[10px] text-gray-500 mt-0.5 num">
+                {uniApy.toFixed(1)}% Uni {premApy >= 0 ? '+' : '−'} {Math.abs(premApy).toFixed(1)}% Prem
               </div>
             )}
           </div>
@@ -1492,16 +1488,28 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
           </div>
         </div>
       </div>
-      {/* Action row — Manage left, Claim right (under the right-aligned PnL number).
-          Claim button shows only «Claim» label (the $ amount is right there in Fees row above).
-          Per Eugene 2026-05-15. */}
+      {/* Action row — Withdraw NFT left, Claim right (Eugene 2026-05-15: Manage→Withdraw,
+          accent stays on Claim). The whole card is already tap-to-drill-in, so Manage
+          button was redundant; Withdraw NFT is an actual destructive action LP might
+          want without scrolling into detail. */}
       <div className="mt-2 grid grid-cols-2 gap-1.5">
         <button
           type="button"
-          onClick={e => { e.stopPropagation(); onClick() }}
-          className="inline-flex items-center justify-center text-xs font-semibold px-2 py-1.5 rounded border border-gray-300 bg-white text-gray-700"
+          onClick={e => {
+            e.stopPropagation()
+            if (isTerminal) return
+            const ok = window.confirm(`Withdraw ${pairLabel(listing)} NFT?\n\nThis force-closes any active lessees and returns the NFT to your wallet after a 2-block guard. (Mock)`)
+            if (ok) alert(`Mock: Withdraw flow initiated for ${pairLabel(listing)}.`)
+          }}
+          disabled={isTerminal}
+          className={
+            'inline-flex items-center justify-center text-xs font-semibold px-2 py-1.5 rounded border transition ' +
+            (isTerminal
+              ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+              : 'border-[var(--color-status-danger)]/40 text-[var(--color-status-danger)] bg-white hover:bg-red-50')
+          }
         >
-          Manage
+          Withdraw NFT
         </button>
         <button
           type="button"
