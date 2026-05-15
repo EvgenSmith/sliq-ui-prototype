@@ -249,22 +249,41 @@ export function ListingDetail() {
             <ProMetrics listing={listing} positions={listingPositions} isOwner={isOwner} />
           )}
           {isOwner && ownerMode === 'pro' && (
+            // Copy validated against Kolya's spec — sLiq LP interface review,
+            // 2026-05-15 1320, ~47:51–52:01. Key points he locked in:
+            //   • Panel is per-trader / per-portfolio (Deribit-style positions
+            //     list), NOT per-listing. Don't promise listing analytics here.
+            //   • Same math apparatus as options → Greeks (theta, delta, vega,
+            //     etc.) are computable on our positions; values are comparable
+            //     and additive with the trader's actual options book.
+            //   • Theta on sLiq positions is inverted vs option-buyer theta:
+            //     «у нас тета — это сколько ты платишь за время, за которое
+            //     несёшь риск». Mention this explicitly — it's the differentiator.
+            //   • Hedging use-case: connect exchange keys → combined risk read
+            //     across sLiq + options → know what to hedge with futures /
+            //     options. Even without keys, surfacing just our risks is
+            //     enough for v1 of the panel.
+            //   • Naming Kolya proposed: «Option style» / «Obsonov расчёт».
+            //   • Scope: separate tab, not v1. «позже сделать».
             <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
               <div className="flex items-baseline justify-between gap-2 mb-2">
                 <h3 className="text-sm font-semibold text-gray-700 inline-flex items-center gap-1.5">
-                  Option-style metrics
+                  Option-style risk panel
                   <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">Soon</span>
                 </h3>
               </div>
               <p className="text-[11px] text-gray-600 leading-relaxed">
-                Option-pricing primitives for LP risk — IV-implied range pricing, σ-distance to
-                liquidation, vega / theta exposure, hit-rate vs implied range-event probability,
-                OI / capacity decomposition. Designed to read the listing the way a vol desk reads
-                a structured note, not the way a yield aggregator reads APR.
+                Portfolio-level Greeks across your sLiq positions — delta, vega, and an inverted
+                theta (sLiq theta = what you <em>pay</em> per unit of time you carry the risk,
+                not what you earn). Same math as options pricing, so values are directly comparable
+                and additive with the rest of your options book.
+              </p>
+              <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                Connect your exchange keys to combine sLiq exposure with live option / future
+                positions — read total risk in one place, decide what to hedge with what.
               </p>
               <p className="text-[10px] text-gray-500 mt-2 leading-snug">
-                In sprint after Beta · contact us if you want to pilot the metrics with your own
-                positions before they ship.
+                Separate tab, post-Beta · ping us to pilot the panel before it ships.
               </p>
             </div>
           )}
@@ -1679,12 +1698,8 @@ function OwnerPanel({
                 </div>
               )
             })()}
-            {claimableNow > 0.01 && (
-              <div className="text-[11px] num mt-1">
-                <span className="text-gray-500">Claimable now </span>
-                <span className="font-semibold" style={{ color: 'var(--color-role-lp)' }}>+{fmtUSD(claimableNow)}</span>
-              </div>
-            )}
+            {/* Claimable now removed from KPI per Eugene 2026-05-15 — it
+                already lives as a regular row inside the card body. */}
           </div>
         </div>
         <div className="space-y-1">
