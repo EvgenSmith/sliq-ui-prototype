@@ -1698,29 +1698,32 @@ function OwnerPanel({
                 </div>
               )
             })()}
-            {/* Claimable now removed from KPI per Eugene 2026-05-15 — it
-                already lives as a regular row inside the card body. */}
+            {/* Claimable now lifted back into the KPI per Eugene 2026-05-15
+                («Claimable now подними под total fee»). Body-row duplicate
+                removed below to avoid showing the same number twice. */}
+            {claimableNow > 0.01 && (
+              <div className="text-[11px] num mt-1">
+                <span className="text-gray-500">Claimable now </span>
+                <span className="font-semibold" style={{ color: 'var(--color-role-lp)' }}>+{fmtUSD(claimableNow)}</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="space-y-1">
           <FeeRow label="Uniswap fees" usd={uniswapFeesTotal} listing={listing} />
           <FeeRow label="Premium APY" usd={premiumFeesTotal} listing={listing} />
           {/* Total-fees row dropped per Eugene 2026-05-15 — Total fees already
-              live as the top-right KPI of this card; rendering them again here
-              was a visual duplicate. Already-claimed + Claimable now promoted
-              to top-level rows (were nested under Total). */}
-          <div className="border-t border-gray-200 mt-2 pt-2 space-y-1 text-[12px]">
-            {accruedClaimed > 0.01 && (
+              live as the top-right KPI of this card. Claimable now lifted into
+              the KPI as well (sub-line under Total). Only «Already claimed»
+              stays as a body row, and only when it carries a non-zero number. */}
+          {accruedClaimed > 0.01 && (
+            <div className="border-t border-gray-200 mt-2 pt-2 text-[12px]">
               <div className="flex items-baseline justify-between">
                 <span className="text-gray-500">Already claimed <span className="text-gray-400">(in wallet)</span></span>
                 <span className="num text-gray-700">{fmtUSD(accruedClaimed)}</span>
               </div>
-            )}
-            <div className="flex items-baseline justify-between">
-              <span className="text-gray-500">Claimable now</span>
-              <span className="num font-semibold" style={{ color: 'var(--color-role-lp)' }}>{fmtUSD(claimableNow)}</span>
             </div>
-          </div>
+          )}
         </div>
         {/* Vs HODL — Pro UI mode only (Eugene 2026-05-15 v3: gate is on
             isPro, the UI-mode toggle, NOT on isAdvanced/leverage. Earlier
