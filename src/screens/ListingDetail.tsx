@@ -89,9 +89,34 @@ export function ListingDetail() {
             </span>
           </h1>
           <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
+            {/* Status chip — final spec (Eugene 2026-05-15). Same vocab as My Listings:
+                Earning / Listed / Withdrawing / Liquidating / Liquidated / Closed.
+                Sits first in the meta-line — primary state-of-the-listing signal. */}
+            {(() => {
+              const leasedPct = listing.totalCapacityUSD > 0
+                ? ((listing.totalCapacityUSD - listing.availableCapacityUSD) / listing.totalCapacityUSD) * 100
+                : 0
+              const s = listing.status
+              const chip = s === 'LIQUIDATING'
+                ? { label: 'Liquidating', cls: 'bg-red-50 text-[var(--color-status-danger)] border-[var(--color-status-danger)]/40' }
+                : s === 'LIQUIDATED'
+                ? { label: 'Liquidated', cls: 'bg-red-50/60 text-red-900/70 border-red-200' }
+                : s === 'WITHDRAWAL_REQUESTED'
+                ? { label: 'Withdrawing', cls: 'bg-amber-50 text-amber-900 border-amber-300' }
+                : s === 'WITHDRAWN'
+                ? { label: 'Closed', cls: 'bg-gray-100 text-gray-500 border-gray-300' }
+                : leasedPct <= 0.5
+                ? { label: 'Listed', cls: 'bg-gray-50 text-gray-700 border-gray-200' }
+                : { label: 'Earning', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+              return (
+                <span className={'text-xs whitespace-nowrap px-2 py-0.5 rounded-full font-medium border ' + chip.cls}>
+                  {chip.label}
+                </span>
+              )
+            })()}
             <span className={'text-xs px-2 py-0.5 rounded-full ' + (inRange
               ? 'bg-gray-50 text-gray-700 border border-gray-200'
-              : 'bg-gray-50 text-gray-500 border border-gray-200')}>
+              : 'bg-amber-50 text-amber-900 border border-amber-300 font-medium')}>
               {inRange ? 'in range' : 'out of range'}
             </span>
             <span className="text-xs text-gray-400">·</span>
@@ -1113,28 +1138,14 @@ function OwnerPanel({
           per Eugene 2026-05-15 — owner came here to ACT, not to scroll past
           read-only data first. Convention: Uniswap V3 / OpenSea / Aave all put
           owner actions in the page header. */}
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:flex-wrap">
-        {/* Action cluster — single Manage dropdown holds Claim + Withdraw (+ Update
-            Leverage / Update Min APY in Pro). Standalone Claim button retired
-            (Eugene 2026-05-15). Manage button itself shows «+$X» badge when
-            claimable > 0, with LP-color fill — keeps primary-action visibility
-            despite the action being inside the menu. */}
-        <div className="flex items-center gap-2 order-1 sm:order-2 justify-end">
-          <ManageMenu
-            isPro={isPro}
-            claimableNow={claimableNow}
-            onClaim={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
-            onUpdateLeverage={() => setLeverageOpen(true)}
-            onUpdateApy={() => setUpdateApyOpen(true)}
-            onWithdraw={() => setWithdrawOpen(true)}
-          />
-        </div>
-
+      {/* Action bar — Lite/Pro toggle (left) + Manage dropdown (right). Always on
+          ONE row, even on mobile (Eugene 2026-05-15: «должно быть на 1й»). */}
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 flex items-center justify-between gap-2 flex-wrap">
         {/* Lite / Pro view-mode toggle + explicit risk subtitle. Subtitle makes the
             real difference between modes visible at-a-glance — previously hidden
             inside a tooltip Help-popover (UX audit P1, Eugene 2026-05-15). */}
-        <div className="order-2 sm:order-1 inline-flex flex-col gap-0.5">
-          <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm">
+        <div className="inline-flex flex-col gap-0.5 min-w-0">
+          <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm w-fit">
             <button
               type="button"
               onClick={() => setOwnerMode('lite')}
@@ -1146,11 +1157,25 @@ function OwnerPanel({
               className={'text-xs px-3.5 py-1.5 transition ' + (isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
             >Pro</button>
           </div>
-          <span className="text-[10px] text-gray-500 leading-tight">
+          <span className="text-[10px] text-gray-500 leading-tight truncate">
             {isPro
               ? <>Pro — <span className="text-[var(--color-status-danger)]">NFT becomes collateral</span></>
               : 'Lite — no liquidation risk'}
           </span>
+        </div>
+
+        {/* Action cluster — single Manage dropdown holds Claim + Withdraw (+ Update
+            Leverage / Update Min APY in Pro). Manage button shows LP-color fill
+            when claimable > 0 (signal preserved without the $-amount badge). */}
+        <div className="flex items-center gap-2 shrink-0">
+          <ManageMenu
+            isPro={isPro}
+            claimableNow={claimableNow}
+            onClaim={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
+            onUpdateLeverage={() => setLeverageOpen(true)}
+            onUpdateApy={() => setUpdateApyOpen(true)}
+            onWithdraw={() => setWithdrawOpen(true)}
+          />
         </div>
       </div>
 
