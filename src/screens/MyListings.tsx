@@ -3,7 +3,7 @@
 // · filter strip · table · pagination. Plus LP-specific: range hit-rate, lessees count,
 // IL-aware Net PnL, vs HODL delta.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { connectedWallet, listings, positions } from '@/mocks/data'
 import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD } from '@/lib/format'
@@ -75,13 +75,63 @@ export function MyListings({ mode = 'positions' }: { mode?: MyListingsMode }) {
 // ───────── Main listings view — table for /lp/positions (states 1.4 + 1.5) ─────────
 function ListingsView() {
   const navigate = useNavigate()
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [pairFilter, setPairFilter] = useState<string>('all')
-  const [protocolFilter, setProtocolFilter] = useState<string>('all')
-  const [sort, setSort] = useState<SortId>('pnl-desc')
+  // Filter / sort state — initial values restored from localStorage (Viktor P3.28
+  // «saved filters / views»). Prototype-level: auto-save current combo on every
+  // change, restore on next visit. No named-preset UI yet.
+  const SAVED_KEY = 'sliq.lp.savedFilter.v1'
+  const initialFilter = (() => {
+    if (typeof window === 'undefined') return null
+    try { return JSON.parse(window.localStorage.getItem(SAVED_KEY) || 'null') as {
+      statusFilter: StatusFilter; pairFilter: string; protocolFilter: string; sort: SortId
+    } | null } catch { return null }
+  })()
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter?.statusFilter ?? 'all')
+  const [pairFilter, setPairFilter] = useState<string>(initialFilter?.pairFilter ?? 'all')
+  const [protocolFilter, setProtocolFilter] = useState<string>(initialFilter?.protocolFilter ?? 'all')
+  const [sort, setSort] = useState<SortId>(initialFilter?.sort ?? 'pnl-desc')
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState<number>(1)
   const [attentionExpanded, setAttentionExpanded] = useState(false)
+
+  // Persist filter combo on change
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(SAVED_KEY, JSON.stringify({ statusFilter, pairFilter, protocolFilter, sort }))
+    } catch { /* ignore quota errors */ }
+  }, [statusFilter, pairFilter, protocolFilter, sort])
+
+  // Keyboard shortcuts — `/` focuses status filter, `Esc` clears selection.
+  // Pro-power affordance (Viktor P3.27). Other shortcuts (c=claim, m=manage)
+  // need row-hover tracking — deferred; / + Esc cover 80% of the daily flow.
+  const statusFilterRef = useRef<HTMLSelectElement | null>(null)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        statusFilterRef.current?.focus()
+      } else if (e.key === 'Escape') {
+        clearSelection()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Multi-select state for bulk-claim + compare-mode (Viktor P3.24 + P3.25).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [compareOpen, setCompareOpen] = useState(false)
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function clearSelection() { setSelectedIds(new Set()); setCompareOpen(false) }
 
   const mine = useMemo(
     () => listings.filter(l => l.owner === connectedWallet.address),
@@ -306,6 +356,7 @@ function ListingsView() {
             to the other All-prefixed selects (All pairs / All protocols) — Eugene
             2026-05-15: «1й селектор, что за All? Все кто?». */}
         <select
+          ref={statusFilterRef}
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as StatusFilter)}
           className="sm:hidden rounded border border-gray-300 bg-white px-2 py-1 text-xs"
@@ -359,6 +410,68 @@ function ListingsView() {
         </div>
       </div>
 
+      {/* Bulk action bar — visible only when at least one row is selected (Viktor
+          P3.24 bulk-claim + P3.25 compare). Sticky to top while table is in viewport.
+          Total claimable across selection is summed and shown on the primary button. */}
+      {selectedIds.size > 0 && (() => {
+        const selectedListings = visible.filter(l => selectedIds.has(l.id))
+        const totalClaimable = selectedListings.reduce((s, l) => s + (l.claimableNowUSD ?? 0), 0)
+        const canCompare = selectedIds.size >= 2 && selectedIds.size <= 3
+        return (
+          <div className="mb-3 rounded-lg border border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)] px-4 py-2.5 flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-gray-900">
+              <span className="num">{selectedIds.size}</span> selected
+            </span>
+            <span className="text-xs text-gray-600">·</span>
+            <button
+              type="button"
+              disabled={totalClaimable <= 0.01}
+              onClick={() => {
+                alert(`Mock: bulk-claim ${fmtUSD(totalClaimable)} from ${selectedIds.size} listings in 1 tx`)
+                clearSelection()
+              }}
+              className={
+                'text-sm font-semibold px-3 py-1.5 rounded transition ' +
+                (totalClaimable > 0.01
+                  ? 'bg-[var(--color-role-lp)] text-white hover:opacity-90'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+              }
+            >
+              {totalClaimable > 0.01 ? `Claim selected (${fmtUSD(totalClaimable)})` : 'Nothing to claim'}
+            </button>
+            <button
+              type="button"
+              disabled={!canCompare}
+              onClick={() => setCompareOpen(true)}
+              className={
+                'text-sm font-medium px-3 py-1.5 rounded border transition ' +
+                (canCompare
+                  ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                  : 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed')
+              }
+              title={canCompare ? 'Open side-by-side comparison' : 'Select 2 or 3 listings to compare'}
+            >
+              Compare {canCompare ? `(${selectedIds.size})` : ''}
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="ml-auto text-xs text-gray-500 hover:text-gray-900 hover:underline"
+            >
+              Clear selection · Esc
+            </button>
+          </div>
+        )
+      })()}
+
+      {/* Compare drawer */}
+      {compareOpen && (
+        <CompareDrawer
+          listings={mine.filter(l => selectedIds.has(l.id))}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
+
       {/* Table */}
       {visible.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
@@ -369,6 +482,8 @@ function ListingsView() {
           <ListingsTable
             listings={visible}
             hasAnyPro={hasAnyPro}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
             onClick={id => navigate(`/listings/${id}`)}
             onClaim={id => {
               const l = listings.find(x => x.id === id)
@@ -968,11 +1083,15 @@ function AllListedFooter() {
 function ListingsTable({
   listings,
   hasAnyPro,
+  selectedIds,
+  onToggleSelect,
   onClick,
   onClaim,
 }: {
   listings: Listing[]
   hasAnyPro: boolean
+  selectedIds: Set<string>
+  onToggleSelect: (id: string) => void
   onClick: (id: string) => void
   onClaim: (id: string) => void
 }) {
@@ -983,6 +1102,9 @@ function ListingsTable({
         <table className="w-full text-sm">
           <thead className="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200 sticky top-[180px] z-10">
             <tr>
+              {/* Bulk-select checkbox column (Viktor P3.24). Visible on lg+ only —
+                  mobile uses cards without bulk-select. */}
+              <th className="px-2 py-2.5 hidden lg:table-cell w-8"><span className="sr-only">Select</span></th>
               <th className="text-left font-medium px-4 py-2.5">Pair · NFT</th>
               <th className="text-left font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1">
@@ -1059,7 +1181,15 @@ function ListingsTable({
           </thead>
           <tbody>
             {listings.map(l => (
-              <ListingRow key={l.id} listing={l} hasAnyPro={hasAnyPro} onClick={() => onClick(l.id)} onClaim={onClaim} />
+              <ListingRow
+                key={l.id}
+                listing={l}
+                hasAnyPro={hasAnyPro}
+                selected={selectedIds.has(l.id)}
+                onToggleSelect={() => onToggleSelect(l.id)}
+                onClick={() => onClick(l.id)}
+                onClaim={onClaim}
+              />
             ))}
           </tbody>
         </table>
@@ -1075,7 +1205,14 @@ function ListingsTable({
   )
 }
 
-function ListingRow({ listing, hasAnyPro, onClick, onClaim }: { listing: Listing; hasAnyPro: boolean; onClick: () => void; onClaim: (id: string) => void }) {
+function ListingRow({ listing, hasAnyPro, selected, onToggleSelect, onClick, onClaim }: {
+  listing: Listing
+  hasAnyPro: boolean
+  selected: boolean
+  onToggleSelect: () => void
+  onClick: () => void
+  onClaim: (id: string) => void
+}) {
   const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
   const leasedPct = 100 - capacityFreePct(listing)
@@ -1097,8 +1234,21 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: { listing: Listing
       tabIndex={0}
       onClick={onClick}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
-      className="group cursor-pointer transition border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+      className={
+        'group cursor-pointer transition border-b border-gray-100 last:border-b-0 ' +
+        (selected ? 'bg-[var(--color-role-lp-bg)]' : 'hover:bg-gray-50')
+      }
     >
+      {/* 0. Bulk-select checkbox — stops propagation so clicking it doesn't drill in. */}
+      <td className="px-2 py-3 hidden lg:table-cell w-8" onClick={e => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          className="w-4 h-4 accent-[var(--color-role-lp)] cursor-pointer"
+          aria-label={`Select ${pairLabel(listing)}`}
+        />
+      </td>
       {/* 1. Pair · NFT — risk chips merged into a single «Risk» chip
             (subsidized + at-risk previously rendered as two separate chips,
             cognitive overload per UX audit P1). Single chip handles all 4 cases:
@@ -1148,38 +1298,54 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: { listing: Listing
           </>
         )}
       </td>
-      {/* 6. Health Factor — rendered only when ANY listing in portfolio is Pro.
-            Per-row, falls back to «—» for Conservative entries. */}
+      {/* 6. Health + distance-to-liq (Pro) — single cell, two-line.
+            Main: HF %  ·  Sub: distance to liq % (Viktor P3.26 — at-a-glance
+            risk pair). Conservative rows show «—». */}
       {hasAnyPro && (
         <td className="px-3 py-3 text-right num hidden lg:table-cell">
           {isPro && hf !== undefined ? (
-            <span
-              className="font-semibold"
-              style={{
-                color: hf > 60
-                  ? 'var(--color-status-success)'
-                  : hf > 30
-                  ? 'var(--color-status-warning)'
-                  : 'var(--color-status-danger)',
-              }}
-            >
-              {hf}%
-            </span>
+            <>
+              <span
+                className="font-semibold"
+                style={{
+                  color: hf > 60
+                    ? 'var(--color-status-success)'
+                    : hf > 30
+                    ? 'var(--color-status-warning)'
+                    : 'var(--color-status-danger)',
+                }}
+              >
+                {hf}%
+              </span>
+              {listing.distanceToLiqPct !== undefined && (
+                <div className="text-[10px] mt-0.5 font-normal" style={{
+                  color: listing.distanceToLiqPct < 5
+                    ? 'var(--color-status-danger)'
+                    : listing.distanceToLiqPct < 15
+                    ? 'var(--color-status-warning)'
+                    : 'var(--color-text-muted, #6b7280)',
+                }}>
+                  −{listing.distanceToLiqPct.toFixed(1)}% to liq
+                </div>
+              )}
+            </>
           ) : (
             <span className="text-gray-300">—</span>
           )}
         </td>
       )}
-      {/* 7. Net PnL — promoted to visual anchor: text-base font-bold so the eye
-            lands here first (UX audit P1: «promote Net PnL до visual anchor»).
-            On md (where Fees column collapses to lg-only), Claimable line moves
-            into this cell as a small LP-coloured sub-line. */}
+      {/* 7. Net PnL + 7d sparkline — promoted to visual anchor (text-base font-bold).
+            Mini-sparkline (Viktor P3.29) — shows the recent earnings trend so
+            «затухающие» листинги стучатся сами без drill-in. */}
       <td className="px-3 py-3 text-right">
         <span className="num font-bold text-base" style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
           {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
         </span>
         {!isTerminal && (
-          <div className="text-[10px] text-gray-500 num">{dailyEarnings >= 0 ? '+' : '−'}{fmtUSD(Math.abs(dailyEarnings))}/day</div>
+          <div className="flex items-center gap-1.5 justify-end">
+            <Sparkline7d listingId={listing.id} dailyAvg={dailyEarnings} className="hidden lg:block" />
+            <span className="text-[10px] text-gray-500 num">{dailyEarnings >= 0 ? '+' : '−'}{fmtUSD(Math.abs(dailyEarnings))}/day</span>
+          </div>
         )}
         {/* On md only — show Claimable inline (Fees column hidden until lg). */}
         {claimable > 0.01 && (
@@ -1361,6 +1527,103 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
 // 3-state convention. Leased % moved to its own Pool size sub-line; full=100%
 // loses its dedicated chip variant. Out-of-range remains orthogonal sub-badge.
 type StatusDisplay = { label: string; cls: string; tip: string }
+// CompareDrawer — bottom-sheet style drawer comparing 2-3 listings side-by-side.
+// Per Viktor (P3.25) — «select 2-3 → drawer side-by-side: hit-rate, avg leased, HF,
+// $/day, distance-to-liq». Closes on backdrop click + Esc.
+function CompareDrawer({ listings, onClose }: { listings: Listing[]; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const rows: Array<{ label: string; render: (l: Listing) => React.ReactNode }> = [
+    { label: 'Pool size', render: l => fmtUSD(l.initialLiquidityUSD) },
+    { label: 'Status', render: l => l.status },
+    { label: 'Leased %', render: l => `${Math.round(100 - capacityFreePct(l))}%` },
+    { label: 'Uniswap APY', render: l => `${(l.uniswapApyBps / 100).toFixed(1)}%` },
+    { label: 'Min Premium APY', render: l => `${(l.minPremiumApyBps / 100).toFixed(1)}%` },
+    { label: 'Total APY', render: l => `${((l.uniswapApyBps + l.minPremiumApyBps) / 100).toFixed(1)}%` },
+    { label: 'Net PnL', render: l => {
+      const pnl = l.netPnLUSD ?? 0
+      return <span style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>{pnl >= 0 ? '+' : '−'}{fmtUSD(Math.abs(pnl))}</span>
+    } },
+    { label: 'Mode', render: l => l.providerMode === 'advanced' ? `Pro · ${l.providerLeverage}×` : 'Safe · 1×' },
+    { label: 'Health Factor', render: l => l.healthFactorPct !== undefined ? `${l.healthFactorPct}%` : '—' },
+    { label: 'Distance to liq', render: l => l.distanceToLiqPct !== undefined ? `−${l.distanceToLiqPct.toFixed(1)}%` : '—' },
+    { label: 'Range hit-rate 30d', render: l => `${l.rangeHitRatePct ?? 0}%` },
+    { label: 'Avg leased 30d', render: l => `${l.avgLeasedPct30d ?? 0}%` },
+    { label: 'Claimable now', render: l => fmtUSD(l.claimableNowUSD ?? 0) },
+  ]
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div className="w-full sm:max-w-3xl bg-white sm:rounded-xl shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <header className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Compare listings · {listings.length}</h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-900 text-xl leading-none">×</button>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium"></th>
+                {listings.map(l => (
+                  <th key={l.id} className="text-right px-4 py-2 font-semibold text-gray-900">
+                    {pairLabel(l)} <span className="text-[10px] font-normal text-gray-500 num">#{l.tokenId}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.label} className="border-b border-gray-100 last:border-b-0">
+                  <td className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-500">{r.label}</td>
+                  {listings.map(l => (
+                    <td key={l.id} className="px-4 py-2 text-right num text-gray-900">{r.render(l)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Sparkline7d — tiny 7-day earnings trend SVG. Deterministic mock based on listing id
+// + average. Per Viktor (P3.29) — at-a-glance signal that earnings are flat / rising /
+// fading without opening detail. Width 40px, height 14px, fits inline next to /day text.
+function Sparkline7d({ listingId, dailyAvg, className = '' }: { listingId: string; dailyAvg: number; className?: string }) {
+  const seed = parseInt(listingId.replace(/\D/g, '') || '1', 10)
+  const rng = (n: number) => ((seed * 9301 + 49297 + n * 7919) % 233280) / 233280
+  // Generate 7 deterministic points around the daily average ±35%
+  const points = Array.from({ length: 7 }, (_, i) => {
+    const noise = (rng(i) - 0.5) * 0.7
+    return Math.max(0, dailyAvg * (1 + noise))
+  })
+  const max = Math.max(...points, 0.01)
+  const w = 40
+  const h = 14
+  const stepX = w / (points.length - 1)
+  const path = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(1)},${(h - (p / max) * h).toFixed(1)}`)
+    .join(' ')
+  const trending = points[points.length - 1] >= points[0]
+  const stroke = trending ? 'var(--color-status-success)' : 'var(--color-status-danger)'
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className={className} aria-hidden="true">
+      <path d={path} fill="none" stroke={stroke} strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function statusDisplay(status: string, leasedPct: number): StatusDisplay {
   if (status === 'LIQUIDATING')
     return { label: 'At Risk', cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40', tip: 'Идёт listing-level ликвидация (только Pro + плечо>1).' }
@@ -1619,7 +1882,7 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                   </div>
 
                   {/* Pro-mode read-only preview (leverage-driven, token-pair format) */}
-                  <ProPreview nft={nft} leverage={leverage} liqDistancePct={liqDistancePct} />
+                  <ProPreview nft={nft} leverage={leverage} liqDistancePct={liqDistancePct} minApyPct={minApy} />
                 </div>
               )}
             </div>
@@ -1856,13 +2119,22 @@ function ProPreview({
   nft,
   leverage,
   liqDistancePct,
+  minApyPct,
 }: {
   nft: WalletNFT
   leverage: number
   liqDistancePct: number | null
+  minApyPct: number
 }) {
   const real = poolTokenAmounts(nft, 1)
   const virt = poolTokenAmounts(nft, leverage)
+  // Projected APY estimate — Viktor (P3.32): nobody shows a yield-estimate during
+  // listing, but it's the answer to «what does my chosen config actually pay».
+  // Approximation: Uniswap_APR baseline + Premium floor × leverage × utilization
+  // (assume 60% mock utilization for the estimate). Best-effort, marked «est.».
+  const baseUni = nft.uniswapAprPct
+  const premMultiplied = minApyPct * leverage * 0.6
+  const projectedApy = baseUni + premMultiplied
   return (
     <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
       <ParamRow
@@ -1902,6 +2174,22 @@ function ProPreview({
             ? <span className="text-[var(--color-status-danger)] font-semibold">~{liqDistancePct?.toFixed(1)}% from spot</span>
             : <span>— (no liquidation)</span>
         }
+        small
+      />
+      {/* Projected APY estimate (P3.32) — assumes 60% trader utilisation of the
+          Trader-market. Best-effort yield preview before listing. */}
+      <ParamRow
+        label={
+          <span className="inline-flex items-center gap-1">
+            Projected APY (est.)
+            <HelpPopover label="Projected APY estimate" width="w-72">
+              <p className="font-semibold mb-1">Rough yield preview</p>
+              <p>= Uniswap APR + Min Premium APY × Leverage × ~60% utilization.</p>
+              <p className="mt-1.5">Real outcome depends on actual auction clearing rate and trader demand. Utilization can be 0–100%.</p>
+            </HelpPopover>
+          </span>
+        }
+        value={<span className="text-[var(--color-role-lp)] font-bold num">~{projectedApy.toFixed(1)}%</span>}
         small
       />
     </div>

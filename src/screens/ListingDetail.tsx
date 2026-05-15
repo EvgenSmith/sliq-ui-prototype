@@ -1633,11 +1633,30 @@ function OwnerPanel({
                 </div>
               )}
 
-              {/* Leverage slider — disabled in Safe mode, active when At-risk. */}
+              {/* Leverage slider + numeric input — fine-tune via input (Viktor: «slider
+                  min step=1 на 1–100 слишком груб, дай fine-tune через number input»).
+                  Disabled in Safe mode. */}
               <div>
                 <div className="flex items-baseline justify-between mb-1">
                   <label className="text-xs font-medium text-gray-700">Provider Leverage</label>
-                  <span className="text-sm font-semibold num text-gray-900">{newLeverage}×</span>
+                  <div className="inline-flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={newLeverage}
+                      onChange={e => {
+                        const v = Math.max(1, Math.min(100, Number(e.target.value) || 1))
+                        setNewLeverage(v)
+                        if (v > 1) setNewMode('advanced')
+                        else setNewMode('conservative')
+                      }}
+                      disabled={newMode === 'conservative'}
+                      className="w-14 text-sm font-semibold num text-gray-900 text-right border border-gray-200 rounded px-1.5 py-0.5 focus:border-[var(--color-role-lp)] focus:outline-none disabled:opacity-50"
+                    />
+                    <span className="text-sm font-semibold num text-gray-900">×</span>
+                  </div>
                 </div>
                 <input
                   type="range"
@@ -1941,16 +1960,96 @@ function OwnerPositionAnalytics({ listing }: { listing: import('@/lib/types').Li
 // Net PnL (trader-side numbers irrelevant to LP); keep Trader / Notional /
 // APY paid / Held / Earned-for-LP / Outcome / Closed.
 // Default shows 7 most recent + «View all» expand. Empty state when zero closes.
+// Sort keys for Listing transactions table — sortable headers (Viktor P3.30).
+type TxSortKey = 'closedAt' | 'notional' | 'apy' | 'held' | 'earned'
+type TxSortDir = 'asc' | 'desc'
+
+function SortTh({ children, align, active, dir, onClick, className = '' }: {
+  children: React.ReactNode
+  align: 'left' | 'right'
+  active: boolean
+  dir: TxSortDir
+  onClick: () => void
+  className?: string
+}) {
+  return (
+    <th className={`text-${align} font-medium px-3 py-2 ${className}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={
+          'inline-flex items-center gap-1 transition hover:text-gray-900 ' +
+          (active ? 'text-gray-900 font-semibold' : 'text-gray-500')
+        }
+      >
+        {children}
+        <span aria-hidden="true" className="text-[8px]">
+          {active ? (dir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  )
+}
+
 function ListingTransactions({ listing }: { listing: import('@/lib/types').Listing }) {
   const [expanded, setExpanded] = useState(false)
+  const [sortKey, setSortKey] = useState<TxSortKey>('closedAt')
+  const [sortDir, setSortDir] = useState<TxSortDir>('desc')
+
+  const rows = useMemo(() => closedPositions.filter(c => c.listingId === listing.id), [listing.id])
   const transactions = useMemo(() => {
-    return closedPositions
-      .filter(c => c.listingId === listing.id)
-      .sort((a, b) => b.closedAt - a.closedAt)
-  }, [listing.id])
+    const out = [...rows]
+    out.sort((a, b) => {
+      const mul = sortDir === 'asc' ? 1 : -1
+      switch (sortKey) {
+        case 'closedAt': return (a.closedAt - b.closedAt) * mul
+        case 'notional': return (a.notionalUSD - b.notionalUSD) * mul
+        case 'apy':      return (a.apyBps - b.apyBps) * mul
+        case 'held':     return (a.durationHours - b.durationHours) * mul
+        case 'earned':   return ((a.referencePaidUSD + a.premiumPaidUSD) - (b.referencePaidUSD + b.premiumPaidUSD)) * mul
+      }
+    })
+    return out
+  }, [rows, sortKey, sortDir])
+
+  // Median APY paid across settled positions (Viktor P3.30) — useful bench against current floor.
+  const medianApyBps = useMemo(() => {
+    if (!rows.length) return null
+    const sorted = [...rows].map(r => r.apyBps).sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid]
+  }, [rows])
 
   const visible = expanded ? transactions : transactions.slice(0, 7)
   const hasMore = transactions.length > 7
+
+  function toggleSort(key: TxSortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
+
+  function exportCsv() {
+    const header = ['Trader', 'Notional USD', 'APY bps', 'Held hours', 'Earned USD (Reference + Premium)', 'Outcome', 'Closed at ISO']
+    const csvRows = transactions.map(r => [
+      r.trader,
+      r.notionalUSD.toFixed(2),
+      r.apyBps,
+      r.durationHours.toFixed(2),
+      (r.referencePaidUSD + r.premiumPaidUSD).toFixed(2),
+      r.liquidated ? 'liquidated' : r.paidInFull ? 'paid_in_full' : `partial -${(r.unpaidUSD ?? 0).toFixed(2)}`,
+      new Date(r.closedAt).toISOString(),
+    ])
+    const csv = [header, ...csvRows].map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sLiq-listing-${listing.id}-transactions-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5">
@@ -1963,9 +2062,17 @@ function ListingTransactions({ listing }: { listing: import('@/lib/types').Listi
             <p className="text-[11px] text-gray-500"><strong>Earned</strong> = Reference + Premium paid by that trader (your take from this position). <strong>Outcome</strong> = how settlement resolved.</p>
           </HelpPopover>
         </h2>
-        <span className="text-[11px] text-gray-500 num">
-          {transactions.length} {transactions.length === 1 ? 'closed position' : 'closed positions'}
-        </span>
+        <div className="inline-flex items-center gap-3 text-[11px] text-gray-500 num">
+          {medianApyBps !== null && (
+            <span>median APY <span className="font-medium text-gray-700">{fmtPct(medianApyBps)}</span></span>
+          )}
+          <span>{transactions.length} {transactions.length === 1 ? 'closed position' : 'closed positions'}</span>
+          {transactions.length > 0 && (
+            <button type="button" onClick={exportCsv} className="text-[var(--color-role-lp)] hover:underline">
+              Export CSV ↓
+            </button>
+          )}
+        </div>
       </div>
 
       {transactions.length === 0 ? (
@@ -1983,12 +2090,12 @@ function ListingTransactions({ listing }: { listing: import('@/lib/types').Listi
               <thead className="text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left font-medium px-3 py-2">Trader</th>
-                  <th className="text-right font-medium px-3 py-2">Notional</th>
-                  <th className="text-right font-medium px-3 py-2">APY paid</th>
-                  <th className="text-right font-medium px-3 py-2 hidden lg:table-cell">Held</th>
-                  <th className="text-right font-medium px-3 py-2">Earned</th>
+                  <SortTh align="right" active={sortKey === 'notional'} dir={sortDir} onClick={() => toggleSort('notional')}>Notional</SortTh>
+                  <SortTh align="right" active={sortKey === 'apy'} dir={sortDir} onClick={() => toggleSort('apy')}>APY paid</SortTh>
+                  <SortTh align="right" className="hidden lg:table-cell" active={sortKey === 'held'} dir={sortDir} onClick={() => toggleSort('held')}>Held</SortTh>
+                  <SortTh align="right" active={sortKey === 'earned'} dir={sortDir} onClick={() => toggleSort('earned')}>Earned</SortTh>
                   <th className="text-left font-medium px-3 py-2">Outcome</th>
-                  <th className="text-right font-medium px-3 py-2 hidden lg:table-cell">Closed</th>
+                  <SortTh align="right" className="hidden lg:table-cell" active={sortKey === 'closedAt'} dir={sortDir} onClick={() => toggleSort('closedAt')}>Closed</SortTh>
                 </tr>
               </thead>
               <tbody>
