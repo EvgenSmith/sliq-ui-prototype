@@ -1422,7 +1422,7 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
               Status + Risk + HF labels explained in one focused popover, so the
               main card tooltip stays compact (Eugene 2026-05-15). */}
           <span onClick={e => e.stopPropagation()} className="inline-flex">
-            <HelpPopover label="Chips legend" width="w-72">
+            <HelpPopover label="Chips legend" width="w-72" size="lg">
               <p className="font-semibold mb-1.5">Status</p>
               <ul className="space-y-1 text-[11px] leading-relaxed">
                 <li><strong className="text-emerald-700">Earning</strong> — арендаторы есть, Premium APY идёт.</li>
