@@ -1377,8 +1377,8 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
               +{fmtUSD(grossEarned)}
             </span>
             {claimable > 0.01 && (
-              <div className="text-[10px] num mt-0.5" style={{ color: 'var(--color-role-lp)' }}>
-                +{fmtUSD(claimable)} claimable
+              <div className="text-[10px] num mt-0.5 font-semibold" style={{ color: 'var(--color-role-lp)' }}>
+                +{fmtUSD(claimable)}
               </div>
             )}
           </div>
