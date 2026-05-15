@@ -1719,7 +1719,7 @@ function OwnerPanel({
       <HighStakesConfirmModal
         open={withdrawOpen}
         title="Запрос вывода NFT — подтверди"
-        subtitle="Принудительно закрывает всех текущих арендаторов. Тот же NFT (#{listing.tokenId}) возвращается в кошелёк через 2-block keeper settlement — но с текущим P&L (если margin съел часть, NFT придёт с уменьшенной стоимостью)."
+        subtitle={`Принудительно закрывает всех текущих арендаторов. Тот же NFT (#${listing.tokenId}) возвращается в кошелёк через 2-block keeper settlement — но с текущим P&L (если margin съел часть, NFT придёт с уменьшенной стоимостью).`}
         currentState={[
           { label: 'Active арендаторы', value: String(activeLessees.length) },
           { label: 'Pool size (now)', value: fmtUSD(listing.initialLiquidityUSD) },
