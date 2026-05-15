@@ -194,6 +194,18 @@ export function ListingDetail() {
             <OwnerPositionAnalytics listing={listing} />
           )}
 
+          {/* Faint divider/label before ProMetrics — signals that hit-rate / avg-leased
+              above are «always-on essentials», ProMetrics below is the deeper / optional
+              advanced analytics (UX audit P2.19). Only for owner Pro view (trader sees
+              ProMetrics adjacent to Open CTA without the LP-style divider). */}
+          {isOwner && ownerMode === 'pro' && (
+            <div className="flex items-center gap-2 pt-2 pb-1">
+              <span className="flex-1 h-px bg-gray-200" />
+              <span className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Advanced analytics</span>
+              <span className="flex-1 h-px bg-gray-200" />
+            </div>
+          )}
+
           {/* Pro Metrics — collapsible «advanced» block. Trader sees always
               (decision context near Open CTA). Owner sees only in Pro mode. */}
           {(!isOwner || ownerMode === 'pro') && (
@@ -1219,7 +1231,27 @@ function OwnerPanel({
                     <p>Сколько отдельных трейдер-позиций сейчас открыто на твоём листинге. Каждая платит Premium APY на свою долю notional. <strong>0</strong> = арендаторов нет → надо снизить Min APY или ждать.</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num text-right">{activeCount}</dd>
+                <dd className="font-semibold text-gray-900 num text-right">
+                  {activeCount}
+                  {/* CTA when nobody is renting — gives the «0» a next-step (Eugene
+                      2026-05-15 P2.14). Pro-mode owners can deep-link to the Min APY
+                      editor; Lite-mode owners get a hint without a click target. */}
+                  {activeCount === 0 && listing.status === 'ACTIVE' && (
+                    <div className="text-[10px] font-normal text-gray-500 mt-1 leading-tight">
+                      {isPro ? (
+                        <button
+                          type="button"
+                          onClick={() => setUpdateApyOpen(true)}
+                          className="text-[var(--color-role-lp)] hover:underline"
+                        >
+                          Никто пока не арендует. Снизить min APY?
+                        </button>
+                      ) : (
+                        <span>Никто пока не арендует. Снизить min APY в Pro mode.</span>
+                      )}
+                    </div>
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
@@ -1591,7 +1623,11 @@ function OwnerPanel({
                     <button
                       type="button"
                       onClick={() => { setNewMode('advanced'); if (newLeverage === 1) setNewLeverage(2) }}
-                      className={'px-3 py-1 transition ' + (newMode === 'advanced' ? 'bg-[var(--color-status-danger)] text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
+                      // Red TEXT + outline on selected (was red BG fill) — red bg
+                      // semantics = «destructive action button»; here red conveys
+                      // «this option is dangerous», not «click destroys things»
+                      // (UX audit P2.20).
+                      className={'px-3 py-1 transition ' + (newMode === 'advanced' ? 'bg-white text-[var(--color-status-danger)] border-l-2 border-[var(--color-status-danger)] font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50')}
                     >At-risk · N×</button>
                   </div>
                 </div>
@@ -1631,7 +1667,12 @@ function OwnerPanel({
                   ))}
                 </div>
                 {newLeverage > 1 && liqDistancePct !== null && (
-                  <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex items-start gap-2">
+                  <div className={
+                    'mt-2 text-[11px] rounded px-3 py-2 flex items-start gap-2 ' +
+                    (newLeverage > 25
+                      ? 'text-[var(--color-status-danger)] bg-red-50 border border-[var(--color-status-danger)]/40'
+                      : 'text-amber-700 bg-amber-50 border border-amber-200')
+                  }>
                     <span>⚠️</span>
                     <div>
                       <strong>Liquidation risk applies.</strong> At {newLeverage}× listing-level liquidation
@@ -1740,15 +1781,15 @@ function OwnerPanel({
                 aria-label="Increase by 1%"
               >+</button>
             </div>
-            {/* Presets */}
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            {/* Presets — py-2 + grid-cols-5 for reliable touch target on mobile (P2.15). */}
+            <div className="mt-2 grid grid-cols-5 gap-1.5">
               {[10, 20, 30, 50, 100].map(p => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => setNewMinApyPct(p)}
                   className={
-                    'px-2.5 py-1 text-[11px] font-medium rounded border transition ' +
+                    'px-2.5 py-2 text-[11px] font-medium rounded border transition ' +
                     (newMinApyPct === p
                       ? 'bg-[var(--color-role-lp-bg)] border-[var(--color-role-lp)] text-[var(--color-role-lp)]'
                       : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900')
@@ -1953,11 +1994,13 @@ function ListingTransactions({ listing }: { listing: import('@/lib/types').Listi
               <tbody>
                 {visible.map(r => {
                   const earned = r.referencePaidUSD + r.premiumPaidUSD
+                  // Outcome chip — emoji «💥» replaced with red ● dot for liquidated
+                  // (UX audit P2.21: emoji renders poorly on Windows Chrome).
                   const outcome = r.liquidated
-                    ? { label: '💥 liquidated', cls: 'bg-red-50 text-[var(--color-status-danger)] border-[var(--color-status-danger)]/40' }
+                    ? { label: 'liquidated', dot: true, cls: 'bg-red-50 text-[var(--color-status-danger)] border-[var(--color-status-danger)]/40' }
                     : r.paidInFull
-                    ? { label: 'paid in full', cls: 'bg-gray-50 text-gray-700 border-gray-200' }
-                    : { label: `partial · −${fmtUSD(r.unpaidUSD ?? 0)}`, cls: 'bg-amber-50 text-amber-900 border-amber-300' }
+                    ? { label: 'paid in full', dot: false, cls: 'bg-gray-50 text-gray-700 border-gray-200' }
+                    : { label: `partial · −${fmtUSD(r.unpaidUSD ?? 0)}`, dot: false, cls: 'bg-amber-50 text-amber-900 border-amber-300' }
                   return (
                     <tr key={r.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/60 transition">
                       <td className="px-3 py-2 num text-[12px] text-gray-700">
@@ -1973,7 +2016,10 @@ function ListingTransactions({ listing }: { listing: import('@/lib/types').Listi
                         {earned >= 0 ? '+' : '−'}{fmtUSD(Math.abs(earned))}
                       </td>
                       <td className="px-3 py-2">
-                        <span className={'whitespace-nowrap rounded-full font-medium text-[10px] px-2 py-0.5 border ' + outcome.cls}>{outcome.label}</span>
+                        <span className={'whitespace-nowrap rounded-full font-medium text-[10px] px-2 py-0.5 border inline-flex items-center gap-1 ' + outcome.cls}>
+                          {outcome.dot && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-status-danger)]" />}
+                          {outcome.label}
+                        </span>
                       </td>
                       <td className="px-3 py-2 text-right text-[11px] text-gray-500 num hidden lg:table-cell">{fmtTimeAgo(r.closedAt)}</td>
                     </tr>

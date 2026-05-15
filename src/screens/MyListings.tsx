@@ -439,12 +439,15 @@ function ListFlowPage({
           // State 1.5 — show summary of existing listings with statuses
           <ListedSummaryCard listings={myListings} />
         ) : (
-          // State 1.3 — fresh user banner
+          // State 1.3 — fresh user banner. Count of NFTs intentionally NOT here;
+          // it lives on the EligibleNFTsSection header next to «(N)» (UX audit P2.23
+          // — was duplicated). Banner now tells the user the wallet is recognised
+          // and prompts the action.
           <div className="rounded-lg border border-lime-200 bg-lime-50/50 px-4 py-3 flex items-start gap-3">
             <span className="text-lime-700 text-xl leading-none mt-0.5">✓</span>
             <div className="flex-1">
               <div className="text-sm font-semibold text-gray-900">
-                Wallet connected · {walletNFTs.length} eligible Uniswap V3 NFT{walletNFTs.length === 1 ? '' : 's'} found
+                Wallet connected · Uniswap V3 NFTs found
               </div>
               <p className="text-xs text-gray-600 mt-0.5">
                 Pick a position to start earning extra carry on top of Uniswap fees.{' '}
@@ -640,23 +643,24 @@ function NoNFTsState() {
           no V3 LP positions found yet. Mint one on Uniswap and sLiq will detect it automatically.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          {/* Primary CTA: practical path — mint LP on Uniswap, sLiq will detect it */}
-          <a
-            href="https://app.uniswap.org/positions"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition"
-          >
-            Mint LP on Uniswap <span aria-hidden>↗</span>
-          </a>
+          {/* Hierarchy swap per UX audit P2.17: Re-scan is sLiq-native primary,
+              Mint LP on Uniswap is secondary (off-platform — second click). */}
           <button
             type="button"
             onClick={() => { /* prototype no-op */ }}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
+            className="inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-5 py-2.5 text-sm font-medium transition"
             title="Re-scan the connected wallet for V3 LP NFTs"
           >
             Re-scan wallet
           </button>
+          <a
+            href="https://app.uniswap.org/positions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 hover:border-gray-500 text-gray-800 px-5 py-2.5 text-sm font-medium transition"
+          >
+            Mint LP on Uniswap <span aria-hidden>↗</span>
+          </a>
         </div>
         {/* Low-emphasis future-state hint */}
         <p className="mt-4 text-[11px] text-gray-400">
@@ -1416,12 +1420,15 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
   }
 
   function handleListAnother() {
-    // Reset for chained listing in same modal
+    // Reset modal to configure stage and keep it open — user picks next NFT
+    // from grid behind. UX audit P2.22: closing then re-opening dropped scroll
+    // position. Caller of the modal owns the "next NFT" selection; we just
+    // close and let them re-open with a new one.
     setStage('configure')
     setMode('lite')
     setLeverage(1)
     setMinApy(1)
-    onClose() // close so user picks another NFT from grid
+    onClose()
   }
 
   return (
@@ -1537,7 +1544,14 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                         price line inside the ProPreview block below. Desktop keeps
                         the inline warning for extra emphasis next to the slider. */}
                     {leverage > 1 && (
-                      <div className="hidden sm:flex mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 items-start gap-2">
+                      <div className={
+                        'hidden sm:flex mt-2 text-[11px] rounded px-3 py-2 items-start gap-2 ' +
+                        // >25× escalates to red — danger semantics for high-stakes
+                        // leverage (UX audit P2.16). amber reserved for 2-25×.
+                        (leverage > 25
+                          ? 'text-[var(--color-status-danger)] bg-red-50 border border-[var(--color-status-danger)]/40'
+                          : 'text-amber-700 bg-amber-50 border border-amber-200')
+                      }>
                         <span>⚠️</span>
                         <div>
                           <strong>Liquidation risk applies.</strong> At {leverage}× your liquidation triggers
@@ -1582,15 +1596,17 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                         +
                       </button>
                     </div>
-                    {/* Presets */}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    {/* Presets — bumped to py-2 (≥36px target) so touch on mobile
+                        is reliable (UX audit P2.15). grid-cols-5 keeps row stable
+                        when copy wraps to longer locale. */}
+                    <div className="mt-2 grid grid-cols-5 gap-1.5">
                       {APY_PRESETS.map(p => (
                         <button
                           key={p}
                           type="button"
                           onClick={() => setMinApy(p)}
                           className={
-                            'px-2.5 py-1 text-[11px] font-medium rounded border transition ' +
+                            'px-2.5 py-2 text-[11px] font-medium rounded border transition ' +
                             (minApy === p
                               ? 'bg-[var(--color-role-lp-bg)] border-[var(--color-role-lp)] text-[var(--color-role-lp)]'
                               : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900')
@@ -1638,6 +1654,12 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
             </div>
             <div className="text-base font-semibold text-gray-900">Listing your NFT…</div>
             <p className="mt-1 text-xs text-gray-500">Confirm the signature in your wallet.</p>
+            {/* Custody reassurance — Semen's #1 anxiety per persona audit (P2.18).
+                One line, не клиширует, факт: NFT не уходит, escrow rights only. */}
+            <p className="mt-3 text-[11px] text-gray-500 max-w-xs mx-auto leading-relaxed">
+              NFT остаётся под твоим контролем. sLiq получает право управлять листингом —
+              отзыв в 1 клик через Withdraw.
+            </p>
           </div>
         )}
 
