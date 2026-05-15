@@ -938,7 +938,7 @@ function ProtocolTabs({
             <span>{label}</span>
             <span className="num text-gray-400">({nfts.length})</span>
             {!isUniswap && (
-              <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="text-[9px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                 Soon
               </span>
             )}
@@ -1280,7 +1280,7 @@ function ListingRow({ listing, hasAnyPro, selected, onToggleSelect, onClick, onC
       <td className="px-4 py-3">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-medium text-gray-900 group-hover:text-[var(--color-role-lp)] transition">{pairLabel(listing)}</span>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200 num">{fmtFeeTier(listing.feeTierBps)}</span>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 border border-gray-200 num">{fmtFeeTier(listing.feeTierBps)}</span>
           {/* Risk chip — always rendered. «No Risk» gray for Conservative; amber
               «Risk N×» / «Subsidized» / «Sub · Risk N×» otherwise. Eugene
               2026-05-15: у позиций без плеча всегда видим No Risk сереньким. */}
@@ -1297,7 +1297,7 @@ function ListingRow({ listing, hasAnyPro, selected, onToggleSelect, onClick, onC
               ? `Risk ${listing.providerLeverage}×`
               : 'No Risk'
             return (
-              <span className={'text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border font-medium num ' + cls}>
+              <span className={'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-medium num ' + cls}>
                 {label}
               </span>
             )
@@ -1516,14 +1516,14 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
               ? `Risk ${listing.providerLeverage}×`
               : 'No Risk'
             return (
-              <span className={'text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border font-medium num ' + cls}>
+              <span className={'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-medium num ' + cls}>
                 {label}
               </span>
             )
           })()}
           {isPro && hf !== undefined && (
             <span
-              className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-medium num inline-flex items-center gap-1 border"
+              className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full font-medium num inline-flex items-center gap-1 border"
               style={{
                 color: hf > 60 ? 'var(--color-status-success)' : hf > 30 ? 'var(--color-status-warning)' : 'var(--color-status-danger)',
                 background: hf > 60 ? 'rgba(16,185,129,0.08)' : hf > 30 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)',
@@ -1730,8 +1730,11 @@ function statusDisplay(status: string, leasedPct: number): StatusDisplay {
 }
 
 function ListingStatusChip({ status, leasedPct, rangeStatus, tiny }: { status: string; leasedPct: number; rangeStatus: 'in-range' | 'out-of-range'; tiny?: boolean }) {
-  const sizeCls = tiny ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'
-  const baseCls = 'whitespace-nowrap rounded font-medium cursor-help ' + sizeCls
+  // Pill-shaped chips (rounded-full) — visually distinct from buttons which use
+  // rounded (sharper corners). Eugene 2026-05-15: «форма тегов похожа на форму
+  // кнопок внизу карточки, давай эти теги другой формы сделаем — округлые?».
+  const sizeCls = tiny ? 'text-[10px] px-2 py-0.5' : 'text-xs px-2.5 py-0.5'
+  const baseCls = 'whitespace-nowrap rounded-full font-medium cursor-help ' + sizeCls
   const data = statusDisplay(status, leasedPct)
   const showOutOfRange = rangeStatus === 'out-of-range' && (status === 'ACTIVE' || status === 'WITHDRAWAL_REQUESTED')
   return (
@@ -1739,7 +1742,7 @@ function ListingStatusChip({ status, leasedPct, rangeStatus, tiny }: { status: s
       <span className={baseCls + ' ' + data.cls} title={data.tip}>{data.label}</span>
       {showOutOfRange && (
         <span
-          className={'whitespace-nowrap rounded font-medium cursor-help bg-amber-50 text-amber-900 border border-amber-200 ' + sizeCls}
+          className={'whitespace-nowrap rounded-full font-medium cursor-help bg-amber-50 text-amber-900 border border-amber-200 ' + sizeCls}
           title="Цена вышла из Uniswap range — Uniswap fees не начисляются. Premium APY продолжает идти."
         >
           out of range
