@@ -1245,10 +1245,10 @@ function ListingRow({ listing, hasAnyPro, selected, onToggleSelect, onClick, onC
           {(subsidized || listing.providerMode === 'advanced') && (
             <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium num">
               {subsidized && listing.providerMode === 'advanced'
-                ? `Sub · Pro ${listing.providerLeverage}×`
+                ? `Sub · Risk ${listing.providerLeverage}×`
                 : subsidized
                 ? 'Subsidized'
-                : `Pro ${listing.providerLeverage}×`}
+                : `Risk ${listing.providerLeverage}×`}
             </span>
           )}
         </div>
@@ -1440,10 +1440,10 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
           {(subsidized || listing.providerMode === 'advanced') && (
             <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium num">
               {subsidized && listing.providerMode === 'advanced'
-                ? `Sub · Pro ${listing.providerLeverage}×`
+                ? `Sub · Risk ${listing.providerLeverage}×`
                 : subsidized
                 ? 'Subsidized'
-                : `Pro ${listing.providerLeverage}×`}
+                : `Risk ${listing.providerLeverage}×`}
             </span>
           )}
           {isPro && hf !== undefined && (
@@ -1468,12 +1468,12 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
           <div>
             <span className="text-gray-500">Total APY</span>
             <div className="font-medium">{isTerminal ? '—' : `${totalApy.toFixed(1)}%`}</div>
-            {/* Under Total APY — breakdown «Uni + Premium» (Eugene 2026-05-15:
-                «вместо Health под Total APY показывать сумму APY как от юнисвапа +
-                Premium»). HF moved up to the chip row. */}
+            {/* Under Total APY — breakdown как на десктопе: «X.X% + Y.Y%» без слов
+                «Uni»/«Prem» (Eugene 2026-05-15 mobile review — короче, читается
+                так же как на вебе). */}
             {!isTerminal && (
               <div className="text-[10px] text-gray-500 mt-0.5 num">
-                {uniApy.toFixed(1)}% Uni {premApy >= 0 ? '+' : '−'} {Math.abs(premApy).toFixed(1)}% Prem
+                {uniApy.toFixed(1)}% {premApy >= 0 ? '+' : '−'} {Math.abs(premApy).toFixed(1)}%
               </div>
             )}
           </div>
@@ -1506,7 +1506,7 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
             'inline-flex items-center justify-center text-xs font-semibold px-2 py-1.5 rounded border transition ' +
             (isTerminal
               ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-              : 'border-[var(--color-status-danger)]/40 text-[var(--color-status-danger)] bg-white hover:bg-red-50')
+              : 'border-gray-300 text-gray-800 bg-white hover:bg-gray-50')
           }
         >
           Withdraw NFT
