@@ -18,12 +18,18 @@ export function StatusBanner({ variant = 'global' }: Props) {
           : 'rounded-md border border-[var(--color-beta-border)] bg-[var(--color-beta-bg)] text-[var(--color-beta-text)] my-3'
       }
     >
-      <div className="mx-auto max-w-7xl px-4 py-2 text-sm flex items-center gap-3">
-        <span className="font-semibold tracking-tight">Beta version. Audit pending.</span>
-        <span className="hidden sm:inline">Don't deposit more than you can afford to lose.</span>
+      <div className="mx-auto max-w-7xl px-4 py-2 text-sm flex items-center gap-3 min-w-0">
+        {/* Single truncating line — full sentence visible whenever it fits,
+            otherwise cut by ellipsis. Eugene 2026-05-15: «пусть обрезается,
+            если не влезает на экран». Was `hidden sm:inline` which dropped
+            the second half entirely on mobile. */}
+        <span className="truncate flex-1 min-w-0">
+          <span className="font-semibold tracking-tight">Beta version. Audit pending.</span>{' '}
+          <span>Don't deposit more than you can afford to lose.</span>
+        </span>
         <button
           onClick={() => setExpanded(e => !e)}
-          className="ml-auto text-xs underline decoration-dotted underline-offset-2 hover:opacity-80"
+          className="shrink-0 text-xs underline decoration-dotted underline-offset-2 hover:opacity-80"
           aria-expanded={expanded}
         >
           {expanded ? 'Hide details' : 'Why?'}
