@@ -893,10 +893,15 @@ function ProMetrics({
     .sort((a, b) => a.apy - b.apy)
 
   return (
-    <details className="rounded-lg border border-gray-200 bg-white p-5">
-      <summary className="cursor-pointer text-sm font-semibold hover:text-gray-700 inline-flex items-center gap-2">
+    <details className="group rounded-lg border border-gray-200 bg-white p-5">
+      {/* «advanced» badge dropped — the divider/label above («Advanced analytics»)
+          already names the group. Chevron rotates on open for clearer affordance.
+          Eugene 2026-05-15. */}
+      <summary className="cursor-pointer text-sm font-semibold hover:text-gray-700 inline-flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true" className="transition-transform group-open:rotate-180 text-gray-500">
+          <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         Pro metrics
-        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">advanced</span>
         <span className="text-[11px] text-gray-500 font-normal ml-1">
           {isOwner ? 'performance · vs HODL · vol · σ-distance · auction · OI' : 'vol · σ-distance · auction depth · OI'}
         </span>
@@ -1283,24 +1288,8 @@ function OwnerPanel({
                 </dt>
                 <dd className="font-semibold text-gray-900 num">
                   {activeCount}
-                  {/* CTA when nobody is renting — gives the «0» a next-step (Eugene
-                      2026-05-15 P2.14). Pro-mode owners can deep-link to the Min APY
-                      editor; Lite-mode owners get a hint without a click target. */}
-                  {activeCount === 0 && listing.status === 'ACTIVE' && (
-                    <div className="text-[10px] font-normal text-gray-500 mt-1 leading-tight">
-                      {isPro ? (
-                        <button
-                          type="button"
-                          onClick={() => setUpdateApyOpen(true)}
-                          className="text-[var(--color-role-lp)] hover:underline"
-                        >
-                          Никто пока не арендует. Снизить min APY?
-                        </button>
-                      ) : (
-                        <span>Никто пока не арендует. Снизить min APY в Pro mode.</span>
-                      )}
-                    </div>
-                  )}
+                  {/* Sub-text CTA removed per Eugene 2026-05-15 — explanation lives
+                      in tooltip; cell stays compact. */}
                 </dd>
               </div>
               <div>
@@ -1391,8 +1380,15 @@ function OwnerPanel({
                   >
                     {listing.healthFactorPct}%
                   </span>
-                  <HelpPopover label="Health Factor" width="w-72">
-                    <p>Aave-style 0–100% scale. Только для Pro с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
+                  <HelpPopover label="Health Factor" width="w-80" size="lg">
+                    <p className="font-semibold mb-1.5">Health Factor (Aave-style)</p>
+                    <p className="mb-1.5">Шкала 0–100% — насколько твоя Pro-позиция близка к listing-level ликвидации. Чем ниже, тем ближе.</p>
+                    <ul className="space-y-1 text-[11px] leading-relaxed">
+                      <li><strong className="text-[var(--color-status-success)]">&gt; 60%</strong> — Stable: дистанция до ликвидации большая.</li>
+                      <li><strong className="text-[var(--color-status-warning)]">30–60%</strong> — Moderate: можно тюнить leverage / min APY.</li>
+                      <li><strong className="text-[var(--color-status-danger)]">&lt; 30%</strong> — At-risk: близко к ликвидации, снижай leverage или закрывай.</li>
+                    </ul>
+                    <p className="mt-2 text-[11px] text-gray-500">Только для Pro-листингов с плечом &gt; 1. Conservative (1×) ликвидации не подвергаются.</p>
                   </HelpPopover>
                 </span>
               )}
@@ -1446,10 +1442,24 @@ function OwnerPanel({
       })()}
 
       {/* Position Info — underlying Uniswap pool facts. Listed-since + NFT id are
-          already in the page header above, so we don't duplicate them here. */}
+          already in the page header above, so we don't duplicate them here.
+          Per-param tooltips replaced with a single card-level (i) — Eugene 2026-05-15
+          («сделай тултип на всю карточку, а не на 1 параметр»). */}
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <div className="flex items-baseline justify-between mb-3 gap-2 flex-wrap">
-          <h3 className="text-sm font-semibold inline-flex items-center gap-1">Position info</h3>
+          <h3 className="text-sm font-semibold inline-flex items-center gap-1.5">
+            Position info
+            <HelpPopover label="Position info — all metrics" width="w-80" size="lg">
+              <p className="font-semibold mb-1.5">Position info — underlying Uniswap pool facts</p>
+              <ul className="space-y-1.5 text-[11px] leading-relaxed">
+                <li><strong>Pool size</strong> — USD value locked in the NFT at listing time. Token-pair sub-line shows the actual token amounts on each side.</li>
+                {isPro && isAdvanced && <li><strong>Trader market</strong> — Pool size × Leverage. The leveraged exposure traders compete for; backed by the Pool-size amount.</li>}
+                <li><strong>Range</strong> — Uniswap V3 price range; outside this band the LP earns no Uniswap fees.</li>
+                <li><strong>Uniswap APY</strong> — realised pool-fee APY on the current range over the last 30d. Baseline yield without sLiq.</li>
+                <li><strong>Protocol · fee tier</strong> — underlying DEX + Uniswap fee tier of this pool.</li>
+              </ul>
+            </HelpPopover>
+          </h3>
           <a
             href={`https://app.uniswap.org/positions/v3/arbitrum/${listing.tokenId}`}
             target="_blank"
@@ -1494,21 +1504,11 @@ function OwnerPanel({
             const traderMarketUSD = listing.initialLiquidityUSD * listing.providerLeverage
             return (
               <div>
-                <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
-                  Trader market
-                  <HelpPopover label="Trader market" width="w-72">
-                    <div className="font-semibold mb-1">Trader market = Pool size × Leverage</div>
-                    The leveraged exposure traders compete for. Your NFT backs it at
-                    the Pool-size amount; traders pay Premium APY on the full
-                    Trader-market size. At 1× leverage Trader market = Pool size.
-                  </HelpPopover>
-                </dt>
-                <dd className="font-semibold text-gray-900 num">
-                  {fmtUSD(traderMarketUSD)}
-                  <span className="block text-[11px] text-gray-500 font-normal">
-                    = {fmtUSD(listing.initialLiquidityUSD)} × {listing.providerLeverage}×
-                  </span>
-                </dd>
+                <dt className="text-[11px] uppercase tracking-wide text-gray-500">Trader market</dt>
+                {/* Formula «= $X × N×» removed per Eugene 2026-05-15 — token-pair
+                    sub-line is the «what the market actually is» figure. Formula
+                    lives in the card-level tooltip. */}
+                <dd className="font-semibold text-gray-900 num">{fmtUSD(traderMarketUSD)}</dd>
                 <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 flex flex-col items-start">
                   {(() => {
                     const { t0Amt, t1Amt } = splitToTokens(traderMarketUSD, listing)
@@ -1530,17 +1530,12 @@ function OwnerPanel({
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Range</dt>
             <dd className="font-medium text-gray-900 num">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
-            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">price · {listing.pair.token0}/{listing.pair.token1}</dd>
+            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">{listing.pair.token0}/{listing.pair.token1}</dd>
           </div>
           <div>
-            <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
-              Uniswap APY
-              <HelpPopover label="Uniswap APY" width="w-64">
-                <p>Realized Uniswap fees APY на underlying V3 пуле за последние 30 дней. Это базовая доходность позиции от Uniswap, без учёта sLiq Premium.</p>
-              </HelpPopover>
-            </dt>
+            <dt className="text-[11px] uppercase tracking-wide text-gray-500">Uniswap APY</dt>
             <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
-            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5">от Uniswap pool · 30d</dd>
+            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5">30d</dd>
           </div>
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Protocol · fee tier</dt>
@@ -1557,7 +1552,7 @@ function OwnerPanel({
         <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
           <h2 className="text-base font-semibold inline-flex items-center gap-1">
             Fees · earnings
-            <HelpPopover label="Fees · earnings" width="w-80">
+            <HelpPopover label="Fees · earnings" width="w-80" size="lg">
               <p className="font-semibold mb-1">Что заработала позиция</p>
               <p className="mb-1.5">Две статьи дохода LP — Uniswap fees от underlying pool + Premium APY от sLiq trader auction. Каждая в USD и в разбивке по паре активов.</p>
               <p className="mb-1"><strong>Total</strong> — суммарно с момента листинга.</p>
