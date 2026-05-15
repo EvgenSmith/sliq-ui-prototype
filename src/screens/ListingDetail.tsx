@@ -1245,12 +1245,12 @@ function OwnerPanel({
           : hf >= 30 ? 'Moderate'
           : 'At-risk'
         const stabilityCls = {
-          // Safe — text-only, no border. It's the safe default state; doesn't need to
-          // visually compete with the other variants (Eugene 2026-05-15).
-          Safe: 'text-gray-700',
-          Stable: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
-          Moderate: 'bg-amber-50 text-amber-900 border border-amber-300',
-          'At-risk': 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40',
+          // Safe — plain text, no chip styling and no px padding. Aligns flush-left
+          // with the other Listing-summary values (Eugene 2026-05-15).
+          Safe: 'text-gray-700 py-0.5',
+          Stable: 'bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5',
+          Moderate: 'bg-amber-50 text-amber-900 border border-amber-300 px-1.5 py-0.5',
+          'At-risk': 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40 px-1.5 py-0.5',
         }[stability]
         const leasedUSD = listing.totalCapacityUSD - listing.availableCapacityUSD
         const leasedPct = listing.totalCapacityUSD > 0 ? (leasedUSD / listing.totalCapacityUSD) * 100 : 0
@@ -1351,7 +1351,7 @@ function OwnerPanel({
                   </span>
                 </dt>
                 <dd className="flex items-center gap-2 flex-wrap">
-                  <span className={'text-[11px] font-semibold px-1.5 py-0.5 rounded ' + stabilityCls}>
+                  <span className={'text-[11px] font-semibold rounded ' + stabilityCls}>
                     {stability}
                   </span>
                   {/* Always show leverage (incl. 1× for Safe — per Eugene 2026-05-15:
@@ -1389,7 +1389,7 @@ function OwnerPanel({
                   <span className="font-semibold text-gray-900">{fmtUSD(leasedUSD)}</span>
                   <span className="text-gray-400">/</span>
                   <span className="text-gray-500">{fmtUSD(listing.totalCapacityUSD)}</span>
-                  <span className="text-[11px] text-gray-500">({Math.round(leasedPct)}% leased)</span>
+                  <span className="text-[11px] text-gray-500">({Math.round(leasedPct)}%)</span>
                 </dd>
                 <div className="mt-1 h-1 w-full rounded-sm bg-gray-200 overflow-hidden">
                   <div
@@ -1598,19 +1598,27 @@ function OwnerPanel({
             <HelpPopover label="Fees · earnings" width="w-80" size="lg">
               <p className="font-semibold mb-1">Что заработала позиция</p>
               <p className="mb-1.5">Две статьи дохода LP — Uniswap fees от underlying pool + Premium APY от sLiq trader auction. Каждая в USD и в разбивке по паре активов.</p>
-              <p className="mb-1"><strong>Total</strong> — суммарно с момента листинга.</p>
-              <p className="mb-1"><strong>Already claimed / Claimable now</strong> — сколько уже зачислено в кошелёк vs сколько можно забрать в одной транзакции.</p>
-              <p><strong>IL</strong> — оценка impermanent loss vs HODL underlying. Net PnL = Total fees − IL.</p>
+              <p className="mb-1"><strong>Total fees</strong> — суммарно с момента листинга (Uniswap baseline + Premium APY).</p>
+              <p><strong>Already claimed / Claimable now</strong> — сколько уже зачислено в кошелёк vs сколько можно забрать в одной транзакции.</p>
             </HelpPopover>
           </h2>
+          {/* Header KPI: Total fees (gross) + Claimable now sub-line. Per Eugene
+              2026-05-15 — Net PnL (IL-adjusted) header dropped in favour of
+              positive-framing total + immediate-action claimable. */}
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wide text-gray-500">Net PnL (IL-adjusted)</div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">Total fees</div>
             <div
               className="num font-bold text-xl leading-tight"
-              style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+              style={{ color: 'var(--color-status-success)' }}
             >
-              {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
+              +{fmtUSD(totalFees)}
             </div>
+            {claimableNow > 0.01 && (
+              <div className="text-[11px] num mt-0.5">
+                <span className="text-gray-500">Claimable now </span>
+                <span className="font-semibold" style={{ color: 'var(--color-role-lp)' }}>+{fmtUSD(claimableNow)}</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="space-y-1">
@@ -1638,13 +1646,9 @@ function OwnerPanel({
             </div>
           </div>
         </div>
-        {/* IL line — always shown when negative (it's a real cost the LP needs to see) */}
-        {ilProxy < -0.01 && (
-          <div className="mt-3 flex items-baseline justify-between text-[11px]">
-            <span className="text-gray-600">Impermanent Loss <span className="text-gray-400">vs HODL</span></span>
-            <span className="num text-[var(--color-status-danger)]">{fmtUSD(ilProxy)}</span>
-          </div>
-        )}
+        {/* IL line removed per Eugene 2026-05-15 — Fees · earnings card now
+            shows Total fees + Claimable only; IL-vs-HODL signal lives in the
+            Vs HODL analytics block (LP-only) elsewhere on the page. */}
         {/* Suggestions block — all-English copy (was mixed RU/EN per UX audit). */}
         {netPnL < 0 && (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
@@ -2050,8 +2054,8 @@ function OwnerPositionAnalytics({ listing }: { listing: import('@/lib/types').Li
 // Mirrors the global «Market transactions» (ClosedPositionsList) vocabulary —
 // same data type, scoped to this listing. LP-perspective columns vs the
 // global feed: drop Pair (single listing), drop Entry→Exit / % move / trader
-// Net PnL (trader-side numbers irrelevant to LP); keep Trader / Notional /
-// APY paid / Held / Earned-for-LP / Outcome / Closed.
+// Net PnL (trader-side numbers irrelevant to LP); keep Trader / Position size /
+// APY paid / Lifetime / Earned-for-LP / Outcome / Closed.
 // Default shows 7 most recent + «View all» expand. Empty state when zero closes.
 // Sort keys for Listing transactions table — sortable headers (Viktor P3.30).
 type TxSortKey = 'closedAt' | 'notional' | 'apy' | 'held' | 'earned'
@@ -2122,7 +2126,7 @@ function ListingTransactions({ listing }: { listing: import('@/lib/types').Listi
   }
 
   function exportCsv() {
-    const header = ['Trader', 'Notional USD', 'APY bps', 'Held hours', 'Earned USD (Reference + Premium)', 'Outcome', 'Closed at ISO']
+    const header = ['Trader', 'Position size USD', 'APY bps', 'Lifetime hours', 'Earned USD (Reference + Premium)', 'Outcome', 'Closed at ISO']
     const csvRows = transactions.map(r => [
       r.trader,
       r.notionalUSD.toFixed(2),
@@ -2183,9 +2187,9 @@ function ListingTransactions({ listing }: { listing: import('@/lib/types').Listi
               <thead className="text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left font-medium px-3 py-2">Trader</th>
-                  <SortTh align="right" active={sortKey === 'notional'} dir={sortDir} onClick={() => toggleSort('notional')}>Notional</SortTh>
+                  <SortTh align="right" active={sortKey === 'notional'} dir={sortDir} onClick={() => toggleSort('notional')}>Position size</SortTh>
                   <SortTh align="right" active={sortKey === 'apy'} dir={sortDir} onClick={() => toggleSort('apy')}>APY paid</SortTh>
-                  <SortTh align="right" className="hidden lg:table-cell" active={sortKey === 'held'} dir={sortDir} onClick={() => toggleSort('held')}>Held</SortTh>
+                  <SortTh align="right" className="hidden lg:table-cell" active={sortKey === 'held'} dir={sortDir} onClick={() => toggleSort('held')}>Lifetime</SortTh>
                   <SortTh align="right" active={sortKey === 'earned'} dir={sortDir} onClick={() => toggleSort('earned')}>Earned</SortTh>
                   <th className="text-left font-medium px-3 py-2">Outcome</th>
                   <SortTh align="right" className="hidden lg:table-cell" active={sortKey === 'closedAt'} dir={sortDir} onClick={() => toggleSort('closedAt')}>Closed</SortTh>
@@ -2248,9 +2252,9 @@ function ListingTransactions({ listing }: { listing: import('@/lib/types').Listi
                     <span className={'whitespace-nowrap rounded-full font-medium text-[10px] px-2 py-0.5 border ' + outcome.cls}>{outcome.label}</span>
                   </div>
                   <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] num">
-                    <div><span className="text-gray-500">Notional </span><span>{fmtUSD(r.notionalUSD)}</span></div>
+                    <div><span className="text-gray-500">Position size </span><span>{fmtUSD(r.notionalUSD)}</span></div>
                     <div><span className="text-gray-500">APY </span><span>{fmtPct(r.apyBps, { signed: r.apyBps < 0 })}</span></div>
-                    <div><span className="text-gray-500">Held </span><span>{fmtHeld(r.durationHours)}</span></div>
+                    <div><span className="text-gray-500">Lifetime </span><span>{fmtHeld(r.durationHours)}</span></div>
                     <div>
                       <span className="text-gray-500">Earned </span>
                       <span className="font-medium" style={{ color: earned > 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}>
