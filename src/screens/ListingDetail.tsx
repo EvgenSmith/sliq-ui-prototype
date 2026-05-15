@@ -1169,10 +1169,53 @@ function OwnerPanel({
           </span>
         </div>
 
-        {/* Action cluster — single Manage dropdown holds Claim + Withdraw (+ Update
-            Leverage / Update Min APY in Pro). Manage button shows LP-color fill
-            when claimable > 0 (signal preserved without the $-amount badge). */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Action cluster.
+              Mobile (<sm)  → collapsed <ManageMenu> dropdown — keeps the row tight.
+              Desktop (sm+) → inline buttons spread out, place permits (Eugene
+                              2026-05-15: «кнопку Manage можно раскрывать на
+                              несколько»). */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            disabled={claimableNow <= 0.01}
+            onClick={() => claimableNow > 0.01 && alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
+            className={
+              'text-sm font-semibold px-3.5 py-1.5 rounded-md transition ' +
+              (claimableNow > 0.01
+                ? 'bg-[var(--color-role-lp)] text-white hover:opacity-90'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+            }
+          >
+            {claimableNow > 0.01 ? `Claim ${fmtUSD(claimableNow)}` : 'Claim'}
+          </button>
+          {isPro && (
+            <>
+              <button
+                type="button"
+                onClick={() => setLeverageOpen(true)}
+                className="text-sm font-medium px-3.5 py-1.5 rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 transition"
+              >
+                Update Leverage
+              </button>
+              <button
+                type="button"
+                onClick={() => setUpdateApyOpen(true)}
+                className="text-sm font-medium px-3.5 py-1.5 rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 transition"
+              >
+                Update Min APY
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setWithdrawOpen(true)}
+            className="text-sm font-medium px-3.5 py-1.5 rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 transition"
+          >
+            Withdraw NFT
+          </button>
+        </div>
+        {/* Mobile dropdown — single Manage menu (space-constrained). */}
+        <div className="sm:hidden flex items-center gap-2 shrink-0">
           <ManageMenu
             isPro={isPro}
             claimableNow={claimableNow}
