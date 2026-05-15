@@ -21,7 +21,7 @@ import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 import { LPFlowSelector } from '@/components/LPFlowSelector'
 import { HelpPopover } from '@/components/HelpPopover'
 import { CopyAddress } from '@/components/CopyAddress'
-import { capacityFreePct, estimatePositionPnL } from '@/lib/derive'
+import { capacityFreePct, estimatePositionPnL, getAuctionHeat } from '@/lib/derive'
 import { useState as useState2 } from 'react'
 
 export function ListingDetail() {
@@ -1333,6 +1333,24 @@ function OwnerPanel({
                 <dd className="font-semibold num" style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
                   {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
                 </dd>
+                {/* Auction-heat sub-line (Eugene 2026-05-15) — explicit «Median
+                    bid X.X% (+Ypp)» when incumbent lessees are paying above the
+                    floor. Tells LP they're under-pricing; suggests raising. */}
+                {(() => {
+                  const heat = getAuctionHeat(listing, positions)
+                  if (!heat) return null
+                  const medianPct = (heat.medianApyBps / 100).toFixed(1)
+                  const deltaPp = (heat.deltaBps / 100).toFixed(1)
+                  return (
+                    <dd className="text-[11px] num mt-0.5 leading-tight inline-flex items-center gap-1 font-medium" style={{ color: 'var(--color-status-warning)' }}>
+                      ↑ Median bid {medianPct}% <span className="text-amber-700/70">(+{deltaPp}pp)</span>
+                      <HelpPopover label="Median lessee bid" width="w-72">
+                        <p>Median APY across {heat.sampleSize} active lessee position{heat.sampleSize === 1 ? '' : 's'} on this listing. They're paying ≥ 3pp above your Min Premium APY floor — auction is hotter than your floor reflects.</p>
+                        <p className="mt-1.5">Consider raising Min APY to capture the spread. Existing lessees keep their original rate; only new positions price against the new floor.</p>
+                      </HelpPopover>
+                    </dd>
+                  )
+                })()}
               </div>
               <div className="col-span-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">

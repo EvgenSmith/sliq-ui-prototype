@@ -103,3 +103,33 @@ export function getOutbidOpportunity(
     totalCapturablePnlUSD: totalPositivePnl,
   }
 }
+
+// Auction-heat signal — surfaces when incumbent lessees are paying meaningfully
+// above the listing's Min Premium APY floor. Tells the LP they're under-pricing
+// and can raise the floor to capture the spread.
+//
+// Eugene 2026-05-15 — labels: «↑ +6.5pp» in the table, «Median bid 18.5%» on
+// the detail page. No words («Auction hot» / «Underpriced» considered, dropped
+// — the arrow + delta is self-explanatory).
+//
+// Trigger: median of OPEN lessee bids ≥ floor + 300 bps. Single threshold
+// handles both regular floors and subsidized (negative-floor) listings.
+//
+// Returns null when no signal — no open lessees, or spread under 3pp.
+export function getAuctionHeat(
+  listing: Listing,
+  allPositions: Position[],
+): { medianApyBps: number; deltaBps: number; sampleSize: number } | null {
+  const openBids = allPositions
+    .filter(p => p.listingId === listing.id && p.status === 'OPEN')
+    .map(p => p.apyBps)
+    .sort((a, b) => a - b)
+  if (openBids.length === 0) return null
+  const mid = Math.floor(openBids.length / 2)
+  const medianApyBps = openBids.length % 2 === 0
+    ? (openBids[mid - 1] + openBids[mid]) / 2
+    : openBids[mid]
+  const deltaBps = medianApyBps - listing.minPremiumApyBps
+  if (deltaBps < 300) return null
+  return { medianApyBps, deltaBps, sampleSize: openBids.length }
+}

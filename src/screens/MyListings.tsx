@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { connectedWallet, listings, positions } from '@/mocks/data'
 import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD } from '@/lib/format'
-import { capacityFreePct, getRangeStatus, isSubsidized, pairLabel } from '@/lib/derive'
+import { capacityFreePct, getAuctionHeat, getRangeStatus, isSubsidized, pairLabel } from '@/lib/derive'
 import { HelpPopover } from '@/components/HelpPopover'
 import { useLPDemoState, deriveLPState } from '@/lib/lpDemoState'
 import { getWalletNFTsForState, getNonEligibleNFTsForState, PROTOCOL_LABELS, showListingsForState, type WalletNFT } from '@/mocks/walletNFTs'
@@ -1241,7 +1241,10 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
           )
         })()}
       </td>
-      {/* 6. APY (Uniswap + Premium) */}
+      {/* 6. APY (Uniswap + Premium) + optional auction-heat sub-line
+            (Eugene 2026-05-15: «↑ +6.5pp» when median lessee bid ≥ floor + 3pp,
+            self-explanatory без слов. Spotter — leads LP to detail page where
+            «Median bid» number is explicit). */}
       <td className="px-3 py-3 text-right num hidden md:table-cell">
         {isTerminal ? (
           <span className="text-gray-300">—</span>
@@ -1251,6 +1254,20 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
             <div className="text-[10px] text-gray-500 mt-0.5 leading-tight num">
               {uniApy.toFixed(1)}% {premApy >= 0 ? '+' : '−'} {Math.abs(premApy).toFixed(1)}%
             </div>
+            {(() => {
+              const heat = getAuctionHeat(listing, positions)
+              if (!heat) return null
+              const deltaPp = (heat.deltaBps / 100).toFixed(1)
+              return (
+                <div
+                  className="text-[10px] num mt-0.5 leading-tight font-semibold whitespace-nowrap"
+                  style={{ color: 'var(--color-status-warning)' }}
+                  title={`Median lessee bid ${(heat.medianApyBps / 100).toFixed(1)}% — ${deltaPp}pp above your floor. Raise Min APY to capture spread.`}
+                >
+                  ↑ +{deltaPp}pp
+                </div>
+              )
+            })()}
           </>
         )}
       </td>
