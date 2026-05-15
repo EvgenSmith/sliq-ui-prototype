@@ -2234,7 +2234,9 @@ function ParamRow({ label, value, small }: { label: React.ReactNode; value: Reac
 function ClaimableBanner({ amount, listingsCount }: { amount: number; listingsCount: number }) {
   return (
     <div className="mb-4 rounded-lg border border-[var(--color-role-lp)]/30 bg-[var(--color-role-lp-bg)] px-4 py-3 flex items-center gap-3">
-      <span className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-[var(--color-role-lp)]/30 text-[var(--color-role-lp)] text-base">
+      {/* Icon: hidden on mobile to free horizontal space; we want headline + button
+          on one row even on narrow screens (Eugene 2026-05-15). */}
+      <span className="hidden sm:inline-flex shrink-0 items-center justify-center w-9 h-9 rounded-lg bg-white border border-[var(--color-role-lp)]/30 text-[var(--color-role-lp)] text-base">
         ◈
       </span>
       <div className="flex-1 min-w-0">
@@ -2242,7 +2244,13 @@ function ClaimableBanner({ amount, listingsCount }: { amount: number; listingsCo
           Claimable now:{' '}
           <span className="text-[var(--color-role-lp)] num">+{fmtUSD(amount)}</span>
         </div>
-        <div className="text-xs text-gray-600 mt-0.5">
+        {/* Mobile: terse label-style line. Desktop: full explanation. Same data,
+            different density. «Claim sweeps all in a single tx» line dropped on
+            mobile — the action verb lives on the button itself. */}
+        <div className="text-xs text-gray-600 mt-0.5 sm:hidden num">
+          All fees across {listingsCount} listing{listingsCount === 1 ? '' : 's'} · 1 tx
+        </div>
+        <div className="text-xs text-gray-600 mt-0.5 hidden sm:block">
           Accumulated Uniswap fees + Premium APY across {listingsCount} listing{listingsCount === 1 ? '' : 's'}.
           Claim sweeps all in a single transaction.
         </div>
@@ -2250,7 +2258,7 @@ function ClaimableBanner({ amount, listingsCount }: { amount: number; listingsCo
       <button
         type="button"
         onClick={() => { /* prototype: claim-all stub */ }}
-        className="shrink-0 inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-4 py-2 text-sm font-semibold transition"
+        className="shrink-0 inline-flex items-center gap-2 rounded-md bg-[var(--color-role-lp)] hover:opacity-90 text-white px-3 py-2 sm:px-4 text-sm font-semibold transition"
       >
         Claim all
       </button>
