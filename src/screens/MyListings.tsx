@@ -644,7 +644,7 @@ function GuestState() {
           Earn extra yield on your Uniswap V3 LP
         </h1>
         <p className="mt-4 text-gray-300 leading-relaxed max-w-2xl mx-auto">
-          Plug in your existing LP NFT. Earn <strong className="text-lime-300">+3–7% APR</strong> extra carry from sLiq traders on top of your normal Uniswap fees. <strong className="text-white">2-click exit.</strong>
+          Plug in your existing LP NFT. Earn <strong className="text-lime-300">+20–40% APR</strong> extra carry from sLiq traders on top of your normal Uniswap fees. <strong className="text-white">2-click exit.</strong>
         </p>
         <div className="mt-8">
           <button
@@ -656,7 +656,7 @@ function GuestState() {
           </button>
         </div>
         <div className="mt-8 grid sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
-          <ValueChip n="+3–7% APR" label="Premium APY carry" />
+          <ValueChip n="+20–40% APR" label="Auction-maximized Premium APY" />
           <ValueChip n="Up to 100×" label="Provider Leverage (Pro mode)" />
           {/* Strengthened NFT-custody chip per Eugene 2026-05-15 — Semen's anxiety
               about losing NFT custody is the #1 friction; an explicit «pull back
@@ -1572,7 +1572,8 @@ function ListingStatusChip({ status, leasedPct, rangeStatus, tiny }: { status: s
 
 // ───────── List NFT modal — Lite + Pro toggle + post-listing success ─────────
 type ListStage = 'configure' | 'signing' | 'success'
-const APY_PRESETS = [10, 20, 30, 50, 100]
+// 100 dropped per Eugene 2026-05-15 — unrealistic floor, attracted nobody.
+const APY_PRESETS = [10, 20, 30, 50]
 
 function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void }) {
   const [stage, setStage] = useState<ListStage>('configure')
@@ -1673,8 +1674,10 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
               {mode === 'lite' ? (
                 <div className="mt-4">
                   <p className="text-sm text-gray-700 leading-relaxed">
-                    <strong>Sit back — traders pay you to rent your liquidity.</strong>{' '}
-                    Bids start at 1% and only climb. NFT stays in your wallet; withdraw any time.
+                    <strong>Premium APY is set by a continuous auction.</strong>{' '}
+                    You list at a 1% floor; traders bid above it as demand grows. The clearing rate
+                    is what they actually pay you — typically <strong>+20–40% APR</strong> on top of Uniswap fees.
+                    NFT stays in your wallet; withdraw any time.
                   </p>
                 </div>
               ) : (
@@ -1769,10 +1772,9 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                         +
                       </button>
                     </div>
-                    {/* Presets — bumped to py-2 (≥36px target) so touch on mobile
-                        is reliable (UX audit P2.15). grid-cols-5 keeps row stable
-                        when copy wraps to longer locale. */}
-                    <div className="mt-2 grid grid-cols-5 gap-1.5">
+                    {/* Presets — py-2 (≥36px touch target). grid-cols-4 since 100%
+                        preset retired (was unrealistic and attracted nobody). */}
+                    <div className="mt-2 grid grid-cols-4 gap-1.5">
                       {APY_PRESETS.map(p => (
                         <button
                           key={p}
@@ -1932,6 +1934,16 @@ function PoolInfoCard({
   const premiumFloor = isLite ? 1 : currentMinApy
   const totalApr = uniApr + premiumFloor
 
+  // Mock «current price» for range-status display — midpoint when in-range,
+  // edge-offset when out-of-range. Real impl reads from Uniswap pool.
+  const rangeLow = parseFloat(nft.priceRange.lower.replace(/\s/g, ''))
+  const rangeHigh = parseFloat(nft.priceRange.upper.replace(/\s/g, ''))
+  const inRange = nft.rangeStatus === 'in-range'
+  const currentPriceMock = inRange
+    ? (rangeLow + rangeHigh) / 2
+    : rangeHigh * 1.04 // a bit above the range for «out of range» display
+  const fmtPriceForRange = (n: number) => n >= 100 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n.toLocaleString('en-US', { maximumFractionDigits: 4 })
+
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-1.5">
       <ParamRow
@@ -1939,16 +1951,31 @@ function PoolInfoCard({
         value={PROTOCOL_LABELS[nft.protocol] ?? nft.protocol}
         small
       />
+      {/* Range — with range-status chip + current price (Eugene 2026-05-15). */}
       <ParamRow
-        label="Range"
-        value={`${nft.priceRange.lower} – ${nft.priceRange.upper}`}
+        label={
+          <span className="inline-flex items-center gap-1.5">
+            Range
+            <span className={
+              'text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full border font-medium ' +
+              (inRange
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-amber-50 text-amber-800 border-amber-300')
+            }>
+              {inRange ? 'in range' : 'out of range'}
+            </span>
+          </span>
+        }
+        value={
+          <span className="inline-flex flex-col items-end leading-tight">
+            <span>{nft.priceRange.lower} – {nft.priceRange.upper}</span>
+            <span className="text-[10px] text-gray-500 font-normal">now {fmtPriceForRange(currentPriceMock)}</span>
+          </span>
+        }
         small
       />
 
-      {/* Pool size — Lite only (Pro shows it in bottom ProPreview alongside Trader market).
-          2-line right-aligned per Eugene 2026-05-15: token0 / token1 each on own row,
-          flush right. Previously was one long line with `·` separator that wrapped
-          awkwardly on mobile. */}
+      {/* Pool size — Lite only (Pro shows it in bottom ProPreview alongside Trader market). */}
       {isLite && (
         <ParamRow
           label="Pool size"
@@ -1962,8 +1989,10 @@ function PoolInfoCard({
         />
       )}
 
-      {/* APY breakdown — divider for visual separation */}
-      <div className="border-t border-gray-200 pt-1.5 mt-1.5 space-y-1.5">
+      {/* APY breakdown — highlighted block (LP-color background + border) to draw
+          the eye to the headline outcome of listing (Eugene 2026-05-15:
+          «блок с APY можно визуально как-то подсветить, больше всего выделить»). */}
+      <div className="-mx-3 mt-2 px-3 py-2 bg-[var(--color-role-lp-bg)] border-y border-[var(--color-role-lp)]/20 space-y-1.5">
         <ParamRow
           label="Uniswap APY"
           value={<span className="num">{uniApr.toFixed(1)}%</span>}
@@ -1972,11 +2001,11 @@ function PoolInfoCard({
         <ParamRow
           label={
             <span className="inline-flex items-center gap-1">
-              Premium APY
-              <HelpPopover label="Premium APY" width="w-72">
-                <p className="font-semibold mb-1">Premium APY</p>
-                <p>The carry traders pay you to rent your liquidity. Set by a continuous auction: you set a minimum (the floor), traders bid above it.</p>
-                <p className="mt-1.5">This is your <strong>extra yield on top of Uniswap fees</strong> — the reason LPs migrate to sLiq.</p>
+              Min Premium APY
+              <HelpPopover label="Min Premium APY" width="w-72">
+                <p className="font-semibold mb-1">Min Premium APY (auction floor)</p>
+                <p>The minimum rate you accept from traders. Traders bid above this floor in a continuous auction — actual rate climbs over time as demand grows.</p>
+                <p className="mt-1.5">Your <strong>extra yield on top of Uniswap fees</strong> — the reason LPs migrate to sLiq.</p>
               </HelpPopover>
             </span>
           }
@@ -1988,28 +2017,28 @@ function PoolInfoCard({
           small
         />
         <ParamRow
-          label={<span className="font-medium text-gray-900">Total APY</span>}
+          label={<span className="font-bold text-gray-900">Total APY (from)</span>}
           value={
-            <span className="text-gray-900 font-bold num">
-              from {totalApr.toFixed(1)}%
+            <span className="text-[var(--color-role-lp)] font-bold num text-base">
+              {totalApr.toFixed(1)}%
             </span>
           }
           small
         />
       </div>
 
-      {/* Provider Leverage — Lite shows default 1× with (i); Pro hides (controlled via slider) */}
+      {/* Leverage (Risk) — Lite shows default 1× with (i); Pro hides (controlled via slider).
+          Eugene 2026-05-15: «Provider Leverage некорректнее заменить просто на Leverage (Risk)?» */}
       {isLite && (
-        <div className="border-t border-gray-200 pt-1.5 mt-1.5">
+        <div className="pt-1.5">
           <ParamRow
             label={
               <span className="inline-flex items-center gap-1">
-                Provider Leverage
-                <HelpPopover label="Provider Leverage" width="w-72">
-                  <p className="font-semibold mb-1">Provider Leverage</p>
-                  <p>Amplifies your earnings — and your risk.</p>
-                  <p className="mt-1.5"><strong>1× (Lite default)</strong> — your liquidity is rented 1:1. <strong>No liquidation risk</strong> from price moves; you only face standard Uniswap IL.</p>
-                  <p className="mt-1.5"><strong>2×–100× (Pro)</strong> — your liquidity is multiplied for trader rental. You earn N× the Premium APY, but if the pool moves against your range, the position can be liquidated.</p>
+                Leverage <span className="text-gray-400">(Risk)</span>
+                <HelpPopover label="Leverage (Risk)" width="w-72">
+                  <p className="font-semibold mb-1">Leverage — amplifies your earnings and your risk</p>
+                  <p className="mt-1.5"><strong>1× (Lite default)</strong> — liquidity is rented 1:1. <strong>No liquidation risk</strong> from price moves; you only face standard Uniswap IL.</p>
+                  <p className="mt-1.5"><strong>2×–100× (Pro)</strong> — liquidity is multiplied for trader rental. You earn N× the Premium APY, but if the pool moves against your range the position can be liquidated.</p>
                 </HelpPopover>
               </span>
             }
@@ -2038,13 +2067,9 @@ function ProPreview({
 }) {
   const real = poolTokenAmounts(nft, 1)
   const virt = poolTokenAmounts(nft, leverage)
-  // Projected APY estimate — Viktor (P3.32): nobody shows a yield-estimate during
-  // listing, but it's the answer to «what does my chosen config actually pay».
-  // Approximation: Uniswap_APR baseline + Premium floor × leverage × utilization
-  // (assume 60% mock utilization for the estimate). Best-effort, marked «est.».
-  const baseUni = nft.uniswapAprPct
-  const premMultiplied = minApyPct * leverage * 0.6
-  const projectedApy = baseUni + premMultiplied
+  // Projected APY (est.) row removed per Eugene 2026-05-15 — estimation logic
+  // was fragile and could mislead. minApyPct still passed in case we restore.
+  void minApyPct
   return (
     <div className="rounded-md bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
       <ParamRow
@@ -2084,22 +2109,6 @@ function ProPreview({
             ? <span className="text-[var(--color-status-danger)] font-semibold">~{liqDistancePct?.toFixed(1)}% from spot</span>
             : <span>— (no liquidation)</span>
         }
-        small
-      />
-      {/* Projected APY estimate (P3.32) — assumes 60% trader utilisation of the
-          Trader-market. Best-effort yield preview before listing. */}
-      <ParamRow
-        label={
-          <span className="inline-flex items-center gap-1">
-            Projected APY (est.)
-            <HelpPopover label="Projected APY estimate" width="w-72">
-              <p className="font-semibold mb-1">Rough yield preview</p>
-              <p>= Uniswap APR + Min Premium APY × Leverage × ~60% utilization.</p>
-              <p className="mt-1.5">Real outcome depends on actual auction clearing rate and trader demand. Utilization can be 0–100%.</p>
-            </HelpPopover>
-          </span>
-        }
-        value={<span className="text-[var(--color-role-lp)] font-bold num">~{projectedApy.toFixed(1)}%</span>}
         small
       />
     </div>

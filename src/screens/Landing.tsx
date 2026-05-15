@@ -99,7 +99,7 @@ function Hero() {
           <p className="mt-6 text-base md:text-lg leading-relaxed" style={{ color: 'var(--fg-2)' }}>
             Up to <strong style={{ color: 'var(--fg-1)' }}>1000×</strong> leverage for traders.{' '}
             <span className="md:inline block">
-              <strong style={{ color: 'var(--primary-lime-0)' }}>+3–7% APR</strong> extra carry for liquidity providers.
+              <strong style={{ color: 'var(--primary-lime-0)' }}>+20–40% APR</strong> auction-driven Premium APY for liquidity providers.
             </span>
           </p>
 
@@ -176,7 +176,7 @@ function HeroVisual() {
         className="absolute -bottom-3 -right-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur shadow-sm"
         style={{ color: 'var(--primary-active-dark)', background: 'var(--bg-1)', border: '1px solid var(--primary-lime-0)' }}
       >
-        +3–7% APR
+        +20–40% APR
       </div>
       <div
         className="absolute -top-3 -left-2 text-[10px] font-medium rounded-full px-2.5 py-1 backdrop-blur shadow-sm"
@@ -623,7 +623,7 @@ function UseCases() {
               <>
                 You have <strong>$20K in a USDC/ETH</strong> range on Uniswap V3. Uniswap earns you{' '}
                 <strong>~14% APR</strong> in fees. List on sLiq → Premium APY auction adds{' '}
-                <strong>+3–7% APR</strong>. Net: <strong>+$600–1,400/year</strong> with no extra capital.{' '}
+                <strong>+20–40% APR</strong>. Net: <strong>+$4–8K/year</strong> with no extra capital.{' '}
                 <strong>2-click exit, ~4 sec on Arbitrum.</strong> No liquidation risk on Conservative.
               </>
             }
@@ -778,7 +778,7 @@ function ComparisonTable() {
   const [tab, setTab] = useState<'lp' | 'trader'>('lp')
   const lpRows = [
     ['LP fees from swaps', '✓', '✓ (keep accruing)'],
-    ['Carry from traders (Premium APY)¹', '—', '+3–7% APR typical'],
+    ['Carry from traders (Premium APY)¹', '—', '+20–40% APR (auction-driven)'],
     ['In-range / out-of-range alerts', 'manual', '✓ Telegram + email'],
     ['IL-aware PnL display', '—', '✓ in dollars'],
     ['Exit', 'manual remove + collect', '2-click, ~4 sec on Arbitrum'],
