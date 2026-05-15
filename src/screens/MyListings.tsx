@@ -1086,19 +1086,25 @@ function ListingsTable({
                   </HelpPopover>
                 </span>
               </th>
-              {/* HF column rendered only when portfolio has at least one Pro listing —
-                  for Lite-only LPs the column would always show «—» and create
-                  «у меня чего-то не хватает» anxiety (UX audit P0). */}
-              {hasAnyPro && (
-                <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
-                  <span className="inline-flex items-center gap-1 justify-end">
-                    Health
-                    <HelpPopover label="Health Factor (только Pro)" width="w-72">
-                      <p>Aave-style шкала 0–100%. Показывается только для Pro-листингов с плечом &gt; 1. Чем ниже — тем ближе к listing-level ликвидации. Зелёный &gt; 60%, amber 30–60%, красный &lt; 30%.</p>
-                    </HelpPopover>
-                  </span>
-                </th>
-              )}
+              {/* Risk column — chip + HF inline + distance-to-liq sub-line.
+                  Always rendered (Eugene 2026-05-15: «перенести тег с риском
+                  в колонку Health»). Conservative listings show gray
+                  «No Risk» chip; Pro listings show «Risk N×» + HF % + sub-line. */}
+              <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  Risk
+                  <HelpPopover label="Risk" width="w-80">
+                    <p className="font-semibold mb-1">Per-listing risk read</p>
+                    <ul className="text-[11px] leading-relaxed space-y-1">
+                      <li><strong className="text-gray-500">No Risk</strong> — Conservative (1×), NFT не collateral, listing-level ликвидации невозможны.</li>
+                      <li><strong className="text-amber-800">Risk N×</strong> — Pro с плечом. NFT под collateral, возможна ликвидация при vol-event.</li>
+                      <li><strong className="text-amber-800">Subsidized</strong> — negative Premium APY (LP платит трейдерам).</li>
+                      <li className="text-gray-600 pt-1"><strong>HF</strong> — Aave-style 0–100%. Только для Pro. Зелёный &gt; 60, amber 30–60, красный &lt; 30. Ниже HF — ближе к ликвидации.</li>
+                      <li className="text-gray-600"><strong>−X% to liq</strong> — sub-line: насколько pool должен двинуться против range, чтобы триггернуть ликвидацию.</li>
+                    </ul>
+                  </HelpPopover>
+                </span>
+              </th>
               {/* Net PnL column removed per Eugene 2026-05-15 — fee/risk signal carries
                   the row, IL-adjusted PnL lives on the listing detail page. */}
               <th className="text-right font-medium px-3 py-2.5 hidden md:table-cell">
@@ -1167,38 +1173,13 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       className="group cursor-pointer transition border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
     >
-      {/* 1. Pair · NFT — risk chips merged into a single «Risk» chip
-            (subsidized + at-risk previously rendered as two separate chips,
-            cognitive overload per UX audit P1). Single chip handles all 4 cases:
-              • neither      → no chip
-              • subsidized   → «Subsidized» (amber low-key)
-              • at-risk      → «Pro N×» (amber)
-              • both         → «Sub · Pro N×» (amber, both signals) */}
+      {/* 1. Pair · NFT — risk chip relocated to the Risk column (Eugene
+            2026-05-15: «тег с риском из Pair·NFT перенести в колонку Health»).
+            This cell now keeps pair name / fee-tier / DEX / NFT id only. */}
       <td className="px-4 py-3">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-medium text-gray-900 group-hover:text-[var(--color-role-lp)] transition">{pairLabel(listing)}</span>
           <span className="text-[10px] text-gray-500 num">{fmtFeeTier(listing.feeTierBps)}</span>
-          {/* Risk chip — always rendered. «No Risk» gray for Conservative; amber
-              «Risk N×» / «Subsidized» / «Sub · Risk N×» otherwise. Eugene
-              2026-05-15: у позиций без плеча всегда видим No Risk сереньким. */}
-          {(() => {
-            const advanced = listing.providerMode === 'advanced'
-            const cls = (subsidized || advanced)
-              ? 'bg-amber-50 text-amber-900 border-amber-300'
-              : 'bg-gray-50 text-gray-500 border-gray-200'
-            const label = subsidized && advanced
-              ? `Sub · Risk ${listing.providerLeverage}×`
-              : subsidized
-              ? 'Subsidized'
-              : advanced
-              ? `Risk ${listing.providerLeverage}×`
-              : 'No Risk'
-            return (
-              <span className={'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-medium num ' + cls}>
-                {label}
-              </span>
-            )
-          })()}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[10px] text-gray-500 font-medium">{dexLabel(listing.dex)}</span>
@@ -1228,26 +1209,44 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
           </>
         )}
       </td>
-      {/* 6. Health + distance-to-liq (Pro) — single cell, two-line.
-            Main: HF %  ·  Sub: distance to liq % (Viktor P3.26 — at-a-glance
-            risk pair). Conservative rows show «—». */}
-      {hasAnyPro && (
-        <td className="px-3 py-3 text-right num hidden lg:table-cell">
-          {isPro && hf !== undefined ? (
+      {/* 6. Risk cell — relocated risk chip + HF inline + distance-to-liq sub-line
+            (Eugene 2026-05-15). Always rendered (gray «No Risk» chip for
+            Conservative listings, amber chip + colored HF for Pro). */}
+      <td className="px-3 py-3 text-right num hidden md:table-cell">
+        {(() => {
+          const advanced = listing.providerMode === 'advanced'
+          const chipCls = (subsidized || advanced)
+            ? 'bg-amber-50 text-amber-900 border-amber-300'
+            : 'bg-gray-50 text-gray-500 border-gray-200'
+          const chipLabel = subsidized && advanced
+            ? `Sub · Risk ${listing.providerLeverage}×`
+            : subsidized
+            ? 'Subsidized'
+            : advanced
+            ? `Risk ${listing.providerLeverage}×`
+            : 'No Risk'
+          return (
             <>
-              <span
-                className="font-semibold"
-                style={{
-                  color: hf > 60
-                    ? 'var(--color-status-success)'
-                    : hf > 30
-                    ? 'var(--color-status-warning)'
-                    : 'var(--color-status-danger)',
-                }}
-              >
-                {hf}%
-              </span>
-              {listing.distanceToLiqPct !== undefined && (
+              <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                <span className={'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-medium num whitespace-nowrap ' + chipCls}>
+                  {chipLabel}
+                </span>
+                {isPro && hf !== undefined && (
+                  <span
+                    className="text-[11px] font-semibold num whitespace-nowrap"
+                    style={{
+                      color: hf > 60
+                        ? 'var(--color-status-success)'
+                        : hf > 30
+                        ? 'var(--color-status-warning)'
+                        : 'var(--color-status-danger)',
+                    }}
+                  >
+                    HF {hf}%
+                  </span>
+                )}
+              </div>
+              {isPro && listing.distanceToLiqPct !== undefined && (
                 <div className="text-[10px] mt-0.5 font-normal" style={{
                   color: listing.distanceToLiqPct < 5
                     ? 'var(--color-status-danger)'
@@ -1259,20 +1258,20 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
                 </div>
               )}
             </>
-          ) : (
-            <span className="text-gray-300">—</span>
-          )}
-        </td>
-      )}
+          )
+        })()}
+      </td>
       {/* Net PnL column dropped per Eugene 2026-05-15. */}
-      {/* Fees — gross earned (top) + claimable now (bottom, LP-color). md+ visible
-          (was lg-only when Net PnL collapsed Claimable into itself; now Fees is the
-          primary $-signal on this row). */}
+      {/* Fees — gross earned (top, bold) + claimable now (bottom, LP-color,
+          number-only — «claimable» word dropped per Eugene 2026-05-15; the
+          green LP-color + sign carries the meaning). */}
       <td className="px-3 py-3 text-right hidden md:table-cell">
         <div className="num font-bold text-base text-gray-900">{fmtUSD(grossEarned)}</div>
-        <div className="text-[10px] num mt-0.5 leading-tight" style={{ color: claimable > 0.01 ? 'var(--color-role-lp)' : 'var(--color-text-muted, #9ca3af)' }}>
-          {claimable > 0.01 ? `+${fmtUSD(claimable)} claimable` : '—'}
-        </div>
+        {claimable > 0.01 && (
+          <div className="text-[10px] num mt-0.5 leading-tight font-semibold" style={{ color: 'var(--color-role-lp)' }}>
+            +{fmtUSD(claimable)}
+          </div>
+        )}
       </td>
       {/* 9. Action — two square buttons: Claim (disabled when nothing to claim) + Manage */}
       <td className="px-3 py-3 text-right">
