@@ -3,6 +3,7 @@
 // SubNav = contextual sub-tabs per section
 // No more Portfolio Overview (orphaned); no more RoleBadge in header.
 
+import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppHeader } from '@/components/AppHeader'
 import { AppSubNav } from '@/components/AppSubNav'
@@ -24,6 +25,17 @@ import { Settings } from '@/screens/Settings'
 import { ListingLiquidationView } from '@/screens/ListingLiquidation'
 import { LiquidatorPositions, LiquidatorListings } from '@/screens/LiquidatorQueue'
 
+// Scroll-to-top on route change — per Eugene 2026-05-15: «При переходе из My
+// Listings внутрь в детали, страничка должны открываться сверху». React Router
+// preserves window scroll across navigations by default; this resets it.
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   const location = useLocation()
   // Landing has its own nav/footer — bypass AppShell entirely
@@ -32,6 +44,7 @@ export default function App() {
   }
   return (
     <div className="min-h-full flex flex-col overflow-x-hidden">
+      <ScrollToTop />
       <AppHeader />
       <AppSubNav />
       <main className="flex-1 overflow-x-hidden">

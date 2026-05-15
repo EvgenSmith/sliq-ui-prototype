@@ -2267,11 +2267,6 @@ function ManageMenu({
         aria-expanded={open}
       >
         Manage
-        {hasClaimable && (
-          <span className="text-[10px] font-bold num bg-white/20 rounded px-1.5 py-0.5 leading-none">
-            +{fmtUSD(claimableNow)}
-          </span>
-        )}
         <svg width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true">
           <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
