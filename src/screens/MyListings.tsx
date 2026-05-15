@@ -1431,7 +1431,7 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
             {/* Single card-level info popover. Enlarged tap target (HelpPopover now
                 18px) per Eugene 2026-05-15. */}
             <span onClick={e => e.stopPropagation()}>
-              <HelpPopover label="Card metrics — explained" width="w-72">
+              <HelpPopover label="Card metrics — explained" width="w-72" size="lg">
                 <p className="font-semibold mb-1.5">What's on this card</p>
                 <ul className="space-y-1.5 text-[11px] leading-relaxed">
                   <li><strong>Pool size</strong> — USD value locked in your NFT at listing time.</li>

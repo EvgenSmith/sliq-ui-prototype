@@ -8,9 +8,13 @@ interface Props {
   children: React.ReactNode
   label?: string
   width?: string // tailwind width class
+  // Icon visual size. Defaults to `md` (18×18). Use `lg` (22×22 with text-base
+  // glyph) when the icon sits next to body-text labels where the default
+  // looks too small (e.g., mobile card next to pair name).
+  size?: 'md' | 'lg'
 }
 
-export function HelpPopover({ children, label = 'More info', width = 'w-80' }: Props) {
+export function HelpPopover({ children, label = 'More info', width = 'w-80', size = 'md' }: Props) {
   const [open, setOpen] = useState(false)
   // Pixel offset of the panel's left edge relative to the icon's left edge.
   // Computed on open so the panel always stays inside the viewport regardless of
@@ -69,10 +73,13 @@ export function HelpPopover({ children, label = 'More info', width = 'w-80' }: P
           e.stopPropagation()
           setOpen(o => !o)
         }}
-        // Bumped tap target ≈18px from 16px + larger glyph (Eugene 2026-05-15
-        // mobile review: (i) был слишком маленький для пальца). text-[13px]
-        // keeps the icon optically light next to body copy.
-        className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[13px] font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition cursor-help leading-none align-middle"
+        // Size variants — md default (18×18 / text-[13px]), lg for body-text
+        // contexts (22×22 / text-base). Eugene 2026-05-15: «(i) кнопочку сделай
+        // по размеру с парой» — applied via size='lg' on mobile card.
+        className={
+          'inline-flex items-center justify-center rounded-full font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition cursor-help leading-none align-middle ' +
+          (size === 'lg' ? 'w-[22px] h-[22px] text-base' : 'w-[18px] h-[18px] text-[13px]')
+        }
         aria-label={label}
         aria-expanded={open}
       >
