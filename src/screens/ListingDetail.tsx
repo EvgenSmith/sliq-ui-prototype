@@ -1722,11 +1722,13 @@ function OwnerPanel({
             </div>
           </div>
         </div>
-        {/* Vs HODL — Pro-only (Eugene 2026-05-15: IL / PnL-vs-HODL are
-            leverage-relevant signals; on Conservative listings they're noise).
-            v2 (2026-05-15): section header dropped to save a row. «vs HODL»
-            now lives inline as grey suffix per row label. */}
-        {isAdvanced && (
+        {/* Vs HODL — Pro UI mode only (Eugene 2026-05-15 v3: gate is on
+            isPro, the UI-mode toggle, NOT on isAdvanced/leverage. Earlier
+            commit conflated them — on Conservative listings the block
+            disappeared even in Pro UI. Correct semantics: Lite = simple
+            view (hide noise), Pro = full info (show Vs HODL regardless of
+            whether the listing itself has leverage). */}
+        {isPro && (
           <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">
             <div className="flex items-baseline justify-between text-[12px]">
               <span className="text-gray-600 inline-flex items-center gap-1">
