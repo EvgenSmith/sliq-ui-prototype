@@ -1661,16 +1661,11 @@ function OwnerPanel({
         <div className="space-y-1">
           <FeeRow label="Uniswap fees" usd={uniswapFeesTotal} listing={listing} />
           <FeeRow label="Premium APY" usd={premiumFeesTotal} listing={listing} />
-          <div className="border-t border-gray-200 mt-2 pt-2" />
-          <FeeRow label="Total fees" usd={totalFees} listing={listing} bold />
-          {/* Total fees breakdown — two sub-lines that ALWAYS sum to Total.
-              Indented under Total to read as «split of the number above».
-              Per Eugene 2026-05-15 the old two-column «Accrued | Claimable» layout
-              with vertical bars was confusing — numbers didn't add up visually. */}
-          {/* Total fees breakdown — Already-claimed line hidden when zero (clutter).
-              «(одной tx)» qualifier dropped — implicit. «(в кошельке)» translated to
-              English for locale consistency (Eugene 2026-05-15). */}
-          <div className="mt-2 ml-3 pl-3 border-l border-gray-200 space-y-1 text-[11px]">
+          {/* Total-fees row dropped per Eugene 2026-05-15 — Total fees already
+              live as the top-right KPI of this card; rendering them again here
+              was a visual duplicate. Already-claimed + Claimable now promoted
+              to top-level rows (were nested under Total). */}
+          <div className="border-t border-gray-200 mt-2 pt-2 space-y-1 text-[12px]">
             {accruedClaimed > 0.01 && (
               <div className="flex items-baseline justify-between">
                 <span className="text-gray-500">Already claimed <span className="text-gray-400">(in wallet)</span></span>
@@ -1683,36 +1678,40 @@ function OwnerPanel({
             </div>
           </div>
         </div>
-        {/* Vs HODL section — IL and PnL relative to «just held the tokens».
-            Per Eugene 2026-05-15: IL line stays grey (IL is always negative,
-            colouring it red is noise); PnL line gets the success/danger colour
-            because its sign carries real signal (am I beating HODL or not). */}
-        <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">
-          <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-1">Vs HODL</div>
-          <div className="flex items-baseline justify-between text-[12px]">
-            <span className="text-gray-600 inline-flex items-center gap-1">
-              Impermanent Loss
-              <HelpPopover label="Impermanent Loss vs HODL" width="w-72">
-                <p>Difference between the current value of the LP position and the value you'd have if you simply held the original token amounts (no LP, no fees). Always ≤ 0 by construction — that's why it's not coloured red.</p>
-              </HelpPopover>
-            </span>
-            <span className="num text-gray-800">{ilProxy >= 0 ? '' : '−'}{fmtUSD(Math.abs(ilProxy))}</span>
+        {/* Vs HODL section — Pro-only (Eugene 2026-05-15: IL / PnL-vs-HODL
+            are leverage-relevant signals; on Conservative listings they're
+            just noise — LP didn't take a directional stance, HODL comparison
+            is academic). Section header «Vs HODL» carries the context, so
+            row labels drop the trailing «vs HODL» (was visually duplicated:
+            «Vs HODL» + «Impermanent Loss» + «PnL vs HODL»). */}
+        {isAdvanced && (
+          <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-1">Vs HODL</div>
+            <div className="flex items-baseline justify-between text-[12px]">
+              <span className="text-gray-600 inline-flex items-center gap-1">
+                Impermanent Loss
+                <HelpPopover label="Impermanent Loss" width="w-72">
+                  <p>Difference between the current value of the LP position and the value you'd have if you simply held the original token amounts (no LP, no fees). Always ≤ 0 by construction — that's why it's not coloured red.</p>
+                </HelpPopover>
+              </span>
+              <span className="num text-gray-800">{ilProxy >= 0 ? '' : '−'}{fmtUSD(Math.abs(ilProxy))}</span>
+            </div>
+            <div className="flex items-baseline justify-between text-[12px]">
+              <span className="text-gray-600 inline-flex items-center gap-1">
+                PnL
+                <HelpPopover label="PnL vs HODL" width="w-72">
+                  <p>Total fees earned (Uniswap + Premium) minus Impermanent Loss. <strong>Positive</strong> = the listing is earning more than HODL would have. <strong>Negative</strong> = HODL would have beaten this listing so far.</p>
+                </HelpPopover>
+              </span>
+              <span
+                className="num font-semibold"
+                style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+              >
+                {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
+              </span>
+            </div>
           </div>
-          <div className="flex items-baseline justify-between text-[12px]">
-            <span className="text-gray-600 inline-flex items-center gap-1">
-              PnL vs HODL
-              <HelpPopover label="PnL vs HODL" width="w-72">
-                <p>Total fees earned (Uniswap + Premium) minus Impermanent Loss. <strong>Positive</strong> = the listing is earning more than HODL would have. <strong>Negative</strong> = HODL would have beaten this listing so far.</p>
-              </HelpPopover>
-            </span>
-            <span
-              className="num font-semibold"
-              style={{ color: netPnL >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
-            >
-              {netPnL >= 0 ? '+' : '−'}{fmtUSD(Math.abs(netPnL))}
-            </span>
-          </div>
-        </div>
+        )}
         {/* Suggestions block — all-English copy (was mixed RU/EN per UX audit). */}
         {netPnL < 0 && (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
