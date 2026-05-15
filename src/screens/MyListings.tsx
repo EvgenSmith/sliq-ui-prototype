@@ -248,29 +248,32 @@ function ListingsView() {
           )}
         </div>
 
-        {/* Strip layout (Eugene 2026-05-15 round 5):
-              Left  → «Clear filters» (when any filter ≠ all)
+        {/* Strip layout (Eugene 2026-05-15 round 6):
+              Left  → «Clear filters» — always visible in prototype, even when no
+                      filters are active (dims when nothing to clear).
               Right → «N need attention ▾» (when attentionTotal > 0)
             «+ List NFT» dropped — already available as a tab in AppSubNav. */}
         {(() => {
           const filtersActive = statusFilter !== 'all' || pairFilter !== 'all' || protocolFilter !== 'all'
-          const showStrip = filtersActive || attentionTotal > 0
-          if (!showStrip) return null
           return (
             <p className="text-xs text-gray-500 num mt-3 flex items-center gap-3 flex-wrap">
-              {filtersActive && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter('all')
-                    setPairFilter('all')
-                    setProtocolFilter('all')
-                  }}
-                  className="text-[var(--color-role-lp)] hover:underline"
-                >
-                  Clear filters
-                </button>
-              )}
+              <button
+                type="button"
+                disabled={!filtersActive}
+                onClick={() => {
+                  setStatusFilter('all')
+                  setPairFilter('all')
+                  setProtocolFilter('all')
+                }}
+                className={
+                  filtersActive
+                    ? 'text-[var(--color-role-lp)] hover:underline'
+                    : 'text-gray-400 cursor-not-allowed'
+                }
+                title={filtersActive ? 'Reset all filters' : 'No filters active'}
+              >
+                Clear filters
+              </button>
               {attentionTotal > 0 && (
                 <button
                   type="button"
@@ -1444,15 +1447,30 @@ function MobileListingRow({ listing, onClick, onClaim }: { listing: Listing; onC
             {/* Single card-level info popover. Enlarged tap target (HelpPopover now
                 18px) per Eugene 2026-05-15. */}
             <span onClick={e => e.stopPropagation()}>
-              <HelpPopover label="Card metrics — explained" width="w-72" size="lg">
+              <HelpPopover label="Card metrics — explained" width="w-80" size="lg">
                 <p className="font-semibold mb-1.5">What's on this card</p>
                 <ul className="space-y-1.5 text-[11px] leading-relaxed">
                   <li><strong>Pool size</strong> — USD value locked in your NFT at listing time.</li>
                   <li><strong>% leased</strong> — share of your liquidity currently rented out by traders. Premium APY accrues only on the leased portion.</li>
                   <li><strong>Total APY</strong> — Uniswap fees baseline + Premium APY (auction floor). Breakdown shown as sub-line.</li>
-                  {isPro && <li><strong>HF</strong> (in the chip row) — Aave-style 0–100 Health Factor. Only for Pro+leverage&gt;1. Below 30 = at-risk of listing-level liquidation.</li>}
+                  {isPro && <li><strong>HF</strong> (in the chip row) — Aave-style 0–100 Health Factor. Only for Pro+leverage&gt;1. Below 30 = close to listing-level liquidation.</li>}
                   <li><strong>Fees</strong> — lifetime gross earned · green +$ = claimable now in one tx.</li>
                   <li><strong>+/− $</strong> (top-right) — Net PnL since listing, IL-adjusted vs HODL.</li>
+                </ul>
+                <p className="font-semibold mt-3 mb-1.5">Status chips</p>
+                <ul className="space-y-1 text-[11px] leading-relaxed">
+                  <li><strong className="text-emerald-700">Earning</strong> — арендаторы есть, Premium APY идёт.</li>
+                  <li><strong className="text-gray-700">Listed</strong> — залистен, арендаторов пока нет (0% leased).</li>
+                  <li><strong className="text-amber-800">Withdrawing</strong> — запрошен вывод, 2-блочный guard.</li>
+                  <li><strong className="text-[var(--color-status-danger)]">Liquidating</strong> — ликвидация в процессе (Pro + плечо&gt;1).</li>
+                  <li><strong className="text-gray-500">Liquidated / Closed</strong> — терминальные.</li>
+                  <li className="text-gray-500"><strong>Out of range</strong> — sub-badge: цена за Uniswap-range.</li>
+                </ul>
+                <p className="font-semibold mt-3 mb-1.5">Risk chip</p>
+                <ul className="space-y-1 text-[11px] leading-relaxed">
+                  <li><strong className="text-gray-500">No Risk</strong> — Conservative (1×), NFT не collateral.</li>
+                  <li><strong className="text-amber-800">Risk N×</strong> — Pro с плечом, NFT под collateral.</li>
+                  <li><strong className="text-amber-800">Subsidized</strong> — negative Premium APY (LP платит трейдерам).</li>
                 </ul>
               </HelpPopover>
             </span>
