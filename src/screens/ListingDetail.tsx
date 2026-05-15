@@ -201,6 +201,18 @@ export function ListingDetail() {
           )}
         </aside>
       </div>
+
+      {/* Listing transactions — full-width footer below the 2-col grid. Moved out of
+          OwnerPanel main column (Eugene 2026-05-15) so that on mobile the right-aside
+          analytics (Range hit-rate · Avg leased · Pro metrics) stack ABOVE the
+          transactions table — operational decision support before retrospective audit.
+          On desktop the transactions go full-width, which suits the 7-column table
+          better than a 2/3 col constraint. Only for owners. */}
+      {isOwner && (
+        <div className="mt-6">
+          <ListingTransactions listing={listing} />
+        </div>
+      )}
     </div>
   )
 }
@@ -1083,29 +1095,17 @@ function OwnerPanel({
           per Eugene 2026-05-15 — owner came here to ACT, not to scroll past
           read-only data first. Convention: Uniswap V3 / OpenSea / Aave all put
           owner actions in the page header. */}
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5 flex-wrap">
-        {/* Lite / Pro view-mode toggle (orthogonal to listing's providerMode).
-            Lite hides advanced analytics; Pro reveals leverage tuning + HF + hit-rate. */}
-        <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm">
-          <button
-            type="button"
-            onClick={() => setOwnerMode('lite')}
-            className={'text-xs px-3.5 py-1.5 transition ' + (!isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
-          >Lite</button>
-          <button
-            type="button"
-            onClick={() => setOwnerMode('pro')}
-            className={'text-xs px-3.5 py-1.5 transition ' + (isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
-          >Pro</button>
-        </div>
-
-        {/* Primary actions cluster */}
-        <div className="flex items-center gap-2">
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:flex-wrap">
+        {/* Primary actions cluster (Claim + Manage) — order-1 on mobile so it sits ABOVE
+            the view-mode toggle (Eugene 2026-05-15: «как уместить в 1 строчку кнопки» —
+            на мобилке всё 3-в-ряд не лезет, разводим в 2 ряда: primary action сверху,
+            view-toggle отдельной строкой ниже как meta-control). */}
+        <div className="flex items-center gap-2 order-1 sm:order-2">
           {claimableNow > 0.01 && (
             <button
               type="button"
               onClick={() => alert(`Mock: claim ${fmtUSD(claimableNow)} в одной tx`)}
-              className="text-sm font-semibold px-3.5 py-1.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
+              className="flex-1 sm:flex-initial text-sm font-semibold px-3.5 py-1.5 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
             >
               Claim {fmtUSD(claimableNow)}
             </button>
@@ -1116,6 +1116,21 @@ function OwnerPanel({
             onUpdateApy={() => setUpdateApyOpen(true)}
             onWithdraw={() => setWithdrawOpen(true)}
           />
+        </div>
+
+        {/* Lite / Pro view-mode toggle (orthogonal to listing's providerMode).
+            On mobile dropped to second row (smaller priority than Claim/Manage). */}
+        <div className="inline-flex rounded-md border border-gray-300 overflow-hidden shadow-sm order-2 sm:order-1">
+          <button
+            type="button"
+            onClick={() => setOwnerMode('lite')}
+            className={'text-xs px-3.5 py-1.5 transition ' + (!isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
+          >Lite</button>
+          <button
+            type="button"
+            onClick={() => setOwnerMode('pro')}
+            className={'text-xs px-3.5 py-1.5 transition ' + (isPro ? 'bg-gray-900 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50')}
+          >Pro</button>
         </div>
       </div>
 
@@ -1155,7 +1170,7 @@ function OwnerPanel({
                     <p>Минимум, с которого начинается аукцион для трейдеров. Трейдер должен предложить ≥ этой ставки. Если subsidized — ты платишь трейдерам (negative).</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold num" style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
+                <dd className="font-semibold num text-right" style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
                   {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
                 </dd>
               </div>
@@ -1166,7 +1181,7 @@ function OwnerPanel({
                     <p>Realised pool fee APY за последние 30d на текущем range. Это та доходность, которую NFT и так зарабатывал бы на Uniswap без sLiq. На вершину этого аукцион добавляет Premium APY.</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
+                <dd className="font-semibold text-gray-900 num text-right">{fmtPct(listing.uniswapApyBps)}</dd>
               </div>
               <div className="col-span-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
@@ -1189,7 +1204,7 @@ function OwnerPanel({
                     <p>Сколько отдельных трейдер-позиций сейчас открыто на твоём листинге. Каждая платит Premium APY на свою долю notional. <strong>0</strong> = арендаторов нет → надо снизить Min APY или ждать.</p>
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num">{activeCount}</dd>
+                <dd className="font-semibold text-gray-900 num text-right">{activeCount}</dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
@@ -1204,7 +1219,7 @@ function OwnerPanel({
                     </ul>
                   </HelpPopover>
                 </dt>
-                <dd className="flex items-center gap-2 flex-wrap">
+                <dd className="flex items-center gap-2 flex-wrap justify-end">
                   <span className={'text-[11px] font-semibold px-1.5 py-0.5 rounded ' + stabilityCls}>
                     {stability}
                   </span>
@@ -1346,13 +1361,23 @@ function OwnerPanel({
         <dl className="grid grid-cols-2 gap-y-2 gap-x-3 sm:gap-x-6 text-sm">
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Pool size</dt>
-            <dd className="font-semibold text-gray-900 num">{fmtUSD(listing.initialLiquidityUSD)}</dd>
-            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">
+            <dd className="font-semibold text-gray-900 num text-right">{fmtUSD(listing.initialLiquidityUSD)}</dd>
+            {/* Token-pair sub-line: 2-line right-aligned format per Eugene 2026-05-15
+                («Pool size и трейдер маркет выравнивать по правому краю в 2 строчки»).
+                Was one line with `·` separator that wrapped awkwardly on mobile. */}
+            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 flex flex-col items-end">
               {(() => {
                 const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
-                return t0Amt !== null && t1Amt !== null
-                  ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
-                  : `${fmtUSD(listing.initialLiquidityUSD / 2)} ${listing.pair.token0} · ${fmtUSD(listing.initialLiquidityUSD / 2)} ${listing.pair.token1}`
+                if (t0Amt !== null && t1Amt !== null) {
+                  return <>
+                    <span>{fmtToken(t0Amt, listing.pair.token0)}</span>
+                    <span>{fmtToken(t1Amt, listing.pair.token1)}</span>
+                  </>
+                }
+                return <>
+                  <span>{fmtUSD(listing.initialLiquidityUSD / 2)} {listing.pair.token0}</span>
+                  <span>{fmtUSD(listing.initialLiquidityUSD / 2)} {listing.pair.token1}</span>
+                </>
               })()}
             </dd>
           </div>
@@ -1377,18 +1402,25 @@ function OwnerPanel({
                     Trader-market size. At 1× leverage Trader market = Pool size.
                   </HelpPopover>
                 </dt>
-                <dd className="font-semibold text-gray-900 num">
+                <dd className="font-semibold text-gray-900 num text-right">
                   {fmtUSD(traderMarketUSD)}
-                  <span className="text-[11px] text-gray-500 font-normal ml-1.5">
+                  <span className="block text-[11px] text-gray-500 font-normal">
                     = {fmtUSD(listing.initialLiquidityUSD)} × {listing.providerLeverage}×
                   </span>
                 </dd>
-                <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">
+                <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 flex flex-col items-end">
                   {(() => {
                     const { t0Amt, t1Amt } = splitToTokens(traderMarketUSD, listing)
-                    return t0Amt !== null && t1Amt !== null
-                      ? `${fmtToken(t0Amt, listing.pair.token0)} · ${fmtToken(t1Amt, listing.pair.token1)}`
-                      : `${fmtUSD(traderMarketUSD / 2)} ${listing.pair.token0} · ${fmtUSD(traderMarketUSD / 2)} ${listing.pair.token1}`
+                    if (t0Amt !== null && t1Amt !== null) {
+                      return <>
+                        <span>{fmtToken(t0Amt, listing.pair.token0)}</span>
+                        <span>{fmtToken(t1Amt, listing.pair.token1)}</span>
+                      </>
+                    }
+                    return <>
+                      <span>{fmtUSD(traderMarketUSD / 2)} {listing.pair.token0}</span>
+                      <span>{fmtUSD(traderMarketUSD / 2)} {listing.pair.token1}</span>
+                    </>
                   })()}
                 </dd>
               </div>
@@ -1396,8 +1428,8 @@ function OwnerPanel({
           })()}
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Range</dt>
-            <dd className="font-medium text-gray-900 num">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
-            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5">price · {listing.pair.token0}/{listing.pair.token1}</dd>
+            <dd className="font-medium text-gray-900 num text-right">{fmtRange(listing.rangeLow, listing.rangeHigh)}</dd>
+            <dd className="text-[11px] text-gray-500 num leading-tight mt-0.5 text-right">price · {listing.pair.token0}/{listing.pair.token1}</dd>
           </div>
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500 inline-flex items-center gap-1">
@@ -1406,12 +1438,12 @@ function OwnerPanel({
                 <p>Realized Uniswap fees APY на underlying V3 пуле за последние 30 дней. Это базовая доходность позиции от Uniswap, без учёта sLiq Premium.</p>
               </HelpPopover>
             </dt>
-            <dd className="font-semibold text-gray-900 num">{fmtPct(listing.uniswapApyBps)}</dd>
-            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5">от Uniswap pool · 30d</dd>
+            <dd className="font-semibold text-gray-900 num text-right">{fmtPct(listing.uniswapApyBps)}</dd>
+            <dd className="text-[11px] text-gray-500 leading-tight mt-0.5 text-right">от Uniswap pool · 30d</dd>
           </div>
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-gray-500">Protocol · fee tier</dt>
-            <dd className="font-medium text-gray-900">Uniswap v3 <span className="num">· {fmtFeeTier(listing.feeTierBps)}</span></dd>
+            <dd className="font-medium text-gray-900 text-right">Uniswap v3 <span className="num">· {fmtFeeTier(listing.feeTierBps)}</span></dd>
             {/* NFT #X removed per Eugene 2026-05-15 — already shown in the page header
                 (breadcrumb area). Was duplicated here. */}
           </div>
@@ -1516,13 +1548,8 @@ function OwnerPanel({
           under ProMetrics per Eugene 2026-05-15. Lives in OwnerPositionAnalytics
           component now, rendered next to ProMetrics for visual grouping. */}
 
-      {/* Listing transactions — per-trader audit of closed positions on THIS listing.
-          Named to mirror the global «Market transactions» (ClosedPositionsList) — same
-          data type, just filtered to this one listing. Fills the «black-box» gap
-          between Fees aggregate ($X earned) and the per-position detail of where
-          that came from. Eugene 2026-05-15: «Rental» — не закрепили в продукте,
-          нужно nomenclature parallel to global feed. */}
-      <ListingTransactions listing={listing} />
+      {/* Listing transactions moved to page-level footer below the 2-col grid
+          (Eugene 2026-05-15) — see comment in outer ListingDetail. */}
 
       {/* Manage listing · Pro panel moved up next to Listing summary (Eugene 2026-05-15) —
           user switches to Pro specifically to tune leverage / min APY, panel needs to be

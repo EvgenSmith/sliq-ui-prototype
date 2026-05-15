@@ -1,6 +1,6 @@
 // HelpPopover — small ⓘ icon with click-to-expand explanation panel.
 // Used for tooltip content that's too long for native title attribute.
-// Auto-flips horizontally so it doesn't clip past viewport edges.
+// Auto-clamps horizontally to viewport so it never clips on narrow screens.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
@@ -10,14 +10,14 @@ interface Props {
   width?: string // tailwind width class
 }
 
-type Side = 'left' | 'right'
-
 export function HelpPopover({ children, label = 'More info', width = 'w-80' }: Props) {
   const [open, setOpen] = useState(false)
-  // Which edge of the popover we anchor to the icon.
-  // 'right' = popover extends LEFT from the icon  (icon near right edge of viewport)
-  // 'left'  = popover extends RIGHT from the icon (icon near left edge of viewport)
-  const [side, setSide] = useState<Side>('right')
+  // Pixel offset of the panel's left edge relative to the icon's left edge.
+  // Computed on open so the panel always stays inside the viewport regardless of
+  // where the icon sits. Fixes mobile clipping where neither «extend-left» nor
+  // «extend-right» fit the full panel (Eugene 2026-05-15 — tooltip popping off
+  // screen on narrow viewport).
+  const [offsetX, setOffsetX] = useState<number | null>(null)
   const ref = useRef<HTMLSpanElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -37,24 +37,27 @@ export function HelpPopover({ children, label = 'More info', width = 'w-80' }: P
     }
   }, [open])
 
-  // Measure on open: if extending-left would clip past viewport's left edge,
-  // flip to extend right. Same in reverse.
+  // Measure on open: clamp panel so it stays inside [padding, viewportW - padding].
+  // Falls back to side-aware default while measuring (first render before useLayoutEffect).
   useLayoutEffect(() => {
-    if (!open || !ref.current || !panelRef.current) return
+    if (!open || !ref.current || !panelRef.current) {
+      setOffsetX(null)
+      return
+    }
     const iconRect = ref.current.getBoundingClientRect()
     const panelWidth = panelRef.current.offsetWidth
     const viewportW = window.innerWidth
     const padding = 8
 
-    // Try default (extends left). Left edge of panel = iconRect.right - panelWidth.
-    const leftWhenExtendingLeft = iconRect.right - panelWidth
-    const rightWhenExtendingRight = iconRect.left + panelWidth
-
-    if (leftWhenExtendingLeft < padding && rightWhenExtendingRight < viewportW - padding) {
-      setSide('left') // extend right
-    } else {
-      setSide('right') // extend left (default)
-    }
+    // Ideal: center panel under icon
+    const idealLeftViewport = iconRect.left + iconRect.width / 2 - panelWidth / 2
+    // Clamp to viewport
+    const clampedLeftViewport = Math.max(
+      padding,
+      Math.min(idealLeftViewport, viewportW - panelWidth - padding),
+    )
+    // Convert to offset relative to icon (so absolute positioning works)
+    setOffsetX(clampedLeftViewport - iconRect.left)
   }, [open])
 
   return (
@@ -75,9 +78,15 @@ export function HelpPopover({ children, label = 'More info', width = 'w-80' }: P
       {open && (
         <div
           ref={panelRef}
+          // Render slightly transparent while offset is being computed (first frame)
+          // to avoid the flash-of-misplaced-panel.
+          style={{
+            left: offsetX !== null ? `${offsetX}px` : undefined,
+            right: offsetX !== null ? 'auto' : 0,
+            visibility: offsetX === null ? 'hidden' : 'visible',
+          }}
           className={
             'absolute top-full mt-1 ' +
-            (side === 'right' ? 'right-0 ' : 'left-0 ') +
             width +
             ' max-w-[calc(100vw-1rem)] rounded-md border border-gray-200 bg-white shadow-xl p-3.5 text-xs text-gray-700 leading-relaxed z-50 text-left font-normal normal-case tracking-normal whitespace-normal'
           }

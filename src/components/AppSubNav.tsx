@@ -20,7 +20,7 @@ const TRADE_TABS: SubTab[] = [
   },
   {
     to: '/trader/closed',
-    label: 'Market transactions',
+    label: 'Transactions',
     match: p => p === '/trader/closed' || p.startsWith('/trader/closed/'),
   },
 ]

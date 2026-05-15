@@ -1486,8 +1486,12 @@ function ListNFTModal({ nft, onClose }: { nft: WalletNFT; onClose: () => void })
                         </button>
                       ))}
                     </div>
+                    {/* Amber «Liquidation risk applies» warning hidden on mobile per
+                        Eugene 2026-05-15 — duplicates the danger-coloured Liquidation
+                        price line inside the ProPreview block below. Desktop keeps
+                        the inline warning for extra emphasis next to the slider. */}
                     {leverage > 1 && (
-                      <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex items-start gap-2">
+                      <div className="hidden sm:flex mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 items-start gap-2">
                         <span>⚠️</span>
                         <div>
                           <strong>Liquidation risk applies.</strong> At {leverage}× your liquidation triggers
@@ -1700,17 +1704,17 @@ function PoolInfoCard({
         small
       />
 
-      {/* Pool size — Lite only (Pro shows it in bottom ProPreview alongside Trader market) */}
+      {/* Pool size — Lite only (Pro shows it in bottom ProPreview alongside Trader market).
+          2-line right-aligned per Eugene 2026-05-15: token0 / token1 each on own row,
+          flush right. Previously was one long line with `·` separator that wrapped
+          awkwardly on mobile. */}
       {isLite && (
         <ParamRow
           label="Pool size"
           value={
-            <span>
-              {fmtTokenAmount(amount0)} {nft.pair.token0}{' '}
-              <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
-              <span className="text-gray-400 font-normal mx-1">·</span>
-              {fmtTokenAmount(amount1)} {nft.pair.token1}{' '}
-              <span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span>
+            <span className="inline-flex flex-col items-end leading-tight">
+              <span>{fmtTokenAmount(amount0)} {nft.pair.token0}{' '}<span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span></span>
+              <span>{fmtTokenAmount(amount1)} {nft.pair.token1}{' '}<span className="text-gray-500 font-normal">({fmtUSD(halfUsd)})</span></span>
             </span>
           }
           small
@@ -1796,12 +1800,9 @@ function ProPreview({
       <ParamRow
         label="Pool size"
         value={
-          <span>
-            {fmtTokenAmount(real.amount0)} {nft.pair.token0}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(real.halfUsd)})</span>
-            <span className="text-gray-400 font-normal mx-1">·</span>
-            {fmtTokenAmount(real.amount1)} {nft.pair.token1}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(real.halfUsd)})</span>
+          <span className="inline-flex flex-col items-end leading-tight">
+            <span>{fmtTokenAmount(real.amount0)} {nft.pair.token0}{' '}<span className="text-gray-500 font-normal">({fmtUSD(real.halfUsd)})</span></span>
+            <span>{fmtTokenAmount(real.amount1)} {nft.pair.token1}{' '}<span className="text-gray-500 font-normal">({fmtUSD(real.halfUsd)})</span></span>
           </span>
         }
         small
@@ -1819,19 +1820,20 @@ function ProPreview({
           </span>
         }
         value={
-          <span>
-            {fmtTokenAmount(virt.amount0)} {nft.pair.token0}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
-            <span className="text-gray-400 font-normal mx-1">·</span>
-            {fmtTokenAmount(virt.amount1)} {nft.pair.token1}{' '}
-            <span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span>
+          <span className="inline-flex flex-col items-end leading-tight">
+            <span>{fmtTokenAmount(virt.amount0)} {nft.pair.token0}{' '}<span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span></span>
+            <span>{fmtTokenAmount(virt.amount1)} {nft.pair.token1}{' '}<span className="text-gray-500 font-normal">({fmtUSD(virt.halfUsd)})</span></span>
           </span>
         }
         small
       />
       <ParamRow
         label="Liquidation price"
-        value={leverage > 1 ? `~${liqDistancePct?.toFixed(1)}% from spot` : '— (no liquidation)'}
+        value={
+          leverage > 1
+            ? <span className="text-[var(--color-status-danger)] font-semibold">~{liqDistancePct?.toFixed(1)}% from spot</span>
+            : <span>— (no liquidation)</span>
+        }
         small
       />
     </div>
