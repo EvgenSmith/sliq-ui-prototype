@@ -16,7 +16,8 @@ import {
   shortAddr,
 } from '@/lib/format'
 import { APYBreakdown } from '@/components/APYBreakdown'
-import { RiskPanel } from '@/components/RiskPanel'
+// RiskPanel removed from this screen per Eugene 2026-05-15. Component still
+// lives in components/ for the ListingLiquidation route.
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 import { LPFlowSelector } from '@/components/LPFlowSelector'
 import { HelpPopover } from '@/components/HelpPopover'
@@ -53,14 +54,8 @@ export function ListingDetail() {
   const isSubsidized = listing.minPremiumApyBps < 0
   const isFull = listing.availableCapacityUSD <= 0
 
-  // Compute stress for RiskPanel
-  const stress = isAdvanced && listing.aggregateReserveUSD !== undefined
-    ? [
-        { label: '+20%', reserveAfter: listing.aggregateReserveUSD * 0.62, triggers: false },
-        { label: '−20%', reserveAfter: listing.aggregateReserveUSD * 0.41, triggers: false },
-      ]
-    : []
-  const traderClaimsUSD = listingPositions.reduce((s, p) => s + p.reserveUSD * 0.3, 0)
+  // `stress` + `traderClaimsUSD` lived here as inputs to the removed
+  // RiskPanel block. Dropped 2026-05-15 with the panel itself.
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -206,16 +201,14 @@ export function ListingDetail() {
           </div>
           )}
 
-          {/* Risk panel — Advanced only, OWNER perspective. Hidden for trader (his risk = his own position liq, shown on S9 instead) */}
-          {isOwner && isAdvanced && listing.aggregateReserveUSD !== undefined && (
-            <RiskPanel
-              context="lp-listing"
-              aggregateReserveUSD={listing.aggregateReserveUSD}
-              distanceToLiqPct={listing.distanceToLiqPct ?? 0}
-              stress={stress}
-              traderClaimsUSD={traderClaimsUSD}
-            />
-          )}
+          {/* «Advanced — listing risk» panel removed per Eugene 2026-05-15
+              («Этот блок выпили»). The signal it carried (aggregate reserve,
+              distance to liq, stress test, trader claims) is now better served
+              by the Risk column in My Listings + the HF / liquidation context
+              in the per-listing Listing summary card. The collapsible
+              «what happens if liquidation triggers» explainer was the only
+              part not covered elsewhere — if needed back, lives in component
+              `RiskPanel` and the screen-specific `ListingLiquidation` route. */}
 
           {/* Owner-specific position analytics — always-visible quick-glance perf
               indicators (hit-rate, avg leased). Per Eugene 2026-05-15 placed ABOVE
