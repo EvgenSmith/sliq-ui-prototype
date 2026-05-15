@@ -1202,16 +1202,16 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
         <div className="font-medium text-gray-900">{fmtUSD(listing.initialLiquidityUSD)}</div>
         <div className="text-[10px] text-gray-500 mt-0.5">{Math.round(leasedPct)}% leased</div>
       </td>
-      {/* 5. Health cell — two lines: risk chip on top, HF below (Pro only).
-            Eugene 2026-05-15 v3: moved before APY — risk read lands before
-            yield (decide on risk, then assess carry). */}
+      {/* 5. Health cell — two lines: risk label on top, HF below (Pro only).
+            Eugene 2026-05-15 v3: moved before APY.
+            Eugene 2026-05-15 v4: risk chip → coloured plain text (matches the
+            «Safe» treatment in ListingDetail Listing summary — consistent
+            vocabulary across surfaces). Gray for No Risk, amber for the rest. */}
       <td className="px-3 py-3 text-right num hidden md:table-cell">
         {(() => {
           const advanced = listing.providerMode === 'advanced'
-          const chipCls = (subsidized || advanced)
-            ? 'bg-amber-50 text-amber-900 border-amber-300'
-            : 'bg-gray-50 text-gray-500 border-gray-200'
-          const chipLabel = subsidized && advanced
+          const riskColor = (subsidized || advanced) ? 'text-amber-800' : 'text-gray-500'
+          const riskLabel = subsidized && advanced
             ? `Sub · Risk ${listing.providerLeverage}×`
             : subsidized
             ? 'Subsidized'
@@ -1219,9 +1219,9 @@ function ListingRow({ listing, hasAnyPro, onClick, onClaim }: {
             ? `Risk ${listing.providerLeverage}×`
             : 'No Risk'
           return (
-            <div className="inline-flex flex-col items-end gap-0.5">
-              <span className={'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-medium num whitespace-nowrap ' + chipCls}>
-                {chipLabel}
+            <div className="inline-flex flex-col items-end gap-0.5 leading-tight">
+              <span className={'text-[11px] font-semibold num whitespace-nowrap ' + riskColor}>
+                {riskLabel}
               </span>
               {isPro && hf !== undefined && (
                 <span
