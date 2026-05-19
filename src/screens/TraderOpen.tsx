@@ -8,7 +8,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { listings, positions } from '@/mocks/data'
 import { fmtFeeTier, fmtPct, fmtRange, fmtUSD, shortAddr } from '@/lib/format'
 import { NotionalInput } from '@/components/NotionalInput'
-import { RiskPanel } from '@/components/RiskPanel'
+// RiskPanel dropped from this screen per Eugene 2026-05-18 — see comment
+// near the (removed) <RiskPanel> render block below.
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 
 type Mode = 'token0' | 'token1' | 'USD'
@@ -104,29 +105,9 @@ export function TraderOpen() {
     }
   }
 
-  // RiskPanel preview values
-  const stressPreview = [
-    {
-      label: '+5%',
-      reserveAfter: marginValueUSD - notionalUSD * 0.0025,
-      triggers: marginValueUSD - notionalUSD * 0.0025 < marginValueUSD * 0.1,
-    },
-    {
-      label: '−5%',
-      reserveAfter: marginValueUSD - notionalUSD * 0.0025,
-      triggers: marginValueUSD - notionalUSD * 0.0025 < marginValueUSD * 0.1,
-    },
-    {
-      label: '+20%',
-      reserveAfter: marginValueUSD - notionalUSD * 0.04,
-      triggers: marginValueUSD - notionalUSD * 0.04 < marginValueUSD * 0.1,
-    },
-    {
-      label: '−20%',
-      reserveAfter: marginValueUSD - notionalUSD * 0.04,
-      triggers: marginValueUSD - notionalUSD * 0.04 < marginValueUSD * 0.1,
-    },
-  ]
+  // stressPreview values were the only consumer of RiskPanel — dropped along
+  // with the panel itself (Eugene 2026-05-18). Will be redesigned with the
+  // trader-side overhaul informed by the May 18 trader-interface review.
 
   const canSubmit =
     apyValid && apyStepValid && marginValueUSD > 0 && notionalUSD > 0 && notionalUSD <= listing.availableCapacityUSD + (isOutbid ? listing.totalCapacityUSD : 0)
@@ -406,14 +387,13 @@ export function TraderOpen() {
             </dl>
           </div>
 
-          <RiskPanel
-            context="preview"
-            previewLabel="estimated at open"
-            aggregateReserveUSD={marginValueUSD}
-            distanceToLiqPct={Math.min(100, Math.max(0, Math.round(((marginValueUSD - marginValueUSD * 0.1) / marginValueUSD) * 100)))}
-            stress={stressPreview}
-            traderClaimsUSD={0}
-          />
+          {/* «Advanced — listing risk» preview panel removed per Eugene
+              2026-05-18 («Этот блок выпили»). The aggregate-reserve / stress
+              / distance-to-liq read here will be redesigned as part of the
+              trader-side overhaul informed by the May 18 trader-interface
+              review. Until then, the trader gets risk context inline in the
+              open-position card (margin / leverage / liq distance) and on
+              the per-position pages — no aside panel here. */}
         </aside>
       </div>
 
