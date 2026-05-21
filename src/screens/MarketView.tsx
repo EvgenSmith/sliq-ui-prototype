@@ -30,7 +30,7 @@ import { HelpPopover } from '@/components/HelpPopover'
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 
 // ─── Aggregated market shape ────────────────────────────────────────────
-interface AggregatedMarket {
+export interface AggregatedMarket {
   key: string                              // pair · feeTier · rangeLow · rangeHigh
   pair: { token0: string; token1: string }
   dex: Listing['dex']
@@ -60,7 +60,7 @@ interface ActiveRow {
 }
 
 // ─── Aggregation logic ──────────────────────────────────────────────────
-function buildMarkets(allListings: Listing[], allPositions: Position[]): AggregatedMarket[] {
+export function buildMarkets(allListings: Listing[], allPositions: Position[]): AggregatedMarket[] {
   // Bucket listings by tick-exact (pair × dex × fee × rangeLow × rangeHigh)
   const buckets = new Map<string, Listing[]>()
   for (const l of allListings) {
@@ -346,7 +346,14 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
       <div className="px-4 py-3 border-b border-gray-100 flex items-baseline justify-between gap-3 flex-wrap">
         <div className="inline-flex items-baseline gap-2 flex-wrap">
           <h2 className="text-base font-semibold">
-            {market.pair.token0} / {market.pair.token1}
+            <button
+              type="button"
+              onClick={() => navigate(`/market/${encodeURIComponent(market.key)}`)}
+              className="hover:text-[var(--color-role-trader)] hover:underline transition cursor-pointer"
+              title="Drill into the full order book for this market"
+            >
+              {market.pair.token0} / {market.pair.token1}
+            </button>
           </h2>
           {isVerifiedPair(market.pair) && (
             <span
