@@ -31,7 +31,7 @@ export const SORT_OPTIONS = [
   { id: 'capacity-desc', label: 'Available capacity' },
   { id: 'time-desc', label: 'Newest first' },
   { id: 'midpoint-asc', label: 'Price near range center' },
-  { id: 'fee-asc', label: 'Fee tier · low → high' },
+  // «Fee tier · low → high» dropped per Eugene 2026-05-20.
 ] as const
 
 export type SortId = typeof SORT_OPTIONS[number]['id']

@@ -34,7 +34,7 @@ export function ListingsMarketplace() {
   const [feeTiersOn, setFeeTiersOn] = useState<Set<number>>(
     () => new Set(FEE_TIER_OPTIONS.map(o => o.bps))
   )
-  const [mode, setMode] = useState<'all' | 'conservative' | 'advanced'>('all')
+  // Stability filter dropped per Eugene 2026-05-20.
   const [rangeStatus, setRangeStatus] = useState<'all' | 'in' | 'out'>('all')
   const [subsidizedOnly, setSubsidizedOnly] = useState(false)
   const [outbidOnly, setOutbidOnly] = useState(false)
@@ -78,7 +78,6 @@ export function ListingsMarketplace() {
       out = out.filter(l => `${l.pair.token0}/${l.pair.token1}` === pairFilter)
     }
     out = out.filter(l => feeTiersOn.has(l.feeTierBps))
-    if (mode !== 'all') out = out.filter(l => l.providerMode === mode)
     if (rangeStatus !== 'all') {
       out = out.filter(l => {
         const rs = getRangeStatus(l)
@@ -112,9 +111,6 @@ export function ListingsMarketplace() {
       case 'midpoint-asc':
         out.sort((a, b) => distanceToRangeMidpointBps(a) - distanceToRangeMidpointBps(b))
         break
-      case 'fee-asc':
-        out.sort((a, b) => a.feeTierBps - b.feeTierBps)
-        break
     }
     // Eugene 2026-05-20 — terminal listings (closed / liquidated / closing /
     // liquidating) always sink to the bottom, regardless of selected sort.
@@ -129,7 +125,7 @@ export function ListingsMarketplace() {
     }
     out.sort((a, b) => (TERMINAL_RANK[a.status] ?? 0) - (TERMINAL_RANK[b.status] ?? 0))
     return out
-  }, [pairFilter, feeTiersOn, mode, rangeStatus, subsidizedOnly, outbidOnly, hideOwned, sort, outbidByListing])
+  }, [pairFilter, feeTiersOn, rangeStatus, subsidizedOnly, outbidOnly, hideOwned, sort, outbidByListing])
 
   const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
@@ -140,7 +136,6 @@ export function ListingsMarketplace() {
   const activeFilterCount =
     (pairFilter !== 'all' ? 1 : 0) +
     (feeTiersOn.size !== FEE_TIER_OPTIONS.length ? 1 : 0) +
-    (mode !== 'all' ? 1 : 0) +
     (rangeStatus !== 'all' ? 1 : 0) +
     (subsidizedOnly ? 1 : 0) +
     (outbidOnly ? 1 : 0) +
@@ -149,7 +144,6 @@ export function ListingsMarketplace() {
   function resetFilters() {
     setPairFilter('all')
     setFeeTiersOn(new Set(FEE_TIER_OPTIONS.map(o => o.bps)))
-    setMode('all')
     setRangeStatus('all')
     setSubsidizedOnly(false)
     setOutbidOnly(false)
@@ -200,17 +194,9 @@ export function ListingsMarketplace() {
           ))}
         </select>
 
-        {/* Listing stability (was LP risk / Mode) */}
-        <select
-          value={mode}
-          onChange={e => { setMode(e.target.value as typeof mode); setPage(1) }}
-          className={selectCls(mode !== 'all')}
-          aria-label="Listing stability"
-        >
-          <option value="all">All stability</option>
-          <option value="conservative">Safe · 1×</option>
-          <option value="advanced">At-risk · &gt;1×</option>
-        </select>
+        {/* Listing stability filter dropped per Eugene 2026-05-20 — Provider
+            Leverage moves to the detail page per ТЗ §3.1; trader marketplace
+            shouldn't filter on an LP-vocabulary axis. */}
 
         {/* Range status */}
         <select
