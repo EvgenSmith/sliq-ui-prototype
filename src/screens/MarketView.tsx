@@ -45,12 +45,16 @@ export interface AggregatedMarket {
   longPoolOrders: PoolOrder[]              // LP-side orders, sorted desc by Premium APY
   activePositions: ActiveRow[]             // matched LP↔trader pairings
   shortPoolOrders: PoolOrder[]             // trader-side orders, sorted asc by Premium APY
-  myInActive: boolean                      // any Maria position in active rows?
+  myInActive: boolean                      // any of my positions in active rows?
+  /** Optional demo-card tag (e.g. «populated example», «my position in
+   *  LongPool») shown as a chip in the header. */
+  demoLabel?: string
 }
 
 interface PoolOrder {
   premiumApyBps: number
   liquidityUSD: number
+  isMine?: boolean
 }
 
 interface ActiveRow {
@@ -168,6 +172,79 @@ function roundBps(bps: number): number {
   return Math.round(bps / 100) * 100
 }
 
+// ─── Demo markets ──────────────────────────────────────────────────────
+// Persistent example cards pinned at the top of the list (Eugene
+// 2026-05-21). Each demonstrates a specific render state so the team
+// can see how the card behaves without having to find a real listing
+// in that state:
+//   1. populated     — exactly one entry in each pane (no «mine»)
+//   2. my-long       — my order in LongPool
+//   3. my-active     — my matched position in Active
+//   4. my-short      — my order in ShortPool
+//
+// Demos are NOT filterable / sortable — they always render first.
+export function buildDemoMarkets(): AggregatedMarket[] {
+  const baseEth = (extras: Partial<AggregatedMarket> & { demoLabel: string }): AggregatedMarket => ({
+    key: `demo-${extras.demoLabel}`,
+    pair: { token0: 'ETH', token1: 'USDC' },
+    dex: 'uniswap-v3',
+    feeTierBps: 5,
+    rangeLow: 3200,
+    rangeHigh: 3500,
+    currentPrice: 3370,
+    inRangePct: 88,
+    rangeWidthPct: 9.1,
+    totalLiquidityUSD: 0,
+    uniswapApyBps: 1240,
+    longPoolOrders: [],
+    activePositions: [],
+    shortPoolOrders: [],
+    myInActive: false,
+    ...extras,
+  })
+
+  return [
+    baseEth({
+      demoLabel: 'populated example',
+      totalLiquidityUSD: 18_500,
+      longPoolOrders: [{ premiumApyBps: 1000, liquidityUSD: 8_500 }],
+      activePositions: [{ premiumApyBps: 500, liquidityUSD: 6_000, isMine: false }],
+      shortPoolOrders: [{ premiumApyBps: 0, liquidityUSD: 4_000 }],
+    }),
+    baseEth({
+      demoLabel: 'my LongPool order',
+      totalLiquidityUSD: 22_000,
+      longPoolOrders: [
+        { premiumApyBps: 1200, liquidityUSD: 6_000 },
+        { premiumApyBps: 800, liquidityUSD: 5_000, isMine: true },
+      ],
+      activePositions: [{ premiumApyBps: 600, liquidityUSD: 7_000, isMine: false }],
+      shortPoolOrders: [{ premiumApyBps: 200, liquidityUSD: 4_000 }],
+    }),
+    baseEth({
+      demoLabel: 'my Active position',
+      totalLiquidityUSD: 19_500,
+      longPoolOrders: [{ premiumApyBps: 900, liquidityUSD: 4_500 }],
+      activePositions: [
+        { premiumApyBps: 700, liquidityUSD: 5_000, isMine: false },
+        { premiumApyBps: 400, liquidityUSD: 7_000, isMine: true },
+      ],
+      shortPoolOrders: [{ premiumApyBps: 100, liquidityUSD: 3_000 }],
+      myInActive: true,
+    }),
+    baseEth({
+      demoLabel: 'my ShortPool order',
+      totalLiquidityUSD: 16_000,
+      longPoolOrders: [{ premiumApyBps: 1100, liquidityUSD: 5_500 }],
+      activePositions: [{ premiumApyBps: 600, liquidityUSD: 4_500, isMine: false }],
+      shortPoolOrders: [
+        { premiumApyBps: 300, liquidityUSD: 3_000, isMine: true },
+        { premiumApyBps: 0, liquidityUSD: 3_000 },
+      ],
+    }),
+  ]
+}
+
 // ─── Component ─────────────────────────────────────────────────────────
 export function MarketView() {
   const [pairFilter, setPairFilter] = useState<string>('all')
@@ -176,8 +253,11 @@ export function MarketView() {
   )
   const [rangeStatus, setRangeStatus] = useState<'all' | 'in' | 'out'>('all')
   const [sort, setSort] = useState<'liquidity-desc' | 'apy-desc'>('liquidity-desc')
+  const [pageSize, setPageSize] = useState<number>(10)
+  const [page, setPage] = useState<number>(1)
 
   const markets = useMemo(() => buildMarkets(listings, positions), [])
+  const demos = useMemo(() => buildDemoMarkets(), [])
 
   const allPairs = useMemo(() => {
     const set = new Set<string>()
@@ -284,11 +364,46 @@ export function MarketView() {
         </div>
       </div>
 
-      {/* Market cards */}
-      <div className="space-y-4">
-        {filtered.map(m => (
+      {/* Demo cards — persistent examples pinned above real markets so the
+          team can see how each render state behaves (Eugene 2026-05-21). */}
+      <div className="space-y-4 mb-4">
+        {demos.map(m => (
           <MarketCard key={m.key} market={m} />
         ))}
+      </div>
+
+      {/* Pagination meta */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-2 mb-3 text-[11px] text-gray-500">
+          <span>
+            Showing {pageSize === -1
+              ? filtered.length
+              : Math.min(filtered.length, (page - 1) * pageSize + 1) + '–' + Math.min(filtered.length, page * pageSize)
+            } of {filtered.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">Page size</span>
+            <select
+              value={pageSize}
+              onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
+              className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={-1}>All</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Market cards */}
+      <div className="space-y-4">
+        {(() => {
+          if (pageSize === -1) return filtered.map(m => <MarketCard key={m.key} market={m} />)
+          const start = (page - 1) * pageSize
+          return filtered.slice(start, start + pageSize).map(m => <MarketCard key={m.key} market={m} />)
+        })()}
         {filtered.length === 0 && (
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
             <p className="text-sm text-gray-600 mb-1">No markets match current filters.</p>
@@ -311,6 +426,36 @@ export function MarketView() {
           </div>
         )}
       </div>
+
+      {/* Pagination controls */}
+      {(() => {
+        if (pageSize === -1 || filtered.length <= pageSize) return null
+        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+        const safePage = Math.min(page, totalPages)
+        return (
+          <div className="mt-4 flex items-center justify-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              className="text-xs px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              ← Prev
+            </button>
+            <span className="text-xs text-gray-500 num px-2">
+              {safePage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              className="text-xs px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              Next →
+            </button>
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -368,6 +513,14 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           {market.myInActive && (
             <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 font-semibold">
               my position
+            </span>
+          )}
+          {market.demoLabel && (
+            <span
+              className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-semibold"
+              title="Persistent demo card — illustrates one rendering state of the market view."
+            >
+              demo · {market.demoLabel}
             </span>
           )}
         </div>
@@ -732,15 +885,17 @@ function PoolPane({
       <div className="flex items-baseline justify-between gap-2 mb-1">
         <div>
           <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="text-[10px] uppercase tracking-wide text-gray-500 mt-0.5">{subtitle}</p>
         </div>
+        {/* Button — two-line: title on top + subtitle below in smaller type.
+            Eugene 2026-05-21: «в кнопках нет подписи как обсуждали». */}
         <button
           type="button"
           onClick={onCta}
-          className="text-xs font-semibold px-2.5 py-1.5 rounded-md text-white hover:opacity-90 transition whitespace-nowrap"
+          className="text-[12px] font-semibold px-2.5 py-1.5 rounded-md text-white hover:opacity-90 transition whitespace-nowrap text-center leading-tight"
           style={{ background: accent }}
         >
           {ctaLabel}
+          <div className="text-[9px] font-normal opacity-90 -mt-0.5">{subtitle}</div>
         </button>
       </div>
 
@@ -761,11 +916,15 @@ function PoolPane({
                 onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
                 className={
                   'border-t border-gray-100 ' +
+                  (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
                   (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
                 }
                 title={onRowClick ? `Click to ${tone === 'long' ? 'provide liquidity' : 'open position'} at this Premium APY` : undefined}
               >
-                <td className="py-1.5 text-gray-700">{fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}</td>
+                <td className="py-1.5 text-gray-700">
+                  {r.isMine && <span className="mr-1">🙂</span>}
+                  {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
+                </td>
                 <td className="py-1.5 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
               </tr>
             ))}
