@@ -813,29 +813,44 @@ function MarketActionModal({
   const LEV_DEFAULT = isLong ? 25 : 1000
   const LEV_TICKS = isLong ? [1, 25, 50, 75, 100] : [1, 100, 500, 1000]
 
-  // Margin token-mode — Eugene 2026-05-21 wants 3 modes: USD (auto-split),
-  // token0-only, token1-only, with «Approve <token>» two-step CTA.
-  type MarginMode = 'usd' | 't0' | 't1'
-  const [marginMode, setMarginMode] = useState<MarginMode>('usd')
+  // Margin token-mode — Eugene 2026-05-21 v2:
+  //   t1   — single-token in token1 (USDC for ETH/USDC pair) [DEFAULT]
+  //   t0   — single-token in token0 (ETH)
+  //   both — both tokens deposited separately (not USD-split)
+  type MarginMode = 't1' | 't0' | 'both'
+  const [marginMode, setMarginMode] = useState<MarginMode>('t1')
   const [marginUSD, setMarginUSD] = useState(1000)
   const [leverage, setLeverage] = useState(LEV_DEFAULT)
   const [apyBps, setApyBps] = useState(initialApy)
   const [approved, setApproved] = useState(false)
 
-  // Token amounts derived from USD value at current pool price.
+  // Token amounts derived from the margin USD value at current pool price.
   // Real flow would respect tick spacing; this is the prototype approximation.
+  // For `both` mode, half goes to each side.
   const tok0Amt = (marginUSD / 2) / Math.max(market.currentPrice, 1e-12)
   const tok1Amt = marginUSD / 2
 
   const virtualNotional = marginUSD * leverage
+  // LP-side rename — «Virtual notional» on trader-side is «Trader market»
+  // on LP-side flow (per ListingDetail.tsx ProMetrics). Same number, role-
+  // appropriate label. Eugene 2026-05-21.
+  const exposureLabel = isLong ? 'Trader market' : 'Virtual notional'
   const apyPct = apyBps / 100
   const carryPerHour = (virtualNotional * apyBps / 10000) / 8760
   const carryPerDay = carryPerHour * 24
   const liqDistancePct = (0.9 / leverage) * 100
 
-  // Which token needs approval first depends on mode. For 'usd' (auto-split)
-  // we assume both — but for prototype simplicity just approve token0.
-  const approveToken = marginMode === 't1' ? market.pair.token1 : market.pair.token0
+  // Approve-token resolution: in 'both' mode we still need only one approve
+  // for prototype (real flow approves both). Pick token0 for ETH-style first.
+  const approveToken =
+    marginMode === 't0' ? market.pair.token0
+    : marginMode === 't1' ? market.pair.token1
+    : market.pair.token0
+
+  // Mock wallet balances — used to drive the Max button. Real flow reads
+  // from wallet provider; for prototype these are static.
+  const MOCK_BALANCE_USD = 25_000
+  function applyMax() { setMarginUSD(MOCK_BALANCE_USD) }
 
   const sideMeta = isLong
     ? {
@@ -874,15 +889,19 @@ function MarketActionModal({
                 Uniswap APY {fmtPct(market.uniswapApyBps)}
               </span>
             </div>
+            {/* Header text — Eugene 2026-05-21: «Price Range: 9.1% (in range
+                88%) — bounds visible on the chart below, no need to repeat». */}
             <div className="text-[10px] num text-gray-600 mb-1.5">
-              Price range <span className="font-medium">({market.rangeWidthPct.toFixed(1)}%)</span>{' '}
-              <span className="text-gray-900 font-medium">{fmtPriceShort(market.rangeLow)} – {fmtPriceShort(market.rangeHigh)}</span>
+              <span className="text-gray-500">Price Range</span>{' '}
+              <span className="font-medium text-gray-900">{market.rangeWidthPct.toFixed(1)}%</span>{' '}
+              <span className="text-gray-500">(in range {market.inRangePct}%)</span>
             </div>
             <RangeBar
               rangeLow={market.rangeLow}
               rangeHigh={market.rangeHigh}
               currentPrice={market.currentPrice}
-              inRangePct={market.inRangePct}
+              // inRangePct dropped here — already in the title above. Tooltip
+              // on the price marker explains it's «current price».
             />
           </div>
 
@@ -972,12 +991,14 @@ function MarketActionModal({
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="text-xs font-medium text-gray-700">Margin</label>
+              {/* Mode order: token1 (USDC) → token0 (ETH) → both, per Eugene
+                  2026-05-21. «both» = both tokens deposited separately. */}
               <div className="inline-flex rounded border border-gray-300 overflow-hidden text-[10px]">
                 <button
                   type="button"
-                  onClick={() => { setMarginMode('usd'); setApproved(false) }}
-                  className={'px-2 py-0.5 ' + (marginMode === 'usd' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
-                >USD · both</button>
+                  onClick={() => { setMarginMode('t1'); setApproved(false) }}
+                  className={'px-2 py-0.5 ' + (marginMode === 't1' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
+                >{market.pair.token1}</button>
                 <button
                   type="button"
                   onClick={() => { setMarginMode('t0'); setApproved(false) }}
@@ -985,9 +1006,9 @@ function MarketActionModal({
                 >{market.pair.token0}</button>
                 <button
                   type="button"
-                  onClick={() => { setMarginMode('t1'); setApproved(false) }}
-                  className={'px-2 py-0.5 border-l border-gray-300 ' + (marginMode === 't1' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
-                >{market.pair.token1}</button>
+                  onClick={() => { setMarginMode('both'); setApproved(false) }}
+                  className={'px-2 py-0.5 border-l border-gray-300 ' + (marginMode === 'both' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
+                >both</button>
               </div>
             </div>
             <div className="flex items-stretch gap-2">
@@ -1015,7 +1036,8 @@ function MarketActionModal({
                 aria-label="Increase margin"
               >+</button>
             </div>
-            <div className="mt-2 grid grid-cols-4 gap-1.5">
+            {/* Presets + Max — Max pulls full wallet balance (Eugene 2026-05-21). */}
+            <div className="mt-2 grid grid-cols-5 gap-1.5">
               {[500, 1000, 5000, 10000].map(p => (
                 <button
                   key={p}
@@ -1029,17 +1051,28 @@ function MarketActionModal({
                   }
                 >${(p / 1000).toFixed(p < 1000 ? 2 : 0)}{p >= 1000 ? 'K' : ''}</button>
               ))}
+              <button
+                type="button"
+                onClick={applyMax}
+                className={
+                  'px-2 py-1.5 text-[11px] font-semibold rounded border transition num ' +
+                  (marginUSD === MOCK_BALANCE_USD
+                    ? 'bg-gray-900 border-gray-900 text-white'
+                    : 'bg-white border-gray-900 text-gray-900 hover:bg-gray-50')
+                }
+                title={`Pull max balance from wallet (~${fmtUSD(MOCK_BALANCE_USD)} available)`}
+              >Max</button>
             </div>
-            {/* Per-mode preview of what user actually deposits */}
+            {/* Per-mode deposit preview */}
             <p className="mt-1.5 text-[10px] num text-gray-500">
-              {marginMode === 'usd' && (
-                <>You deposit: <span className="text-gray-900 font-medium">{tok0Amt.toFixed(4)} {market.pair.token0}</span> + <span className="text-gray-900 font-medium">{tok1Amt.toFixed(2)} {market.pair.token1}</span></>
+              {marginMode === 't1' && (
+                <>You deposit: <span className="text-gray-900 font-medium">{marginUSD.toFixed(2)} {market.pair.token1}</span> · auto-swap half to {market.pair.token0} on open</>
               )}
               {marginMode === 't0' && (
                 <>You deposit: <span className="text-gray-900 font-medium">{(marginUSD / Math.max(market.currentPrice, 1e-12)).toFixed(4)} {market.pair.token0}</span> · auto-swap half to {market.pair.token1} on open</>
               )}
-              {marginMode === 't1' && (
-                <>You deposit: <span className="text-gray-900 font-medium">{marginUSD.toFixed(2)} {market.pair.token1}</span> · auto-swap half to {market.pair.token0} on open</>
+              {marginMode === 'both' && (
+                <>You deposit: <span className="text-gray-900 font-medium">{tok0Amt.toFixed(4)} {market.pair.token0}</span> + <span className="text-gray-900 font-medium">{tok1Amt.toFixed(2)} {market.pair.token1}</span> · no swap on open</>
               )}
             </p>
 
@@ -1061,10 +1094,12 @@ function MarketActionModal({
             </button>
           </div>
 
-          {/* 5. Live preview */}
+          {/* 5. Live preview — LP-side renames «Virtual notional» to
+              «Trader market» to align with the LP-flow term used on the
+              listing detail Pro panel (Eugene 2026-05-21). */}
           <div className="rounded-md border border-gray-200 px-3 py-2.5 space-y-1 text-[11px] num">
             <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-1">Live preview</div>
-            <Row k="Virtual notional" v={fmtUSD(virtualNotional)} />
+            <Row k={exposureLabel} v={fmtUSD(virtualNotional)} />
             <Row k="Carry $/h" v={`${isLong ? '+' : '−'}${fmtUSD(carryPerHour)}/h`} tone={isLong ? 'pos' : 'neg'} />
             <Row k="Carry $/day" v={`${isLong ? '+' : '−'}${fmtUSD(carryPerDay)}/d`} tone={isLong ? 'pos' : 'neg'} />
             <Row k="Est. liquidation distance" v={`±${liqDistancePct.toFixed(2)}%`} />
