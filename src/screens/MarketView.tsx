@@ -659,15 +659,14 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
             </span>
           )}
         </div>
-        <div className="flex flex-col items-end gap-1.5 min-w-0">
-          {/* Liquidity-only text now — range width is read off the bar,
-              «inrange %» moved inside RangeBar next to current price (Eugene
-              2026-05-21). Two signals, not four. */}
-          <div className="text-[11px] num text-gray-700">
+        {/* Liquidity + RangeBar on a single horizontal line (Eugene 2026-05-21
+            «в 1 линию»), bar 2× smaller than before. */}
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="text-[11px] num text-gray-700 whitespace-nowrap">
             <span className="text-gray-500">Liquidity</span>{' '}
             <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span>
           </div>
-          <div className="w-64 max-w-full">
+          <div className="w-32 max-w-full">
             <RangeBar
               rangeLow={market.rangeLow}
               rangeHigh={market.rangeHigh}
@@ -693,7 +692,10 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
         />
         <ActivePane
           market={market}
-          onRowClick={apy => openShortAt(apy)}
+          // Active row click opens the full стакан, not the ShortPool form
+          // (Eugene 2026-05-21 — already-matched positions are reference
+          // info, not actionable from a single row).
+          onRowClick={() => setBookSide('active')}
           onExpand={() => setBookSide('active')}
         />
         <PoolPane
@@ -1132,13 +1134,13 @@ function PoolPane({
       <div className="flex items-baseline justify-between gap-2 mb-1">
         <h3 className="text-sm font-semibold">{title}</h3>
         {/* Button = human-readable CTA («Provide liquidity» / «Open position»).
-            Subtitle line («Open LongPool» / «Open ShortPool») dropped per
-            Eugene 2026-05-21 — already implied by the «LongPool orders» /
-            «ShortPool orders» title. */}
+            Squared corners (Eugene 2026-05-21 «как у нас во флоу LP, округлые
+            у нас теги статусов»). Subtitle line («Open LongPool» / «Open
+            ShortPool») dropped — already implied by the title. */}
         <button
           type="button"
           onClick={onCta}
-          className="text-xs font-semibold px-3 py-1.5 rounded-md text-white hover:opacity-90 transition whitespace-nowrap"
+          className="text-xs font-semibold px-3 py-1.5 rounded text-white hover:opacity-90 transition whitespace-nowrap"
           style={{ background: accent }}
         >
           {subtitle}
