@@ -28,6 +28,7 @@ import { fmtFeeTier, fmtPct, fmtPriceShort, fmtUSD } from '@/lib/format'
 import { FEE_TIER_OPTIONS } from '@/lib/marketplace-constants'
 import { HelpPopover } from '@/components/HelpPopover'
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
+import { RangeBar } from '@/components/RangeBar'
 
 // ─── Aggregated market shape ────────────────────────────────────────────
 export interface AggregatedMarket {
@@ -49,6 +50,11 @@ export interface AggregatedMarket {
   /** Optional demo-card tag (e.g. «populated example», «my position in
    *  LongPool») shown as a chip in the header. */
   demoLabel?: string
+  /** Opt-in dense rendering mode for the panes — replaces the head-limit
+   *  truncation with internal scroll + sticky header + cumulative depth.
+   *  Eugene 2026-05-21 — demoed how 100+ orders render in the populated
+   *  demo card. */
+  dense?: boolean
 }
 
 interface PoolOrder {
@@ -203,13 +209,49 @@ export function buildDemoMarkets(): AggregatedMarket[] {
     ...extras,
   })
 
+  // Dense demo — synthesise ~30 unique-APY orders per pane with declining
+  // liquidity at the edges (matches what an actively-traded market looks
+  // like: thick midbook, thin tails). Eugene 2026-05-21 — «как будет
+  // отображаться по 100 заявок в каждом стакане». Demo card opts into
+  // `dense` rendering so the panes scroll internally.
+  function densePool(centerApyBps: number, direction: 1 | -1, count: number, peakUSD: number): PoolOrder[] {
+    const out: PoolOrder[] = []
+    for (let i = 0; i < count; i++) {
+      const apy = centerApyBps + direction * (i + 1) * 100
+      // Bell-ish liquidity — peak near center, decay at edges
+      const decay = Math.exp(-Math.pow(i / (count / 2.5), 2))
+      out.push({ premiumApyBps: apy, liquidityUSD: Math.round(peakUSD * (0.4 + decay * 0.6)) })
+    }
+    return out
+  }
+  function denseActive(centerApyBps: number, count: number, peakUSD: number): ActiveRow[] {
+    const out: ActiveRow[] = []
+    for (let i = 0; i < count; i++) {
+      const apy = centerApyBps + (i - Math.floor(count / 2)) * 100
+      const decay = Math.exp(-Math.pow((i - count / 2) / (count / 3), 2))
+      out.push({
+        premiumApyBps: apy,
+        liquidityUSD: Math.round(peakUSD * (0.3 + decay * 0.7)),
+        isMine: i === Math.floor(count * 0.55),
+      })
+    }
+    return out
+  }
+
   return [
     baseEth({
-      demoLabel: 'populated example',
-      totalLiquidityUSD: 18_500,
-      longPoolOrders: [{ premiumApyBps: 1000, liquidityUSD: 8_500 }],
-      activePositions: [{ premiumApyBps: 500, liquidityUSD: 6_000, isMine: false }],
-      shortPoolOrders: [{ premiumApyBps: 0, liquidityUSD: 4_000 }],
+      demoLabel: '~100 orders per pane',
+      dense: true,
+      totalLiquidityUSD: 350_000,
+      // LongPool — LP-asks descending. Top of book = highest Premium APY
+      // (LP wants more). 30 entries fanning out from 30%.
+      longPoolOrders: densePool(3000, -1, 30, 12_000),
+      // Active — 25 rows centered around 5% clearing rate. My row inside.
+      activePositions: denseActive(500, 25, 9_500),
+      // ShortPool — trader-bids ascending. Top of book = lowest Premium APY
+      // (trader wants to pay less). 30 entries.
+      shortPoolOrders: densePool(400, -1, 30, 11_000).reverse(),
+      myInActive: true,
     }),
     baseEth({
       demoLabel: 'my LongPool order',
@@ -583,9 +625,11 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
 
   return (
     <div className={'rounded-lg border bg-white ' + (market.myInActive ? 'border-[var(--color-role-lp)]/40' : 'border-gray-200')}>
-      {/* Header row */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-baseline justify-between gap-3 flex-wrap">
-        <div className="inline-flex items-baseline gap-2 flex-wrap">
+      {/* Header — chip row + RangeBar visual replacing the text price-range
+          strip (Eugene 2026-05-21: «может Price range и inrange показывать
+          графичком как на /listings»). */}
+      <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-3 flex-wrap">
+        <div className="inline-flex items-baseline gap-2 flex-wrap min-w-0">
           <h2 className="text-base font-semibold">
             <button
               type="button"
@@ -596,12 +640,24 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
               {market.pair.token0} / {market.pair.token1}
             </button>
           </h2>
-          {isVerifiedPair(market.pair) && (
+          {/* Verified / unverified — explicit binary state (Eugene 2026-05-21).
+              Verified means both tokens are on the curated whitelist (real
+              contracts, no known scam reports). Unverified means at least
+              one isn't, so trader should sanity-check the token contract
+              before opening a position. */}
+          {isVerifiedPair(market.pair) ? (
             <span
               className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 inline-flex items-center gap-1"
-              title="Both tokens in the pair are on the curated verified-asset list."
+              title="Both tokens in this pair are on our curated verified-asset list — real contracts, no known scam reports."
             >
               <span aria-hidden>✓</span>verified
+            </span>
+          ) : (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
+              title="At least one token in this pair is not on the curated whitelist. Sanity-check the token contract before opening a position."
+            >
+              <span aria-hidden>⚠</span>unverified
             </span>
           )}
           <span className="text-[11px] text-gray-500">Uniswap v3</span>
@@ -620,14 +676,27 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
             </span>
           )}
         </div>
-        <div className="flex items-baseline gap-3 flex-wrap text-[11px] num text-gray-700">
-          <span><span className="text-gray-500">Liquidity</span> <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span></span>
-          <span className="text-gray-300">·</span>
-          <span><span className="text-gray-500">Price range</span> <span className="font-medium">({market.rangeWidthPct.toFixed(1)}%)</span> <span className="font-semibold">{fmtPriceShort(market.rangeLow)} – {fmtPriceShort(market.rangeHigh)}</span></span>
-          <span className="text-gray-300">·</span>
-          <span><span className="text-gray-500">Price</span> <span className="font-semibold">{fmtPriceShort(market.currentPrice)}</span></span>
-          <span className="text-gray-300">·</span>
-          <span><span className="text-gray-500">Inrange</span> <span className="font-medium" style={{ color: inRange ? 'var(--color-status-success)' : 'var(--color-status-warning)' }}>({market.inRangePct}%)</span></span>
+        <div className="flex flex-col items-end gap-1.5 min-w-0">
+          <div className="flex items-baseline gap-3 text-[11px] num text-gray-700">
+            <span><span className="text-gray-500">Liquidity</span> <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span></span>
+            <span className="text-gray-300">·</span>
+            <span>
+              <span className="text-gray-500">Range width</span>{' '}
+              <span className="font-medium">{market.rangeWidthPct.toFixed(1)}%</span>
+            </span>
+            <span className="text-gray-300">·</span>
+            <span>
+              <span className="text-gray-500">Inrange</span>{' '}
+              <span className="font-medium" style={{ color: inRange ? 'var(--color-status-success)' : 'var(--color-status-warning)' }}>{market.inRangePct}%</span>
+            </span>
+          </div>
+          <div className="w-64 max-w-full">
+            <RangeBar
+              rangeLow={market.rangeLow}
+              rangeHigh={market.rangeHigh}
+              currentPrice={market.currentPrice}
+            />
+          </div>
         </div>
       </div>
 
@@ -643,8 +712,9 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           onCta={() => openLongAt(null)}
           onRowClick={apy => openLongAt(apy)}
           tone="long"
+          dense={market.dense}
         />
-        <ActivePane market={market} onRowClick={apy => openShortAt(apy)} />
+        <ActivePane market={market} onRowClick={apy => openShortAt(apy)} dense={market.dense} />
         <PoolPane
           title="ShortPool orders"
           subtitle="Open position"
@@ -653,6 +723,7 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           onCta={() => openShortAt(null)}
           onRowClick={apy => openShortAt(apy)}
           tone="short"
+          dense={market.dense}
         />
       </div>
 
@@ -960,6 +1031,7 @@ function PoolPane({
   onCta,
   onRowClick,
   tone,
+  dense,
 }: {
   title: string
   subtitle: string
@@ -968,13 +1040,28 @@ function PoolPane({
   onCta: () => void
   onRowClick?: (apyBps: number) => void
   tone: 'long' | 'short'
+  /** Dense mode — show full list with internal scroll + cumulative depth
+   *  bar (per Kolya 2026-05-18 scroll suggestion). Used by the «100 orders»
+   *  demo card so the team can see how a heavy book renders. */
+  dense?: boolean
 }) {
   const accent = tone === 'long' ? 'var(--color-role-lp)' : 'var(--color-role-trader)'
   // Show top N rows; if more, aggregate into «N more · $X total» footer.
+  // Dense mode skips truncation — render all rows inside an internal scroll.
   const HEAD_LIMIT = 5
-  const headRows = orders.slice(0, HEAD_LIMIT)
-  const tailRows = orders.slice(HEAD_LIMIT)
+  const headRows = dense ? orders : orders.slice(0, HEAD_LIMIT)
+  const tailRows = dense ? [] : orders.slice(HEAD_LIMIT)
   const tailLiquidity = tailRows.reduce((s, r) => s + r.liquidityUSD, 0)
+  // Cumulative depth — used in dense mode to scale each row's depth bar
+  // against the cumulative total seen so far (Deribit-style).
+  const cumulative = useMemo(() => {
+    if (!dense) return [] as number[]
+    const out: number[] = []
+    let s = 0
+    for (const r of orders) { s += r.liquidityUSD; out.push(s) }
+    return out
+  }, [orders, dense])
+  const totalLiquidity = cumulative[cumulative.length - 1] ?? 1
 
   return (
     <div className="rounded-md border border-gray-200 p-3 flex flex-col">
@@ -1000,40 +1087,62 @@ function PoolPane({
       {orders.length === 0 ? (
         <p className="text-[11px] text-gray-500 mt-2 italic">No orders yet — be first.</p>
       ) : (
-        <table className="w-full text-[11px] num mt-2">
-          <thead className="text-[10px] uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="text-left font-medium pb-1">Premium APY</th>
-              <th className="text-right font-medium pb-1">Liquidity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {headRows.map((r, i) => (
-              <tr
-                key={i}
-                onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
-                className={
-                  'border-t border-gray-100 ' +
-                  (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
-                  (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
-                }
-                title={onRowClick ? `Click to ${tone === 'long' ? 'provide liquidity' : 'open position'} at this Premium APY` : undefined}
-              >
-                <td className="py-1.5 text-gray-700">
-                  {r.isMine && <span className="mr-1">🙂</span>}
-                  {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
-                </td>
-                <td className="py-1.5 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
+        <div className={dense ? 'mt-2 max-h-60 overflow-y-auto border border-gray-100 rounded' : 'mt-2'}>
+          <table className="w-full text-[11px] num">
+            <thead className={'text-[10px] uppercase tracking-wide text-gray-500 ' + (dense ? 'sticky top-0 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)] z-10' : '')}>
+              <tr>
+                <th className="text-left font-medium pb-1 px-2">Premium APY</th>
+                <th className="text-right font-medium pb-1 px-2">Liquidity</th>
+                {dense && <th className="text-left font-medium pb-1 px-2 w-1/3">Depth</th>}
               </tr>
-            ))}
-            {tailRows.length > 0 && (
-              <tr className="border-t border-gray-100 bg-gray-50/50">
-                <td className="py-1.5 text-[10px] text-gray-500 italic">+{tailRows.length} more</td>
-                <td className="py-1.5 text-right text-[10px] text-gray-500">{fmtUSD(tailLiquidity)}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {headRows.map((r, i) => (
+                <tr
+                  key={i}
+                  onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
+                  className={
+                    'border-t border-gray-100 ' +
+                    (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
+                    (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
+                  }
+                  title={onRowClick ? `Click to ${tone === 'long' ? 'provide liquidity' : 'open position'} at this Premium APY` : undefined}
+                >
+                  <td className="py-1.5 px-2 text-gray-700">
+                    {r.isMine && <span className="mr-1">🙂</span>}
+                    {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
+                  {dense && (
+                    <td className="py-1.5 px-2">
+                      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.max(2, (cumulative[i] / totalLiquidity) * 100)}%`,
+                            background: accent,
+                            opacity: 0.7,
+                          }}
+                        />
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {tailRows.length > 0 && (
+                <tr className="border-t border-gray-100 bg-gray-50/50">
+                  <td className="py-1.5 px-2 text-[10px] text-gray-500 italic">+{tailRows.length} more</td>
+                  <td className="py-1.5 px-2 text-right text-[10px] text-gray-500">{fmtUSD(tailLiquidity)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {dense && orders.length > 0 && (
+        <p className="mt-1 text-[10px] text-gray-500 italic">
+          {orders.length} orders · scroll within pane · depth bars are cumulative
+        </p>
       )}
     </div>
   )
@@ -1048,15 +1157,17 @@ function PoolPane({
 function ActivePane({
   market,
   onRowClick,
+  dense,
 }: {
   market: AggregatedMarket
   onRowClick?: (apyBps: number) => void
+  dense?: boolean
 }) {
   const rows = market.activePositions
   const HEAD_LIMIT = 5
   let visibleRows: ActiveRow[] = []
   let tailRows: ActiveRow[] = []
-  if (rows.length <= HEAD_LIMIT) {
+  if (dense || rows.length <= HEAD_LIMIT) {
     visibleRows = rows
   } else {
     // Always keep min, max, and my position; fill rest by highest liquidity.
@@ -1072,6 +1183,14 @@ function ActivePane({
     tailRows = rows.filter(r => !set.has(r))
   }
   const tailLiquidity = tailRows.reduce((s, r) => s + r.liquidityUSD, 0)
+  const cumulative = useMemo(() => {
+    if (!dense) return [] as number[]
+    const out: number[] = []
+    let s = 0
+    for (const r of rows) { s += r.liquidityUSD; out.push(s) }
+    return out
+  }, [rows, dense])
+  const totalLiquidity = cumulative[cumulative.length - 1] ?? 1
 
   return (
     <div className="rounded-md border border-gray-200 p-3 flex flex-col bg-gray-50/30">
@@ -1093,40 +1212,62 @@ function ActivePane({
       {rows.length === 0 ? (
         <p className="text-[11px] text-gray-500 mt-2 italic">No matched positions yet.</p>
       ) : (
-        <table className="w-full text-[11px] num mt-1">
-          <thead className="text-[10px] uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="text-left font-medium pb-1">Premium APY</th>
-              <th className="text-right font-medium pb-1">Liquidity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRows.map((r, i) => (
-              <tr
-                key={i}
-                onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
-                className={
-                  'border-t border-gray-100 ' +
-                  (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
-                  (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
-                }
-                title={onRowClick ? 'Click to open ShortPool at this Premium APY' : undefined}
-              >
-                <td className="py-1.5 text-gray-700">
-                  {r.isMine && <span className="mr-1">🙂</span>}
-                  {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
-                </td>
-                <td className="py-1.5 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
+        <div className={dense ? 'mt-1 max-h-60 overflow-y-auto border border-gray-100 rounded' : 'mt-1'}>
+          <table className="w-full text-[11px] num">
+            <thead className={'text-[10px] uppercase tracking-wide text-gray-500 ' + (dense ? 'sticky top-0 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)] z-10' : '')}>
+              <tr>
+                <th className="text-left font-medium pb-1 px-2">Premium APY</th>
+                <th className="text-right font-medium pb-1 px-2">Liquidity</th>
+                {dense && <th className="text-left font-medium pb-1 px-2 w-1/3">Depth</th>}
               </tr>
-            ))}
-            {tailRows.length > 0 && (
-              <tr className="border-t border-gray-100 bg-gray-50/50">
-                <td className="py-1.5 text-[10px] text-gray-500 italic">+{tailRows.length} more matched</td>
-                <td className="py-1.5 text-right text-[10px] text-gray-500">{fmtUSD(tailLiquidity)}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visibleRows.map((r, i) => (
+                <tr
+                  key={i}
+                  onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
+                  className={
+                    'border-t border-gray-100 ' +
+                    (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
+                    (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
+                  }
+                  title={onRowClick ? 'Click to open ShortPool at this Premium APY' : undefined}
+                >
+                  <td className="py-1.5 px-2 text-gray-700">
+                    {r.isMine && <span className="mr-1">🙂</span>}
+                    {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
+                  {dense && (
+                    <td className="py-1.5 px-2">
+                      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.max(2, (cumulative[i] / totalLiquidity) * 100)}%`,
+                            background: 'var(--color-status-success)',
+                            opacity: 0.7,
+                          }}
+                        />
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {tailRows.length > 0 && (
+                <tr className="border-t border-gray-100 bg-gray-50/50">
+                  <td className="py-1.5 px-2 text-[10px] text-gray-500 italic">+{tailRows.length} more matched</td>
+                  <td className="py-1.5 px-2 text-right text-[10px] text-gray-500">{fmtUSD(tailLiquidity)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {dense && rows.length > 0 && (
+        <p className="mt-1 text-[10px] text-gray-500 italic">
+          {rows.length} matched · scroll · depth bars cumulative
+        </p>
       )}
     </div>
   )
