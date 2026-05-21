@@ -307,7 +307,10 @@ export function MarketView() {
    *  the dropdown has bounded options. */
   const [specificRange, setSpecificRange] = useState<string>('all')
   const [sort, setSort] = useState<'liquidity-desc' | 'apy-desc'>('liquidity-desc')
-  const [pageSize, setPageSize] = useState<number>(10)
+  // Pagination — same shape as /listings (Eugene 2026-05-21 «везде должна
+  // быть одинаковая»): page-size select [25 / 50 / 100 / All] + prev/next
+  // chevrons at the bottom of the list, single row.
+  const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState<number>(1)
 
   const markets = useMemo(() => buildMarkets(listings, positions), [])
@@ -507,31 +510,6 @@ export function MarketView() {
         ))}
       </div>
 
-      {/* Pagination meta */}
-      {filtered.length > 0 && (
-        <div className="flex items-center justify-between gap-2 mb-3 text-[11px] text-gray-500">
-          <span>
-            Showing {pageSize === -1
-              ? filtered.length
-              : Math.min(filtered.length, (page - 1) * pageSize + 1) + '–' + Math.min(filtered.length, page * pageSize)
-            } of {filtered.length}
-          </span>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Page size</span>
-            <select
-              value={pageSize}
-              onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
-              className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={-1}>All</option>
-            </select>
-          </div>
-        </div>
-      )}
-
       {/* Market cards */}
       <div className="space-y-4">
         {(() => {
@@ -565,32 +543,59 @@ export function MarketView() {
         )}
       </div>
 
-      {/* Pagination controls */}
-      {(() => {
-        if (pageSize === -1 || filtered.length <= pageSize) return null
-        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+      {/* Pagination footer — shape matches /listings (Eugene 2026-05-21
+          «везде должна быть одинаковая»). Always renders the page-size
+          selector; prev/next group hidden on single-page. */}
+      {filtered.length > 0 && (() => {
+        const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize))
         const safePage = Math.min(page, totalPages)
+        const pageStart = pageSize === -1 ? 0 : (safePage - 1) * pageSize
+        const pageEnd = pageSize === -1 ? filtered.length : pageStart + pageSize
         return (
-          <div className="mt-4 flex items-center justify-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={safePage <= 1}
-              className="text-xs px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              ← Prev
-            </button>
-            <span className="text-xs text-gray-500 num px-2">
-              {safePage} / {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={safePage >= totalPages}
-              className="text-xs px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              Next →
-            </button>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <span>Show</span>
+              <select
+                value={pageSize}
+                onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
+                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+                aria-label="Page size"
+              >
+                {[25, 50, 100, -1].map(s => (
+                  <option key={s} value={s}>{s === -1 ? 'All' : s}</option>
+                ))}
+              </select>
+              <span>per page</span>
+            </div>
+
+            {pageSize !== -1 && totalPages > 1 && (
+              <div className="flex items-center gap-2 text-xs text-gray-600">
+                <span className="num">
+                  {pageStart + 1}–{Math.min(pageEnd, filtered.length)} of {filtered.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  aria-label="Previous page"
+                >
+                  ←
+                </button>
+                <span className="num font-medium px-1">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  aria-label="Next page"
+                >
+                  →
+                </button>
+              </div>
+            )}
           </div>
         )
       })()}
