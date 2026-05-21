@@ -36,32 +36,9 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
   const navigate = useNavigate()
   const open = (id: string) => navigate(`/listings/${id}`)
 
-  // Primary-CTA handler — every action surfaces context on the detail page.
-  // The detail page reads URL params and auto-opens the right flow (Open /
-  // Buyout / Manage / Top-up modal). Trader-Positions navigation goes to the
-  // per-position page when we can find the trader's position id on the row.
-  const handlePrimaryCta = (kind: TraderCtaKind, listing: Listing) => {
-    const myPos = positions.find(
-      p => p.listingId === listing.id && p.trader === connectedAddress,
-    )
-    switch (kind) {
-      case 'manage':
-      case 'top-up-margin':
-        if (myPos) {
-          navigate(`/trader/positions/${myPos.id}`)
-          return
-        }
-        navigate(`/listings/${listing.id}`)
-        return
-      case 'open':
-      case 'add':
-      case 'buyout':
-      case 'buyout-back':
-      case 'view':
-      default:
-        navigate(`/listings/${listing.id}?action=${kind}`)
-    }
-  }
+  // Primary-CTA handler removed per Eugene 2026-05-20 — Action column gone;
+  // detail page handles all action flows. Row click navigates to detail and
+  // the detail page picks up the trader-relative status itself.
 
   return (
     <>
@@ -142,7 +119,6 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -154,7 +130,6 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
                 outbid={outbidByListing?.get(l.id)}
                 traderStatus={getTraderListingStatus(l, positions, connectedAddress)}
                 onClick={() => open(l.id)}
-                onPrimaryCta={handlePrimaryCta}
               />
             ))}
           </tbody>
@@ -171,7 +146,6 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
             outbid={outbidByListing?.get(l.id)}
             traderStatus={getTraderListingStatus(l, positions, connectedAddress)}
             onClick={() => open(l.id)}
-            onPrimaryCta={handlePrimaryCta}
           />
         ))}
       </div>
@@ -185,14 +159,12 @@ function DesktopRow({
   outbid,
   traderStatus,
   onClick,
-  onPrimaryCta,
 }: {
   listing: Listing
   isOwned: boolean
   outbid?: OutbidOpportunity
   traderStatus: TraderListingStatus
   onClick: () => void
-  onPrimaryCta: (kind: TraderCtaKind, listing: Listing) => void
 }) {
   const subsidized = isSubsidized(listing)
   void isOwned // chip surfaces «my position»; the «· owned» label below also renders for LP owners
@@ -260,14 +232,14 @@ function DesktopRow({
         <TraderStatusChip status={traderStatus} />
       </td>
 
-      {/* Pool size — $ + token pair breakdown + Available bar (Eugene
-          2026-05-20: «в тек версии Available колонка не плохо сделана» — keep
-          the progress-bar visual, just nested under pool size as a sub-block). */}
+      {/* Pool size — $ + token pair breakdown + Available text sub-line.
+          Progress bar dropped per Eugene 2026-05-20 — text-only read keeps
+          the cell quieter. */}
       <td className="px-3 py-3 text-right">
         {(() => {
           const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
           return (
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-end gap-0.5">
               <div className="num font-semibold text-gray-900 leading-tight">{fmtUSD(listing.initialLiquidityUSD)}</div>
               {t0Amt !== null && t1Amt !== null && (
                 <div className="text-[10px] text-gray-500 num leading-tight whitespace-nowrap">
@@ -275,23 +247,13 @@ function DesktopRow({
                 </div>
               )}
               <div
-                className="h-1 w-24 bg-gray-200 rounded-full overflow-hidden mt-1"
-                title={`Available ${fmtUSD(listing.availableCapacityUSD)} of ${fmtUSD(listing.totalCapacityUSD)} (${Math.round(freePct)}%)`}
+                className="text-[10px] num leading-tight whitespace-nowrap mt-0.5"
+                style={{
+                  color: freePct < 5
+                    ? 'var(--color-status-warning)'
+                    : 'var(--color-text-muted, #6b7280)',
+                }}
               >
-                <div
-                  className={
-                    'h-full transition-all ' +
-                    (freePct < 5
-                      ? 'bg-amber-400'
-                      : freePct < 25
-                      ? 'bg-amber-300'
-                      : 'bg-[var(--color-status-success)]/70')
-                  }
-                  style={{ width: `${freePct}%` }}
-                  aria-hidden="true"
-                />
-              </div>
-              <div className="text-[10px] num text-gray-500 leading-tight whitespace-nowrap">
                 Available <span className="text-gray-900 font-medium">{fmtUSD(listing.availableCapacityUSD)}</span> ({Math.round(freePct)}%)
               </div>
             </div>
@@ -309,12 +271,13 @@ function DesktopRow({
         />
       </td>
 
-      {/* Rent APY — what trader pays. Headline = Premium + Uniswap;
-          breakdown sub-line shows the split. Subsidized listings (negative
-          Premium) keep the signed render so the sign reads correctly. */}
+      {/* Rent APY — what trader pays. Headline = Uniswap + Premium;
+          breakdown sub-line shows the two numbers without labels (Uni first,
+          Premium second — matches LP-side reading order). Full labels live
+          only in the column-header tooltip per Eugene 2026-05-20. */}
       <td className="px-3 py-3 text-right">
         {(() => {
-          const rentBps = listing.minPremiumApyBps + listing.uniswapApyBps
+          const rentBps = listing.uniswapApyBps + listing.minPremiumApyBps
           return (
             <>
               <div
@@ -324,9 +287,11 @@ function DesktopRow({
                 {fmtPct(rentBps, { signed: subsidized })}
               </div>
               <div className="text-[10px] text-gray-500 num leading-tight mt-0.5 whitespace-nowrap">
-                {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)} Prem
-                {' + '}
-                {fmtPct(listing.uniswapApyBps)} Uni
+                {fmtPct(listing.uniswapApyBps)}
+                {' '}
+                {listing.minPremiumApyBps >= 0 ? '+' : '−'}
+                {' '}
+                {fmtPct(Math.abs(listing.minPremiumApyBps))}
               </div>
             </>
           )
@@ -350,10 +315,9 @@ function DesktopRow({
         })()}
       </td>
 
-      {/* Primary CTA — driven by trader-relative status. */}
-      <td className="px-3 py-3 text-right">
-        <ActionButton cta={traderStatus.ctaPrimary} listing={listing} onPrimary={onPrimaryCta} />
-      </td>
+      {/* Primary CTA dropped per Eugene 2026-05-20 («Action уберём, всё
+          делается внутри карточки»). Row stays clickable — clicking opens
+          the listing detail page where the right flow lives. */}
     </tr>
   )
 }
@@ -364,14 +328,12 @@ function MobileRow({
   outbid,
   traderStatus,
   onClick,
-  onPrimaryCta,
 }: {
   listing: Listing
   isOwned: boolean
   outbid?: OutbidOpportunity
   traderStatus: TraderListingStatus
   onClick: () => void
-  onPrimaryCta: (kind: TraderCtaKind, listing: Listing) => void
 }) {
   const subsidized = isSubsidized(listing)
   void isOwned
@@ -455,24 +417,8 @@ function MobileRow({
           )
         })()}
       </div>
-      <div className="mt-1">
-        <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className={
-              'h-full transition-all ' +
-              (freePct < 5
-                ? 'bg-amber-400'
-                : freePct < 25
-                ? 'bg-amber-300'
-                : 'bg-[var(--color-status-success)]/70')
-            }
-            style={{ width: `${freePct}%` }}
-            aria-hidden="true"
-          />
-        </div>
-        <div className="mt-1 text-[10px] num text-gray-500 text-right">
-          Available {fmtUSD(listing.availableCapacityUSD)} ({Math.round(freePct)}%)
-        </div>
+      <div className="mt-1 text-[10px] num text-gray-500 text-right">
+        Available <span className="text-gray-900 font-medium">{fmtUSD(listing.availableCapacityUSD)}</span> ({Math.round(freePct)}%)
       </div>
 
       {/* Centered range scale — same primitive as desktop. */}
@@ -484,10 +430,8 @@ function MobileRow({
         />
       </div>
 
-      {/* Primary CTA — same logic as desktop, full-width on mobile. */}
-      <div className="mt-3">
-        <ActionButton cta={traderStatus.ctaPrimary} listing={listing} onPrimary={onPrimaryCta} />
-      </div>
+      {/* Primary CTA dropped per Eugene 2026-05-20 — same reasoning as
+          desktop. The whole card stays tap-to-drill-in. */}
     </button>
   )
 }

@@ -116,6 +116,18 @@ export function ListingsMarketplace() {
         out.sort((a, b) => a.feeTierBps - b.feeTierBps)
         break
     }
+    // Eugene 2026-05-20 — terminal listings (closed / liquidated / closing /
+    // liquidating) always sink to the bottom, regardless of selected sort.
+    // Trader scan stays focused on actionable rows; terminal kept visible
+    // for reference but never compete for the top of the page.
+    const TERMINAL_RANK: Record<string, number> = {
+      ACTIVE: 0,
+      WITHDRAWAL_REQUESTED: 1,
+      LIQUIDATING: 2,
+      LIQUIDATED: 3,
+      WITHDRAWN: 4,
+    }
+    out.sort((a, b) => (TERMINAL_RANK[a.status] ?? 0) - (TERMINAL_RANK[b.status] ?? 0))
     return out
   }, [pairFilter, feeTiersOn, mode, rangeStatus, subsidizedOnly, outbidOnly, hideOwned, sort, outbidByListing])
 
