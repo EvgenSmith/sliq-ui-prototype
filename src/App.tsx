@@ -11,6 +11,7 @@ import { AppSubNav } from '@/components/AppSubNav'
 import { Landing } from '@/screens/Landing'
 import { ListingsMarketplace } from '@/screens/ListingsMarketplace'
 import { ListingDetail } from '@/screens/ListingDetail'
+import { TradeListingDetail } from '@/screens/TradeListingDetail'
 // LPDeposit retired — listing flow merged into MyListings (mode='list') with inline Lite/Pro form.
 import { TraderOpen } from '@/screens/TraderOpen'
 import { PositionDetail } from '@/screens/PositionDetail'
@@ -51,7 +52,11 @@ export default function App() {
         <Routes>
           {/* Trade section */}
           <Route path="/listings" element={<ListingsMarketplace />} />
-          <Route path="/listings/:id" element={<ListingDetail />} />
+          {/* /listings/:id is the trader-facing listing detail. Soft split
+              2026-05-20 — points to TradeListingDetail (currently a byte copy
+              of ListingDetail; will diverge as the trader rework lands). The
+              LP-facing /lp/listings/:id below still hits ListingDetail. */}
+          <Route path="/listings/:id" element={<TradeListingDetail />} />
           <Route path="/listings/:id/liquidation" element={<ListingLiquidationView />} />
           <Route path="/trader/positions" element={<SectionWrap><TraderPositions /></SectionWrap>} />
           <Route path="/trader/positions/:id" element={<PositionDetail />} />
