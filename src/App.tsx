@@ -12,6 +12,7 @@ import { Landing } from '@/screens/Landing'
 import { ListingsMarketplace } from '@/screens/ListingsMarketplace'
 import { ListingDetail } from '@/screens/ListingDetail'
 import { TradeListingDetail } from '@/screens/TradeListingDetail'
+import { MarketView } from '@/screens/MarketView'
 // LPDeposit retired — listing flow merged into MyListings (mode='list') with inline Lite/Pro form.
 import { TraderOpen } from '@/screens/TraderOpen'
 import { PositionDetail } from '@/screens/PositionDetail'
@@ -63,6 +64,10 @@ export default function App() {
           <Route path="/trader/open" element={<TraderOpen />} />
           <Route path="/trader/closed" element={<SectionWrap><ClosedPositionsList /></SectionWrap>} />
           <Route path="/trader/closed/:id" element={<ClosedPositionDetail />} />
+
+          {/* Market section — Beta · Pro (Eugene 2026-05-21). Aggregated
+              positions and orders, grouped per (pair, fee tier, range). */}
+          <Route path="/market" element={<SectionWrap><MarketView /></SectionWrap>} />
 
           {/* Pools section — 2 logical tabs:
                 /lp/list       = ListNFTPage (onboarding + eligible NFTs + inline Lite/Pro form)

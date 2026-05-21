@@ -15,6 +15,7 @@ import type { ChainId } from '@/lib/types'
 
 const SECTIONS = [
   { id: 'trade', label: 'Trade', match: ['/listings', '/trader'], dest: '/listings' },
+  { id: 'market', label: 'Market', match: ['/market'], dest: '/market' },
   { id: 'pools', label: 'Pools', match: ['/lp'], dest: '/lp/list' },
 ] as const
 
@@ -61,7 +62,8 @@ export function AppHeader() {
   }, [walletOpen])
 
   const inTrade = SECTIONS[0].match.some(p => path.startsWith(p))
-  const inPools = SECTIONS[1].match.some(p => path.startsWith(p))
+  const inMarket = SECTIONS[1].match.some(p => path.startsWith(p))
+  const inPools = SECTIONS[2].match.some(p => path.startsWith(p))
   const inKeeper = path.startsWith('/keeper')
   const hideNav =
     path.startsWith('/onboarding') ||
@@ -164,7 +166,13 @@ export function AppHeader() {
         <div>
           <div className="mx-auto max-w-7xl px-4 h-11 flex items-center gap-1">
             <NavItem label="Trade" active={inTrade} onClick={() => navigate(SECTIONS[0].dest)} />
-            <NavItem label="Pools" active={inPools} onClick={() => navigate(SECTIONS[1].dest)} />
+            <NavItem
+              label="Market"
+              active={inMarket}
+              onClick={() => navigate(SECTIONS[1].dest)}
+              badge="Beta · Pro"
+            />
+            <NavItem label="Pools" active={inPools} onClick={() => navigate(SECTIONS[2].dest)} />
             {connectedWallet.isPermissionedLiquidator && (
               <NavItem
                 label="Keeper"
@@ -185,11 +193,14 @@ function NavItem({
   active,
   onClick,
   accent = 'default',
+  badge,
 }: {
   label: string
   active: boolean
   onClick: () => void
   accent?: 'default' | 'liquidator'
+  /** Optional badge text shown right of the label (e.g. «Beta · Pro»). */
+  badge?: string
 }) {
   // Level-1 section nav uses underline-active style — visually distinct from
   // chip-style sub-nav (AppSubNav) → clearer hierarchy «section → sub-tab».
@@ -201,7 +212,7 @@ function NavItem({
       onClick={onClick}
       className={
         // L1 uses text-base (16px) vs L2's text-sm (14px) for clear hierarchy.
-        'px-3 h-11 inline-flex items-center text-base transition font-medium border-b-2 -mb-px ' +
+        'px-3 h-11 inline-flex items-center gap-1.5 text-base transition font-medium border-b-2 -mb-px ' +
         (active
           ? 'text-gray-900 border-gray-900'
           : 'text-gray-500 border-transparent hover:text-gray-900 hover:border-gray-300')
@@ -209,6 +220,13 @@ function NavItem({
       style={active && activeColor ? { color: activeColor, borderColor: activeColor } : undefined}
     >
       {label}
+      {badge && (
+        <span
+          className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300"
+        >
+          {badge}
+        </span>
+      )}
     </button>
   )
 }
