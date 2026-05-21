@@ -344,7 +344,31 @@ function BookSection({
     <div className="border-b last:border-b-0 border-gray-100">
       <div className="px-4 py-2 bg-gray-50/40 flex items-baseline justify-between">
         <div>
-          <h3 className="text-[12px] font-semibold">{title}</h3>
+          <h3 className="text-[12px] font-semibold inline-flex items-center gap-1">
+            {title}
+            {tone !== 'active' && (
+              <HelpPopover
+                label={tone === 'long' ? 'LongPool orders' : 'ShortPool orders'}
+                width="w-80"
+              >
+                {tone === 'long' ? (
+                  <>
+                    <p className="font-semibold mb-1">LongPool orders — LP-side</p>
+                    <p className="mb-1.5">Заявки от тех, кто <strong>предоставляет ликвидность</strong> рынку. Каждая строка — Premium APY, на котором LP согласен сдавать свою позицию в Uniswap v3 LP NFT.</p>
+                    <p className="text-[11px] font-semibold mb-1 mt-2">Provide liquidity = стать LP</p>
+                    <p className="text-[11px] leading-relaxed">Ты кладёшь токены в этот range; протокол минтит V3-NFT под твоим адресом. Зарабатываешь Uniswap fees + Premium APY от трейдера, который арендует позицию. Несёшь IL когда цена двигается.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold mb-1">ShortPool orders — trader-side</p>
+                    <p className="mb-1.5">Заявки от трейдеров, которые <strong>хотят арендовать</strong> LP-ликвидность. Каждая строка — Premium APY, который трейдер готов платить LP за использование его позиции с плечом.</p>
+                    <p className="text-[11px] font-semibold mb-1 mt-2">Open position = стать трейдером</p>
+                    <p className="text-[11px] leading-relaxed">Ты вносишь margin + leverage и арендуешь часть LP-позиции. Платишь Premium APY + Uniswap fees. Зарабатываешь Impermanent Profit когда цена двигается из range.</p>
+                  </>
+                )}
+              </HelpPopover>
+            )}
+          </h3>
           <p className="text-[10px] text-gray-500">{subtitle}</p>
         </div>
         <span className="text-[10px] text-gray-500 num">{rows.length} {rows.length === 1 ? 'order' : 'orders'}</span>
