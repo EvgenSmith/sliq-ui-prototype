@@ -252,6 +252,12 @@ export function MarketView() {
     () => new Set(FEE_TIER_OPTIONS.map(o => o.bps))
   )
   const [rangeStatus, setRangeStatus] = useState<'all' | 'in' | 'out'>('all')
+  /** Range width buckets — Eugene 2026-05-21 («ренджи добавить в фильтрацию»).
+   * Tight: < 5% — convex IP, high churn, narrow LP risk.
+   * Medium: 5-20% — typical major-pair range.
+   * Wide: > 20% — passive LP, long-tail / volatile pairs.
+   */
+  const [rangeWidth, setRangeWidth] = useState<'all' | 'tight' | 'medium' | 'wide'>('all')
   const [dexFilter, setDexFilter] = useState<'all' | Listing['dex']>('all')
   const [sort, setSort] = useState<'liquidity-desc' | 'apy-desc'>('liquidity-desc')
   const [pageSize, setPageSize] = useState<number>(10)
@@ -273,6 +279,14 @@ export function MarketView() {
     }
     out = out.filter(m => feeTiersOn.has(m.feeTierBps))
     if (dexFilter !== 'all') out = out.filter(m => m.dex === dexFilter)
+    if (rangeWidth !== 'all') {
+      out = out.filter(m => {
+        const w = m.rangeWidthPct
+        if (rangeWidth === 'tight') return w < 5
+        if (rangeWidth === 'medium') return w >= 5 && w <= 20
+        return w > 20 // wide
+      })
+    }
     if (rangeStatus !== 'all') {
       const wantIn = rangeStatus === 'in'
       out = out.filter(m => {
@@ -295,7 +309,7 @@ export function MarketView() {
         break
     }
     return out
-  }, [markets, pairFilter, feeTiersOn, rangeStatus, dexFilter, sort])
+  }, [markets, pairFilter, feeTiersOn, rangeStatus, rangeWidth, dexFilter, sort])
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -367,6 +381,18 @@ export function MarketView() {
           <option value="other">Other</option>
         </select>
 
+        <select
+          value={rangeWidth}
+          onChange={e => setRangeWidth(e.target.value as typeof rangeWidth)}
+          className={selectCls(rangeWidth !== 'all')}
+          aria-label="Range width"
+        >
+          <option value="all">All ranges</option>
+          <option value="tight">Tight · &lt; 5%</option>
+          <option value="medium">Medium · 5–20%</option>
+          <option value="wide">Wide · &gt; 20%</option>
+        </select>
+
         <div className="ml-auto flex items-center gap-2 text-[11px] text-gray-500">
           <span>Sort</span>
           <select
@@ -426,7 +452,7 @@ export function MarketView() {
             <p className="text-[11px] text-gray-500 mb-3">
               Try a wider pair / fee tier / range selection.
             </p>
-            {(pairFilter !== 'all' || feeTiersOn.size !== FEE_TIER_OPTIONS.length || rangeStatus !== 'all' || dexFilter !== 'all') && (
+            {(pairFilter !== 'all' || feeTiersOn.size !== FEE_TIER_OPTIONS.length || rangeStatus !== 'all' || dexFilter !== 'all' || rangeWidth !== 'all') && (
               <button
                 type="button"
                 onClick={() => {
@@ -434,6 +460,7 @@ export function MarketView() {
                   setFeeTiersOn(new Set(FEE_TIER_OPTIONS.map(o => o.bps)))
                   setRangeStatus('all')
                   setDexFilter('all')
+                  setRangeWidth('all')
                 }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
               >
