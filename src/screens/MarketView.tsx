@@ -252,6 +252,7 @@ export function MarketView() {
     () => new Set(FEE_TIER_OPTIONS.map(o => o.bps))
   )
   const [rangeStatus, setRangeStatus] = useState<'all' | 'in' | 'out'>('all')
+  const [dexFilter, setDexFilter] = useState<'all' | Listing['dex']>('all')
   const [sort, setSort] = useState<'liquidity-desc' | 'apy-desc'>('liquidity-desc')
   const [pageSize, setPageSize] = useState<number>(10)
   const [page, setPage] = useState<number>(1)
@@ -271,6 +272,7 @@ export function MarketView() {
       out = out.filter(m => `${m.pair.token0}/${m.pair.token1}` === pairFilter)
     }
     out = out.filter(m => feeTiersOn.has(m.feeTierBps))
+    if (dexFilter !== 'all') out = out.filter(m => m.dex === dexFilter)
     if (rangeStatus !== 'all') {
       const wantIn = rangeStatus === 'in'
       out = out.filter(m => {
@@ -293,7 +295,7 @@ export function MarketView() {
         break
     }
     return out
-  }, [markets, pairFilter, feeTiersOn, rangeStatus, sort])
+  }, [markets, pairFilter, feeTiersOn, rangeStatus, dexFilter, sort])
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -349,6 +351,20 @@ export function MarketView() {
           <option value="all">In + out of range</option>
           <option value="in">In range only</option>
           <option value="out">Out of range only</option>
+        </select>
+
+        <select
+          value={dexFilter}
+          onChange={e => setDexFilter(e.target.value as typeof dexFilter)}
+          className={selectCls(dexFilter !== 'all')}
+          aria-label="DEX protocol"
+        >
+          <option value="all">All protocols</option>
+          <option value="uniswap-v3">Uniswap v3</option>
+          <option value="uniswap-v4">Uniswap v4</option>
+          <option value="pancakeswap-v3">PancakeSwap v3</option>
+          <option value="gmx">GMX</option>
+          <option value="other">Other</option>
         </select>
 
         <div className="ml-auto flex items-center gap-2 text-[11px] text-gray-500">
@@ -410,13 +426,14 @@ export function MarketView() {
             <p className="text-[11px] text-gray-500 mb-3">
               Try a wider pair / fee tier / range selection.
             </p>
-            {(pairFilter !== 'all' || feeTiersOn.size !== FEE_TIER_OPTIONS.length || rangeStatus !== 'all') && (
+            {(pairFilter !== 'all' || feeTiersOn.size !== FEE_TIER_OPTIONS.length || rangeStatus !== 'all' || dexFilter !== 'all') && (
               <button
                 type="button"
                 onClick={() => {
                   setPairFilter('all')
                   setFeeTiersOn(new Set(FEE_TIER_OPTIONS.map(o => o.bps)))
                   setRangeStatus('all')
+                  setDexFilter('all')
                 }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
               >
@@ -885,17 +902,19 @@ function PoolPane({
       <div className="flex items-baseline justify-between gap-2 mb-1">
         <div>
           <h3 className="text-sm font-semibold">{title}</h3>
+          {/* Subtitle = protocol label («Open LongPool» / «Open ShortPool»).
+              Eugene 2026-05-21: «в subtitle писать Open Short / Long Pool,
+              а кнопки как ты предлагал». */}
+          <p className="text-[10px] uppercase tracking-wide text-gray-500 mt-0.5">{ctaLabel}</p>
         </div>
-        {/* Button — two-line: title on top + subtitle below in smaller type.
-            Eugene 2026-05-21: «в кнопках нет подписи как обсуждали». */}
+        {/* Button = human-readable CTA («Provide liquidity» / «Open position»). */}
         <button
           type="button"
           onClick={onCta}
-          className="text-[12px] font-semibold px-2.5 py-1.5 rounded-md text-white hover:opacity-90 transition whitespace-nowrap text-center leading-tight"
+          className="text-xs font-semibold px-3 py-1.5 rounded-md text-white hover:opacity-90 transition whitespace-nowrap"
           style={{ background: accent }}
         >
-          {ctaLabel}
-          <div className="text-[9px] font-normal opacity-90 -mt-0.5">{subtitle}</div>
+          {subtitle}
         </button>
       </div>
 
