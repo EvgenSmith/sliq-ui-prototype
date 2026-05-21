@@ -1,16 +1,22 @@
 // RangeBar — visual primitive per ТЗ §3.2: shows LP range bounds + current
-// price as a centered scale. Bar extends slightly beyond the range so the
-// marker can sit outside without overflowing.
+// price as a centered scale.
 //
-// Eugene 2026-05-20 v3 layout:
-//                                              ▼ $1.05      ← top-right, colour
-//   ●━━━━━━━━━━━━━━━━━●━━                                   ← bar with bounds + ▼
-//   $0.95 (−8.34%)   $1.16 (+11.06%)                       ← bounds with delta-%
+// Eugene 2026-05-20 v4 — revert to range-relative padding (was briefly
+// ±10% normalised window, which broke wide ranges by clamping both dots
+// to edges and overlapping labels). Bar now extends 25% past the range on
+// each side; current price marker positions naturally within that window.
+// When the price is well outside range it clamps to the bar edge but
+// won't collide with the bound dots because we still have the 25% margin
+// of safety on each side.
 //
-// Visual scale is ALWAYS ±10% from current price (Eugene 2026-05-20:
-// «% под прогрессбаром не должны быть больше 10% в среднем»). Range bounds
-// outside that window clamp to the bar edges; the label still shows the
-// actual delta-%.
+// Layout:
+//                                       ▼ $1.05               ← top-right, colour
+//   ●━━━━━━━━━━▼━━━━━━━━━●━━━━                                ← bar with bounds + ▼
+//   $0.95 (−8.3%)        $1.16 (+11.1%)                       ← bounds with delta-%
+//
+// Eugene also asked: «разрадность до 1 цифры после точки» — % labels now
+// 1-decimal (was 2). Less visual noise on wide ranges that DO occur in
+// mock data but are out-of-distribution for real users.
 
 import { fmtPriceShort } from '@/lib/format'
 
@@ -20,29 +26,24 @@ interface Props {
   currentPrice: number
 }
 
-// Visible half-window — bar always shows current ± this fraction.
-// 0.10 = ±10%. Tight ranges fit comfortably; wide ranges clamp to edges.
-const VISIBLE_HALF_WINDOW = 0.10
-
 export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
   const deltaLowPct = ((rangeLow - currentPrice) / currentPrice) * 100
   const deltaHighPct = ((rangeHigh - currentPrice) / currentPrice) * 100
 
-  // Visible scale: ±VISIBLE_HALF_WINDOW from currentPrice. Current price
-  // is by construction at the center (50%) of the bar.
-  const scaleStart = currentPrice * (1 - VISIBLE_HALF_WINDOW)
-  const scaleEnd = currentPrice * (1 + VISIBLE_HALF_WINDOW)
+  // Bar visible range = rangeLow .. rangeHigh padded by 25% each side.
+  // The current price sits wherever it sits relative to this window.
+  const span = rangeHigh - rangeLow
+  const padding = span * 0.25
+  const scaleStart = rangeLow - padding
+  const scaleEnd = rangeHigh + padding
   const scaleSpan = scaleEnd - scaleStart
 
-  // Map a price to a % position on the bar, then clamp to [0, 100] so dots
-  // never visually exit the grey track. Labels still show actual delta-%
-  // even when the dot is clamped at the edge.
-  const posPct = (v: number) => {
-    const raw = ((v - scaleStart) / scaleSpan) * 100
-    return Math.max(0, Math.min(100, raw))
-  }
+  const posPct = (v: number) => ((v - scaleStart) / scaleSpan) * 100
+
   const lowPos = posPct(rangeLow)
   const highPos = posPct(rangeHigh)
+  const priceRaw = posPct(currentPrice)
+  const priceClamped = Math.max(2, Math.min(98, priceRaw))
   const priceOutsideRange = currentPrice < rangeLow || currentPrice > rangeHigh
   const innerColour = priceOutsideRange ? 'var(--color-status-warning)' : 'var(--color-status-success)'
 
@@ -56,22 +57,22 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
           style={{ color: innerColour }}
           title={`Current price: ${fmtPriceShort(currentPrice)}`}
         >
-          ▼ {fmtPriceShort(currentPrice)}
+          {fmtPriceShort(currentPrice)}
         </span>
       </div>
       {/* Bar */}
       <div className="relative h-1.5">
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-gray-200" />
-        {/* Inside-range emphasised segment — between the two clamped dots. */}
+        {/* Inside-range emphasised segment between the two bound dots. */}
         <div
           className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full"
           style={{
-            left: `${Math.min(lowPos, highPos)}%`,
-            width: `${Math.abs(highPos - lowPos)}%`,
+            left: `${lowPos}%`,
+            width: `${highPos - lowPos}%`,
             background: innerColour,
           }}
         />
-        {/* Range bound dots — clamped to bar edges. */}
+        {/* Range bound dots. */}
         <span
           className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white"
           style={{ left: `${lowPos}%`, background: innerColour }}
@@ -82,22 +83,31 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
           style={{ left: `${highPos}%`, background: innerColour }}
           aria-hidden
         />
+        {/* Current price marker — ▼ above the bar at the price's natural
+            position. Clamped to [2,98] so it stays inside the grey track. */}
+        <span
+          className="absolute -top-1 -translate-x-1/2 text-[10px] leading-none"
+          style={{ left: `${priceClamped}%`, color: innerColour }}
+          aria-label={`Current price ${fmtPriceShort(currentPrice)}`}
+        >
+          ▼
+        </span>
       </div>
-      {/* Bottom — range bounds with delta-% in parens. */}
+      {/* Bottom — range bounds with delta-% (1-decimal precision). */}
       <div className="relative h-4 text-[10px] num text-gray-700 mt-0.5">
         <span
           className="absolute -translate-x-1/2 whitespace-nowrap"
           style={{ left: `${lowPos}%` }}
         >
           <span className="font-medium">{fmtPriceShort(rangeLow)}</span>
-          <span className="text-gray-400"> ({deltaLowPct >= 0 ? '+' : '−'}{Math.abs(deltaLowPct).toFixed(2)}%)</span>
+          <span className="text-gray-400"> ({deltaLowPct >= 0 ? '+' : '−'}{Math.abs(deltaLowPct).toFixed(1)}%)</span>
         </span>
         <span
           className="absolute -translate-x-1/2 whitespace-nowrap"
           style={{ left: `${highPos}%` }}
         >
           <span className="font-medium">{fmtPriceShort(rangeHigh)}</span>
-          <span className="text-gray-400"> ({deltaHighPct >= 0 ? '+' : '−'}{Math.abs(deltaHighPct).toFixed(2)}%)</span>
+          <span className="text-gray-400"> ({deltaHighPct >= 0 ? '+' : '−'}{Math.abs(deltaHighPct).toFixed(1)}%)</span>
         </span>
       </div>
       <span className="sr-only">{`Range ${fmtPriceShort(rangeLow)} to ${fmtPriceShort(rangeHigh)}, current ${fmtPriceShort(currentPrice)}`}</span>
