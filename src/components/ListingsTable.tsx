@@ -90,7 +90,7 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-left font-medium px-3 py-2.5 hidden md:table-cell">
+              <th className="text-left font-medium pl-6 pr-3 py-2.5 hidden md:table-cell">
                 <span className="inline-flex items-center gap-1">
                   Range
                   <HelpPopover label="Range · centered" width="w-72">
@@ -252,8 +252,11 @@ function DesktopRow({
       </td>
 
       {/* Range — centered RangeBar primitive (per ТЗ §3.2, P1 R-076).
-          Hidden on small screens to keep the row tight. */}
-      <td className="px-3 py-3 hidden md:table-cell" style={{ minWidth: '180px' }}>
+          Hidden on small screens to keep the row tight.
+          Eugene 2026-05-20: «pool size и range нужно чуть разнести» —
+          wider minWidth + pl-6 give the range labels breathing room
+          past the Pool size cell. */}
+      <td className="pl-6 pr-3 py-3 hidden md:table-cell" style={{ minWidth: '220px' }}>
         <RangeBar
           rangeLow={listing.rangeLow}
           rangeHigh={listing.rangeHigh}
