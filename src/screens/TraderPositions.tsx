@@ -16,6 +16,7 @@ import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD } from '@/lib/format'
 import { estimateCarryPerHour, estimateLiquidationPrice, pairLabel } from '@/lib/derive'
 import { HelpPopover } from '@/components/HelpPopover'
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
+import { RangeBar } from '@/components/RangeBar'
 import type { ClosedPosition, DexProtocol, Position, PositionStatus } from '@/lib/types'
 
 type StatusFilter = 'all' | 'open' | 'close-requested' | 'attention'
@@ -272,7 +273,6 @@ export function TraderPositions() {
                   return filtered.slice(start, start + pageSize)
                 })()}
                 onClick={id => navigate(`/trader/positions/${id}`)}
-                onRequestClose={p => setCloseRequestFor(p)}
               />
 
               {/* Pagination — visible если позиций больше одной страницы */}
@@ -483,92 +483,141 @@ function estimatedPnL(p: Position): number {
   return ip - refAccrued - premAccrued
 }
 
+// Trader card metric helpers — spec sources:
+// · whitepaper §9.3 (HF), §6 (PnL composition)
+// · {sLiq} {prd} trader UI spec – 2026-05-18 (P2 R-032/033/034 PnL trio, APY-on-margin)
+// · {transcript} sLiq Trade part 2 prototype review 2026-05-18
+//
+// Eugene 2026-05-21: «Reference Fee» term retired in favor of «Uniswap fees» /
+// «Uniswap APY». pendingRefApyBps is the same number, just relabelled.
+
+// HF = R_Σ(t) / (0.10 · R_Σ(0)). reservePctOfInitial encodes (R_Σ(t)/R_Σ(0))·100
+// already, so HF reduces to reservePctOfInitial / 10. HF=1 ⇔ liquidation.
+function healthFactor(p: Position): number {
+  return p.reservePctOfInitial / 10
+}
+
+// Band thresholds not locked in spec (whitepaper has only the hard 10% =
+// HF 1.0 liquidation line, and the resolutions doc mentions <25% as «critical
+// banner» = HF<2.5). Picking conservative bands for the prototype.
+function healthBand(hf: number): 'red' | 'amber' | 'green' {
+  if (hf < 1.1) return 'red'
+  if (hf < 1.5) return 'amber'
+  return 'green'
+}
+function healthColor(hf: number): string {
+  const band = healthBand(hf)
+  return band === 'red'
+    ? 'var(--color-status-danger)'
+    : band === 'amber'
+    ? 'var(--color-status-warning)'
+    : 'var(--color-status-success)'
+}
+
+// «APY to margin» — PnL annualised against MARGIN, not notional (P2 R-033/034).
+// Per Kolya/Max trader-call: «он должен к марже быть, как трейдер».
+function pnlApyOnMargin(p: Position, pnl: number): number {
+  const hoursOpen = Math.max(0.5, (Date.now() - p.openedAt) / 3_600_000)
+  const m = Math.max(1, p.marginValueUSD)
+  return (pnl / m) * (8760 / hoursOpen) * 100
+}
+
+// % of margin — second leg of the PnL trio.
+function pnlPctOfMargin(p: Position, pnl: number): number {
+  return (pnl / Math.max(1, p.marginValueUSD)) * 100
+}
+
 function PositionsTable({
   positions: ps,
   onClick,
-  onRequestClose,
 }: {
   positions: Position[]
   onClick: (id: string) => void
-  onRequestClose: (p: Position) => void
 }) {
   return (
     <>
       <div className="hidden md:block rounded-lg border border-gray-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
+          {/* Trader positions columns — mirror /listings table (Eugene
+              2026-05-21 «возьми за базу заявки из listings и добавь
+              информацию по моим позициям»). Spec sources:
+              · {sLiq} {prd} trader UI spec – 2026-05-18 §6.4 collapsed card
+              · transcript Trade part 2 review 2026-05-18 (Kolya, Max)
+              · {sLiq} {decision} card spec resolutions – 2026-05-11
+              Drops vs old layout: Action column (lives on PositionDetail S9),
+              standalone «Opened» time (in expand), separate Carry $/h
+              (folded into «Rate paid» that mirrors listings «Rent APY»). */}
           <thead className="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left font-medium px-4 py-2.5">Pair · entry → now</th>
-              <th className="text-left font-medium px-3 py-2.5">Status</th>
-              <th className="text-right font-medium px-3 py-2.5">Notional</th>
-              <th className="text-right font-medium px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  Live PnL
-                  <HelpPopover label="Что значит Live PnL" width="w-72">
-                    <p className="font-semibold mb-1">Live PnL (оценка)</p>
-                    <p className="mb-1">PnL = Impermanent Profit − Reference Fees − Premium APY − close cost.</p>
-                    <p>Окончательное число определится при close по цене Pool на следующем блоке. Может быть partial если резерв иссяк.</p>
-                  </HelpPopover>
-                </span>
-              </th>
-              <th className="text-right font-medium px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  Liq @ price
-                  <HelpPopover label="Liquidation price" width="w-72">
-                    <p className="font-semibold mb-1">Цена ликвидации</p>
-                    <p>Если цена Pool достигнет этой границы — позиция закроется автоматически, margin потеряна. Чем дальше — тем безопаснее.</p>
-                  </HelpPopover>
-                </span>
-              </th>
-              <th className="text-right font-medium px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  Carry $/h
-                  <HelpPopover label="Carry в долларах в час" width="w-72">
-                    <p className="font-semibold mb-1">Сколько горит на холде</p>
-                    <p className="mb-1">Premium APY + Reference Fees, конвертировано в $/час на твой notional. Это что ты <strong>платишь</strong> LP пока сидишь.</p>
-                    <p className="text-[11px] text-gray-500">Если отрицательно — наоборот, LP <strong>платит тебе</strong> (subsidized листинг).</p>
-                  </HelpPopover>
-                </span>
-              </th>
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">Leverage now / opened</th>
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">Opened</th>
-              <th className="text-right font-medium px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 justify-end">
-                  Action
-                  <HelpPopover label="Что показывается в Action" width="w-96">
-                    <p className="font-semibold mb-2">Что бывает в этой колонке</p>
-                    <p className="mb-2 text-[11px]">Зависит от статуса позиции — определяет какие действия доступны прямо сейчас.</p>
-
-                    <p className="font-semibold mt-3 mb-1.5 text-gray-900">Active states (можно действовать)</p>
-                    <ul className="space-y-1.5 text-[11px] leading-snug">
-                      <li>
-                        <span className="inline-flex items-center gap-1 mr-1">
-                          <span className="inline-block px-1.5 py-0.5 rounded border border-[var(--color-role-lp)] text-[var(--color-role-lp)] text-[9px] font-medium">+ Margin</span>
-                          <span className="inline-block px-1.5 py-0.5 rounded border border-[var(--color-status-danger)] text-[var(--color-status-danger)] text-[9px] font-medium">Close</span>
-                        </span>
-                        <strong>OPEN</strong> — позиция работает, накапливает PnL/carry. Добавь маржу (защитить от ликвидации) или закрой по цене Uniswap.
-                      </li>
-                    </ul>
-
-                    <p className="font-semibold mt-3 mb-1.5 text-gray-900">Pending states (action недоступен — ждём keeper)</p>
-                    <ul className="space-y-1.5 text-[11px] leading-snug">
-                      <li>
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium text-blue-700 bg-blue-50 border border-blue-200 mr-1 num">awaiting keeper</span>
-                        <strong>CLOSE_REQUESTED</strong> — ты отправил запрос на закрытие, keeper подхватит на следующем блоке. Маржу больше менять нельзя.
-                      </li>
-                      <li>
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium text-blue-700 bg-blue-50 border border-blue-200 mr-1 num">settling…</span>
-                        <strong>CLOSING</strong> — keeper уже считает финальный residual. Через 1-2 блока станет «closed» — переедет в Closed positions ниже.
-                      </li>
-                      <li>
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium text-amber-800 bg-amber-50 border border-amber-300 mr-1 num">forced close</span>
-                        <strong>OUTBID_PENDING</strong> — другой трейдер перекупил твою позицию (предложил LP'у carry выше твоего). Закроют принудительно по pool-price; накопленный PnL + маржа вернутся на твой кошелёк.
-                      </li>
-                    </ul>
-
-                    <p className="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-500 leading-snug">
-                      Если позиция полностью закрылась — она исчезает из этой таблицы и появляется в Closed positions ниже на странице со статусом <strong>clean close</strong>, <strong>margin call</strong> или <strong>💥 liquidated</strong>.
+              <th className="text-left font-medium px-4 py-2.5">Pair · DEX · fee</th>
+              <th className="text-left font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1">
+                  Status
+                  <HelpPopover label="Position status (trader view)" width="w-96" size="lg">
+                    <p className="font-semibold mb-2">Что значат статусы моей позиции</p>
+                    <p className="text-[11px] text-gray-600 mb-2 leading-relaxed">
+                      Статус позиции + суб-метка in-range / out-of-range. Цвета не пересекаются между «Out of …» состояниями — это разные вещи (P2 R-014).
                     </p>
+                    <ul className="space-y-1 text-[11px] leading-snug">
+                      <li><strong>active</strong> — работает, копит PnL/carry. Суб-чип <em>in-range</em> или <em>out of range</em>.</li>
+                      <li><strong>outbid</strong> — другой трейдер предложил LP'у выше Premium APY. Маржу не теряешь, можешь перебить обратно (Buyout back).</li>
+                      <li><strong>out of margin</strong> — outbid + маржи не хватает на возврат. Top up + buyout. <em>Не ликвидация.</em></li>
+                      <li><strong>close-requested / settling</strong> — ты или keeper запросили закрытие, ждём блок.</li>
+                      <li><strong>💥 liquidating</strong> — HF упал ниже 1.0, позиция закрывается принудительно.</li>
+                    </ul>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  Position size
+                  <HelpPopover label="Notional + leverage" width="w-72">
+                    <p className="font-semibold mb-1">Размер позиции</p>
+                    <p className="mb-1.5">Notional = margin × <strong>nominal leverage</strong> (зафиксировано при открытии). Эффективное плечо меняется по мере того как ты двигаешь маржу.</p>
+                    <p className="text-[11px] text-gray-500">Card spec resolutions §2.2: nominal lev immutable, effective lev = N₀ / M_current.</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-left font-medium pl-6 pr-3 py-2.5 hidden md:table-cell">
+                <span className="inline-flex items-center gap-1">
+                  Range
+                  <HelpPopover label="Range · centered" width="w-72">
+                    <p className="font-semibold mb-1">Где цена относительно range LP-NFT</p>
+                    <p>Маркер ▼ = текущая цена. Точки на концах = границы range. Когда цена выходит за range — Impermanent Profit не копится, но Premium APY всё равно списывается (P2 R-013).</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  PnL
+                  <HelpPopover label="Live PnL trio" width="w-80" size="lg">
+                    <p className="font-semibold mb-1">PnL = $ / % of margin / APY</p>
+                    <p className="text-[11px] mb-2">Net = Impermanent Profit − Uniswap fees accrued − Premium APY accrued − protocol fees.</p>
+                    <p className="text-[11px] mb-1"><strong>$</strong> — текущий unrealized в долларах.</p>
+                    <p className="text-[11px] mb-1"><strong>% of margin</strong> — PnL делённый на твою маржу (не на notional!) — спец P2 R-034.</p>
+                    <p className="text-[11px] mb-2"><strong>APY</strong> — то же самое, annualised: <span className="num">(PnL/Margin) × (8760/часов_открытия) × 100%</span>. Считается к марже, не к notional (P2 R-033).</p>
+                    <p className="text-[11px] text-gray-500">Финальный residual определится при close по цене Uniswap.</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  Rate paid
+                  <HelpPopover label="Rate trader pays" width="w-72">
+                    <p className="font-semibold mb-1">Что ты платишь LP за позицию</p>
+                    <p className="mb-1">Premium APY (твоя ставка при открытии) + Uniswap baseline fees. В сумме = «цена аренды» позиции.</p>
+                    <p className="text-[11px] text-gray-500">Если Premium отрицательный — субсидированный листинг, LP <strong>платит тебе</strong>.</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5">
+                <span className="inline-flex items-center gap-1 justify-end">
+                  Health
+                  <HelpPopover label="Health Factor + Liquidation distance" width="w-80" size="lg">
+                    <p className="font-semibold mb-1">HF — аналог LP-side Health</p>
+                    <p className="text-[11px] mb-2"><span className="num">HF = R_Σ(t) / (0.10 · R_Σ(0))</span>. HF=1.0 — точка ликвидации. HF=2.0 — резерв на ⅕ выше порога.</p>
+                    <p className="text-[11px] mb-1">Бэнды: <span style={{ color: 'var(--color-status-success)' }}>🟢 ≥1.5</span> · <span style={{ color: 'var(--color-status-warning)' }}>🟡 1.1–1.5</span> · <span style={{ color: 'var(--color-status-danger)' }}>🔴 &lt;1.1</span></p>
+                    <p className="text-[11px] mb-1"><strong>Liq distance</strong> ниже — % движения цены до ближайшей ликвидационной границы. Чем больше — тем безопаснее.</p>
                   </HelpPopover>
                 </span>
               </th>
@@ -580,7 +629,6 @@ function PositionsTable({
                 key={p.id}
                 position={p}
                 onClick={() => onClick(p.id)}
-                onRequestClose={() => onRequestClose(p)}
               />
             ))}
           </tbody>
@@ -593,7 +641,6 @@ function PositionsTable({
             key={p.id}
             position={p}
             onClick={() => onClick(p.id)}
-            onRequestClose={() => onRequestClose(p)}
           />
         ))}
       </div>
@@ -698,31 +745,35 @@ function ClosedTable({
 function DesktopRow({
   position,
   onClick,
-  onRequestClose,
 }: {
   position: Position
   onClick: () => void
-  onRequestClose: () => void
 }) {
   const listing = listings.find(l => l.id === position.listingId)
   if (!listing) return null
 
+  // Core metrics (formulas — see helpers at top of file)
   const pnl = estimatedPnL(position)
+  const pnlPct = pnlPctOfMargin(position, pnl)
+  const pnlApy = pnlApyOnMargin(position, pnl)
+  const hf = healthFactor(position)
+  const hfColor = healthColor(hf)
   const liq = estimateLiquidationPrice(position, listing.currentPrice)
-  const carryPerHour = estimateCarryPerHour(position)
-  const isCritical = position.reservePctOfInitial < 25
-  const rowBg = isCritical ? 'bg-red-50/30' : ''
-  const traderReceivesCarry = position.apyBps < 0
-  const priceChangePct = ((listing.currentPrice - position.entryPrice) / position.entryPrice) * 100
-  // Pick closer liq side (one is on each direction; trader cares about whichever's closer)
   const closerLiq = Math.abs(listing.currentPrice - liq.down) < Math.abs(listing.currentPrice - liq.up) ? liq.down : liq.up
   const liqDistancePct = Math.abs((closerLiq - listing.currentPrice) / listing.currentPrice) * 100
-  const liqColor =
-    liqDistancePct < 2
-      ? 'var(--color-status-danger)'
-      : liqDistancePct < 5
-      ? 'var(--color-status-warning)'
-      : 'var(--color-status-success)'
+  const liqDirection = closerLiq < listing.currentPrice ? '↓' : '↑'
+
+  // Display states
+  const inRange = listing.currentPrice >= listing.rangeLow && listing.currentPrice <= listing.rangeHigh
+  const isCritical = hf < 1.1
+  const rowBg = isCritical ? 'bg-red-50/30' : ''
+  const traderReceivesCarry = position.apyBps < 0
+  const premiumPctSigned = position.apyBps / 100
+  const uniswapPct = position.pendingRefApyBps / 100
+  const totalRatePct = premiumPctSigned + uniswapPct
+
+  // Status sub-chip — in-range vs out-of-range (only meaningful for active states)
+  const showRangeChip = position.status === 'OPEN' || position.status === 'OUTBID_PENDING'
 
   return (
     <tr
@@ -741,33 +792,22 @@ function DesktopRow({
         ' hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-1 focus:ring-[var(--color-role-trader)]/40 focus:ring-inset'
       }
     >
-      {/* Pair + entry → now price */}
+      {/* 1. Pair · DEX · fee — mirrors /listings layout */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <PairIcons pair={listing.pair} />
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-gray-900 group-hover:text-[var(--color-role-trader)] transition truncate">
                 {pairLabel(listing)}
               </span>
               {traderReceivesCarry && (
                 <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold whitespace-nowrap">
-                  LP платит тебе
+                  LP pays you
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] num">
-              <span className="text-gray-500">
-                {fmtPriceShort(position.entryPrice)} → <span className="font-semibold text-gray-800">{fmtPriceShort(listing.currentPrice)}</span>
-              </span>
-              <span
-                className="font-semibold"
-                style={{ color: priceChangePct >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
-              >
-                {priceChangePct >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-1">
               <DexChip dex={listing.dex} />
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200 num">
                 {fmtFeeTier(listing.feeTierBps)}
@@ -777,112 +817,117 @@ function DesktopRow({
         </div>
       </td>
 
-      {/* Status */}
+      {/* 2. Status — primary chip + in-range/out-of-range sub-chip */}
       <td className="px-3 py-3">
-        <PositionStatusChip status={position.status} />
+        <div className="flex flex-col gap-1 items-start">
+          <PositionStatusChip status={position.status} />
+          {showRangeChip && (
+            <span
+              className={
+                'text-[10px] font-medium px-1.5 py-0.5 rounded border whitespace-nowrap ' +
+                (inRange
+                  ? 'bg-[var(--color-status-success)]/10 text-[var(--color-status-success)] border-[var(--color-status-success)]/30'
+                  : 'bg-amber-50 text-amber-800 border-amber-300')
+              }
+              title={
+                inRange
+                  ? 'Цена внутри LP-range — позиция накапливает Impermanent Profit.'
+                  : 'Цена вышла за LP-range — IP не копится, но Premium APY всё равно списывается (P2 R-013).'
+              }
+            >
+              {inRange ? 'in range' : 'out of range'}
+            </span>
+          )}
+        </div>
       </td>
 
-      {/* Notional */}
-      <td className="px-3 py-3 text-right num text-gray-900 font-medium">{fmtUSD(position.notionalUSD)}</td>
+      {/* 3. Position size — notional + nominal/effective leverage */}
+      <td className="px-3 py-3 text-right num">
+        <div className="font-semibold text-gray-900">{fmtUSD(position.notionalUSD)}</div>
+        <div
+          className="text-[10px] text-gray-500 leading-tight mt-0.5 cursor-help"
+          title={`Nominal leverage ${position.openedAtLeverage}× fixed at open. Effective ${position.effectiveLeverage}× = notional / current margin.`}
+        >
+          <span className="font-medium text-gray-700">{position.openedAtLeverage}×</span> nominal
+        </div>
+        {position.effectiveLeverage !== position.openedAtLeverage && (
+          <div className="text-[10px] text-gray-500 leading-tight">
+            <span className="font-medium text-gray-700">{position.effectiveLeverage}×</span> effective
+          </div>
+        )}
+      </td>
 
-      {/* Live PnL */}
+      {/* 4. Range — RangeBar primitive (same as /listings) */}
+      <td className="pl-6 pr-3 py-3 hidden md:table-cell">
+        <div className="w-44">
+          <RangeBar
+            rangeLow={listing.rangeLow}
+            rangeHigh={listing.rangeHigh}
+            currentPrice={listing.currentPrice}
+            compact
+          />
+        </div>
+      </td>
+
+      {/* 5. PnL — vertical trio: $ / % of margin / APY */}
       <td className="px-3 py-3 text-right">
-        <span
-          className="num font-semibold"
+        <div
+          className="num text-base font-semibold leading-tight"
           style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
         >
           {pnl >= 0 ? '+' : '−'}{fmtUSD(Math.abs(pnl))}
-        </span>
-        <div className="text-[10px] text-gray-500 num leading-tight mt-0.5">
-          margin {fmtUSD(position.marginValueUSD)}
         </div>
-      </td>
-
-      {/* Liquidation price */}
-      <td className="px-3 py-3 text-right">
-        <div className="num font-semibold" style={{ color: liqColor }}>
-          {fmtPriceShort(closerLiq)}
-        </div>
-        <div className="text-[10px] num leading-tight mt-0.5" style={{ color: liqColor }}>
-          {liqDistancePct.toFixed(1)}% away
-        </div>
-      </td>
-
-      {/* Carry $/h */}
-      <td className="px-3 py-3 text-right">
         <div
-          className="num font-semibold"
-          style={{ color: carryPerHour < 0 ? 'var(--color-negative-apy)' : 'oklch(20% 0 0)' }}
+          className="text-[11px] num font-medium leading-tight mt-0.5"
+          style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
         >
-          {carryPerHour < 0 ? '+' : '−'}{fmtUSD(Math.abs(carryPerHour))}<span className="text-[10px] text-gray-500">/h</span>
+          {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}% margin
         </div>
-        <div className="text-[10px] text-gray-500 num leading-tight mt-0.5">
-          {fmtPct(position.apyBps, { signed: true })} + Ref {fmtPct(position.pendingRefApyBps)}
+        <div
+          className="text-[10px] num leading-tight"
+          style={{ color: pnlApy >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+          title="PnL annualised against your margin (not notional). Спец P2 R-033."
+        >
+          {pnlApy >= 0 ? '+' : ''}{pnlApy.toFixed(1)}% APY
         </div>
       </td>
 
-      {/* Leverage now / opened */}
-      <td className="px-3 py-3 text-right num text-gray-700 hidden lg:table-cell">
-        <span className="font-semibold">{position.effectiveLeverage}×</span>
-        <span className="text-[10px] text-gray-500"> / {position.openedAtLeverage}×</span>
+      {/* 6. Rate paid — Premium + Uniswap, mirrors /listings «Rent APY» */}
+      <td className="px-3 py-3 text-right num">
+        <div
+          className="font-medium"
+          style={{ color: premiumPctSigned < 0 ? 'var(--color-negative-apy)' : undefined }}
+        >
+          {premiumPctSigned >= 0 ? '' : '−'}{Math.abs(premiumPctSigned).toFixed(2)}%
+          <span className="text-[10px] text-gray-500 ml-1">Premium</span>
+        </div>
+        <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+          + {uniswapPct.toFixed(2)}% Uniswap
+        </div>
+        <div className="text-[11px] text-gray-700 leading-tight mt-0.5">
+          = <span className="font-semibold">{totalRatePct >= 0 ? '' : '−'}{Math.abs(totalRatePct).toFixed(2)}%</span> rent
+        </div>
       </td>
 
-      {/* Opened */}
-      <td className="px-3 py-3 text-right num text-xs text-gray-500 hidden lg:table-cell">
-        {fmtTimeAgo(position.openedAt)}
-      </td>
-
-      {/* Action */}
+      {/* 7. Health — HF number + bar + liq distance */}
       <td className="px-3 py-3 text-right">
-        {position.status === 'OPEN' ? (
-          <div className="inline-flex items-center gap-1 justify-end">
-            <button
-              type="button"
-              onClick={e => {
-                e.stopPropagation()
-                onClick() // navigate to S9 — Add margin lives there
-              }}
-              className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--color-role-lp)] text-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)] transition whitespace-nowrap"
-              title="Добавить маржу к позиции. Ликвидация отодвинется дальше от текущей цены, риск снизится."
-            >
-              + Margin
-            </button>
-            <button
-              type="button"
-              onClick={e => {
-                e.stopPropagation()
-                onRequestClose()
-              }}
-              className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--color-status-danger)] text-[var(--color-status-danger)] hover:bg-red-50 transition"
-              title="Запросить закрытие позиции. Исполнится на следующем блоке Arbitrum по текущей цене Uniswap. Carry до момента закрытия списан, residual вернётся на твой кошелёк."
-            >
-              Close
-            </button>
-          </div>
-        ) : position.status === 'CLOSE_REQUESTED' ? (
-          <span
-            className="text-xs text-blue-700 num cursor-help"
-            title="Ты отправил запрос на закрытие. Keeper подхватит на следующем блоке Arbitrum. Маржу больше менять нельзя; отменить тоже."
-          >
-            awaiting keeper
-          </span>
-        ) : position.status === 'CLOSING' ? (
-          <span
-            className="text-xs text-blue-700 num cursor-help"
-            title="Keeper уже считает финальный residual. Через 1-2 блока позиция уйдёт в Closed positions."
-          >
-            settling…
-          </span>
-        ) : position.status === 'OUTBID_PENDING' ? (
-          <span
-            className="text-xs text-amber-800 num cursor-help"
-            title="Другой трейдер предложил LP'у carry выше твоего и перекупил позицию. Закроют принудительно по текущей цене Uniswap; маржу + накопленный PnL вернут на твой кошелёк."
-          >
-            forced close
-          </span>
-        ) : (
-          <span className="text-xs text-gray-400">—</span>
-        )}
+        <div className="num text-base font-semibold leading-tight" style={{ color: hfColor }}>
+          {hf.toFixed(2)}
+          <span className="text-[10px] text-gray-500 font-normal ml-1">HF</span>
+        </div>
+        {/* Mini health bar — width is HF clamped to [0, 3] mapped to 0-100% */}
+        <div className="relative h-1 w-20 ml-auto mt-1 rounded-full bg-gray-200 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{
+              width: `${Math.max(2, Math.min(100, (hf / 3) * 100))}%`,
+              background: hfColor,
+            }}
+          />
+        </div>
+        <div className="text-[10px] num leading-tight mt-1" style={{ color: hfColor }} title={`Closest liquidation price ${fmtPriceShort(closerLiq)}`}>
+          liq {liqDirection} {liqDistancePct.toFixed(1)}%
+        </div>
       </td>
     </tr>
   )
@@ -891,29 +936,29 @@ function DesktopRow({
 function MobileRow({
   position,
   onClick,
-  onRequestClose,
 }: {
   position: Position
   onClick: () => void
-  onRequestClose: () => void
 }) {
   const listing = listings.find(l => l.id === position.listingId)
   if (!listing) return null
 
   const pnl = estimatedPnL(position)
+  const pnlPct = pnlPctOfMargin(position, pnl)
+  const pnlApy = pnlApyOnMargin(position, pnl)
+  const hf = healthFactor(position)
+  const hfColor = healthColor(hf)
   const liq = estimateLiquidationPrice(position, listing.currentPrice)
-  const carryPerHour = estimateCarryPerHour(position)
-  const isCritical = position.reservePctOfInitial < 25
-  const rowBg = isCritical ? 'bg-red-50/30' : 'bg-white hover:bg-gray-50'
-  const priceChangePct = ((listing.currentPrice - position.entryPrice) / position.entryPrice) * 100
   const closerLiq = Math.abs(listing.currentPrice - liq.down) < Math.abs(listing.currentPrice - liq.up) ? liq.down : liq.up
   const liqDistancePct = Math.abs((closerLiq - listing.currentPrice) / listing.currentPrice) * 100
-  const liqColor =
-    liqDistancePct < 2
-      ? 'var(--color-status-danger)'
-      : liqDistancePct < 5
-      ? 'var(--color-status-warning)'
-      : 'var(--color-status-success)'
+  const liqDirection = closerLiq < listing.currentPrice ? '↓' : '↑'
+  const isCritical = hf < 1.1
+  const rowBg = isCritical ? 'bg-red-50/30' : 'bg-white hover:bg-gray-50'
+  const inRange = listing.currentPrice >= listing.rangeLow && listing.currentPrice <= listing.rangeHigh
+  const showRangeChip = position.status === 'OPEN' || position.status === 'OUTBID_PENDING'
+  const premiumPctSigned = position.apyBps / 100
+  const uniswapPct = position.pendingRefApyBps / 100
+  const totalRatePct = premiumPctSigned + uniswapPct
 
   return (
     <button
@@ -921,6 +966,7 @@ function MobileRow({
       onClick={onClick}
       className={'w-full text-left px-4 py-3 transition active:bg-gray-100 ' + rowBg}
     >
+      {/* Top row: pair + PnL headline */}
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <PairIcons pair={listing.pair} compact />
@@ -928,76 +974,71 @@ function MobileRow({
         </div>
         <div className="text-right num flex-shrink-0">
           <div
-            className="font-semibold text-base"
+            className="font-semibold text-base leading-tight"
             style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
           >
             {pnl >= 0 ? '+' : '−'}{fmtUSD(Math.abs(pnl))}
           </div>
-          <div className="text-[10px] text-gray-500">notional {fmtUSD(position.notionalUSD)}</div>
+          <div
+            className="text-[10px] leading-tight"
+            style={{ color: pnl >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+          >
+            {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}% · {pnlApy >= 0 ? '+' : ''}{pnlApy.toFixed(0)}% APY
+          </div>
         </div>
       </div>
 
-      <div className="mt-1 flex items-center gap-2 text-[11px] num">
-        <span className="text-gray-500">
-          {fmtPriceShort(position.entryPrice)} → <span className="font-semibold text-gray-800">{fmtPriceShort(listing.currentPrice)}</span>
-        </span>
-        <span
-          className="font-semibold"
-          style={{ color: priceChangePct >= 0 ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
-        >
-          {priceChangePct >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
-        </span>
-      </div>
-
-      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+      {/* Status chips row */}
+      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
         <PositionStatusChip status={position.status} tiny />
+        {showRangeChip && (
+          <span
+            className={
+              'text-[10px] font-medium px-1.5 py-0.5 rounded border whitespace-nowrap ' +
+              (inRange
+                ? 'bg-[var(--color-status-success)]/10 text-[var(--color-status-success)] border-[var(--color-status-success)]/30'
+                : 'bg-amber-50 text-amber-800 border-amber-300')
+            }
+          >
+            {inRange ? 'in range' : 'out of range'}
+          </span>
+        )}
         <DexChip dex={listing.dex} />
         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200 num">
           {fmtFeeTier(listing.feeTierBps)}
         </span>
-        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200 num">
-          {position.effectiveLeverage}×
-        </span>
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] num">
+      {/* RangeBar */}
+      <div className="mt-2">
+        <RangeBar
+          rangeLow={listing.rangeLow}
+          rangeHigh={listing.rangeHigh}
+          currentPrice={listing.currentPrice}
+          compact
+        />
+      </div>
+
+      {/* Bottom metrics — 3 columns */}
+      <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] num">
         <div>
-          <span className="text-gray-500">liq @</span>{' '}
-          <span className="font-semibold" style={{ color: liqColor }}>{fmtPriceShort(closerLiq)}</span>{' '}
-          <span style={{ color: liqColor }}>({liqDistancePct.toFixed(1)}% away)</span>
+          <span className="text-gray-500 text-[10px] block">Size</span>
+          <span className="font-semibold">{fmtUSD(position.notionalUSD)}</span>{' '}
+          <span className="text-gray-500">{position.openedAtLeverage}×</span>
+        </div>
+        <div>
+          <span className="text-gray-500 text-[10px] block">Rate paid</span>
+          <span className="font-semibold" style={{ color: totalRatePct < 0 ? 'var(--color-negative-apy)' : undefined }}>
+            {totalRatePct >= 0 ? '' : '−'}{Math.abs(totalRatePct).toFixed(2)}%
+          </span>{' '}
+          <span className="text-gray-500 text-[10px]">({premiumPctSigned >= 0 ? '' : '−'}{Math.abs(premiumPctSigned).toFixed(1)}+{uniswapPct.toFixed(1)})</span>
         </div>
         <div className="text-right">
-          <span className="text-gray-500">carry</span>{' '}
-          <span className="font-semibold" style={{ color: carryPerHour < 0 ? 'var(--color-negative-apy)' : undefined }}>
-            {carryPerHour < 0 ? '+' : '−'}{fmtUSD(Math.abs(carryPerHour))}/h
-          </span>
+          <span className="text-gray-500 text-[10px] block">Health</span>
+          <span className="font-semibold" style={{ color: hfColor }}>{hf.toFixed(2)} HF</span>{' '}
+          <span style={{ color: hfColor }} className="text-[10px]">liq {liqDirection}{liqDistancePct.toFixed(1)}%</span>
         </div>
       </div>
-
-      {position.status === 'OPEN' && (
-        <div className="mt-2 flex justify-end gap-1.5">
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation()
-              onClick()
-            }}
-            className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--color-role-lp)] text-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)] transition"
-          >
-            + Margin
-          </button>
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation()
-              onRequestClose()
-            }}
-            className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--color-status-danger)] text-[var(--color-status-danger)] hover:bg-red-50 transition"
-          >
-            Close
-          </button>
-        </div>
-      )}
     </button>
   )
 }
