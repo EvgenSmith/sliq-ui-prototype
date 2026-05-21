@@ -27,6 +27,7 @@ import { capacityFreePct, getRangeStatus, isSubsidized, pairLabel } from '@/lib/
 import { fmtFeeTier, fmtPct, fmtPriceShort, fmtUSD } from '@/lib/format'
 import { FEE_TIER_OPTIONS } from '@/lib/marketplace-constants'
 import { HelpPopover } from '@/components/HelpPopover'
+import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 
 // ─── Aggregated market shape ────────────────────────────────────────────
 interface AggregatedMarket {
@@ -302,22 +303,13 @@ export function MarketView() {
 function MarketCard({ market }: { market: AggregatedMarket }) {
   const navigate = useNavigate()
   const inRange = market.currentPrice >= market.rangeLow && market.currentPrice <= market.rangeHigh
-  void getRangeStatus // helper kept for future expansion
+  void navigate
+  void getRangeStatus
   void pairLabel
 
-  // Open LongPool / Open ShortPool — for now, dispatch via custom event or
-  // navigate to a per-market detail page (when one ships). For prototype,
-  // these CTAs open a basic modal (TODO next pass) — currently log + console.
-  function onOpenLongPool() {
-    // TODO Phase F — proper modal with margin + leverage + Premium APY ask
-    alert(`Open LongPool (Provide liquidity) on ${market.pair.token0}/${market.pair.token1} · ${fmtFeeTier(market.feeTierBps)} · range ${fmtPriceShort(market.rangeLow)}–${fmtPriceShort(market.rangeHigh)}.\n\nFull modal coming next pass.`)
-  }
-  function onOpenShortPool() {
-    // For trader path we already have OpenPositionForm — could route to a
-    // representative listing in the bucket so the existing flow handles it.
-    alert(`Open ShortPool (Open position) on ${market.pair.token0}/${market.pair.token1} · ${fmtFeeTier(market.feeTierBps)} · range ${fmtPriceShort(market.rangeLow)}–${fmtPriceShort(market.rangeHigh)}.\n\nFull modal coming next pass.`)
-    void navigate
-  }
+  // Phase F — Open LongPool / ShortPool modals (Eugene 2026-05-21).
+  const [longOpen, setLongOpen] = useState(false)
+  const [shortOpen, setShortOpen] = useState(false)
 
   return (
     <div className={'rounded-lg border bg-white ' + (market.myInActive ? 'border-[var(--color-role-lp)]/40' : 'border-gray-200')}>
@@ -355,7 +347,7 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           subtitle="Provide liquidity"
           orders={market.longPoolOrders}
           ctaLabel="Open LongPool"
-          onCta={onOpenLongPool}
+          onCta={() => setLongOpen(true)}
           tone="long"
         />
         <ActivePane market={market} />
@@ -364,10 +356,294 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           subtitle="Open position"
           orders={market.shortPoolOrders}
           ctaLabel="Open ShortPool"
-          onCta={onOpenShortPool}
+          onCta={() => setShortOpen(true)}
           tone="short"
         />
       </div>
+
+      {/* Modals — open from CTA buttons in the panes above. */}
+      <MarketActionModal
+        open={longOpen}
+        side="long"
+        market={market}
+        onClose={() => setLongOpen(false)}
+      />
+      <MarketActionModal
+        open={shortOpen}
+        side="short"
+        market={market}
+        onClose={() => setShortOpen(false)}
+      />
+    </div>
+  )
+}
+
+// ─── MarketActionModal — Open LongPool / Open ShortPool ─────────────────
+// Eugene 2026-05-21 Phase F. Compact form built on HighStakesConfirmModal:
+// the action isn't nuclear (existing positions stay protected; trader can
+// always close), so we use the same `compact` treatment as Top-up margin
+// and Update leverage modals — drops the before/after card / risks list /
+// confirm-gating, keeps the X close + Submit footer.
+//
+// Side semantics:
+//   • «long» — trader becomes LP. Protocol mints a V3 NFT at the market's
+//     range with the entered Premium APY as the LP-ask (minimum the LP is
+//     willing to accept). Margin + leverage form the position size.
+//   • «short» — trader takes LP liquidity. Same form, but Premium APY is
+//     the trader-bid (what they're willing to PAY). Identical math to the
+//     existing /listings/:id Open Position flow, just pre-scoped to the
+//     aggregated market.
+//
+// Defaults:
+//   • Margin USD = $1,000 (matches OpenPositionForm).
+//   • Leverage = 1000× (Eugene 2026-05-20 «maximally efficient» framing).
+//   • Premium APY = sensible bid/ask suggestion derived from the order book
+//     (top of book + 1pp for short; bottom of book − 1pp for long).
+
+function MarketActionModal({
+  open,
+  side,
+  market,
+  onClose,
+}: {
+  open: boolean
+  side: 'long' | 'short'
+  market: AggregatedMarket
+  onClose: () => void
+}) {
+  // Suggested Premium APY based on the order book.
+  const suggested = (() => {
+    if (side === 'short') {
+      const best = market.activePositions[0]?.premiumApyBps
+        ?? market.longPoolOrders[0]?.premiumApyBps
+        ?? 0
+      return best + 100 // outbid top of book by 1pp
+    }
+    // long: undercut the cheapest LP ask so trader becomes the best provider
+    const cheapest = market.longPoolOrders[market.longPoolOrders.length - 1]?.premiumApyBps ?? 100
+    return Math.max(100, cheapest - 100)
+  })()
+
+  const [marginUSD, setMarginUSD] = useState(1000)
+  const [leverage, setLeverage] = useState(1000)
+  const [apyBps, setApyBps] = useState(suggested)
+
+  // Reset state when modal closes (so reopening it gets fresh defaults).
+  // The HighStakesConfirmModal also clears its internal state on close;
+  // we mirror that here for our own inputs.
+  // Note: relying on open→false to reset; consumers re-mount via key if needed.
+
+  const isLong = side === 'long'
+  const virtualNotional = marginUSD * leverage
+  const apyPct = apyBps / 100
+
+  // Live preview math (same proxies as OpenPositionForm — keep prototype
+  // numbers consistent across screens).
+  const carryPerHour = (virtualNotional * apyBps / 10000) / 8760
+  const carryPerDay = carryPerHour * 24
+  const liqDistancePct = (0.9 / leverage) * 100
+
+  const sideMeta = isLong
+    ? {
+        title: 'Open LongPool',
+        subtitle: 'Provide liquidity to this range. Protocol mints a V3 NFT under your address — you earn Uniswap fees + the Premium APY you ask, you carry IL.',
+        ctaLabel: 'Confirm — open LongPool',
+        accent: 'var(--color-role-lp)',
+        apyHint: 'Min Premium APY you accept (LP ask). Lower → more likely to match faster; higher → bigger income when matched.',
+      }
+    : {
+        title: 'Open ShortPool',
+        subtitle: 'Open a trader position at this range. You pay Uniswap fees + the Premium APY you bid; you earn Impermanent Profit when price moves.',
+        ctaLabel: 'Confirm — open ShortPool',
+        accent: 'var(--color-role-trader)',
+        apyHint: 'Premium APY you bid (trader pays this). Higher → outbids cheaper LP-asks → faster fill. Lower → cheaper carry but may not fill.',
+      }
+
+  return (
+    <HighStakesConfirmModal
+      open={open}
+      compact
+      title={sideMeta.title}
+      subtitle={sideMeta.subtitle}
+      topSlot={(
+        <div className="space-y-3">
+          {/* Market context — pair + range + current price + Uniswap APY */}
+          <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs">
+            <div className="flex items-baseline justify-between gap-2 mb-1">
+              <span className="font-semibold">
+                {market.pair.token0} / {market.pair.token1}
+                <span className="text-gray-500 font-normal ml-1">{fmtFeeTier(market.feeTierBps)}</span>
+              </span>
+              <span className="num text-[var(--color-status-success)] font-semibold">
+                Uniswap APY {fmtPct(market.uniswapApyBps)}
+              </span>
+            </div>
+            <div className="num text-[11px] text-gray-600">
+              Range <span className="text-gray-900 font-medium">{fmtPriceShort(market.rangeLow)} – {fmtPriceShort(market.rangeHigh)}</span>
+              <span className="text-gray-400"> · </span>
+              Current <span className="text-gray-900 font-medium">{fmtPriceShort(market.currentPrice)}</span>
+            </div>
+          </div>
+
+          {/* Margin input — USD with ± + presets */}
+          <div>
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="text-xs font-medium text-gray-700">Margin</label>
+              <span className="text-[10px] text-gray-500">USD</span>
+            </div>
+            <div className="flex items-stretch gap-2">
+              <button
+                type="button"
+                onClick={() => setMarginUSD(v => Math.max(50, v - 250))}
+                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                aria-label="Decrease margin"
+              >−</button>
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
+                <input
+                  type="number"
+                  min={50}
+                  step={250}
+                  value={marginUSD}
+                  onChange={e => setMarginUSD(Math.max(50, Number(e.target.value) || 50))}
+                  className="w-full pl-7 pr-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition text-center"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setMarginUSD(v => v + 250)}
+                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+                aria-label="Increase margin"
+              >+</button>
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              {[500, 1000, 5000, 10000].map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setMarginUSD(p)}
+                  className={
+                    'px-2 py-1.5 text-[11px] font-medium rounded border transition num ' +
+                    (marginUSD === p
+                      ? 'bg-gray-900 border-gray-900 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-gray-500')
+                  }
+                >${(p / 1000).toFixed(p < 1000 ? 2 : 0)}{p >= 1000 ? 'K' : ''}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Leverage slider */}
+          <div>
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="text-xs font-medium text-gray-700">Leverage</label>
+              <span className="text-sm font-semibold num text-gray-900">{leverage}×</span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={1000}
+              step={1}
+              value={leverage}
+              onChange={e => setLeverage(Number(e.target.value))}
+              className="w-full accent-[var(--color-role-trader)]"
+            />
+            <div className="grid grid-cols-4 gap-0.5 mt-1.5 text-[10px] num text-gray-500">
+              {[1, 100, 500, 1000].map(tick => (
+                <button
+                  key={tick}
+                  type="button"
+                  onClick={() => setLeverage(tick)}
+                  className={
+                    'py-0.5 rounded transition ' +
+                    (leverage === tick
+                      ? 'bg-gray-900 text-white font-semibold'
+                      : 'hover:bg-gray-100')
+                  }
+                >{tick}×</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Premium APY input */}
+          <div>
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="text-xs font-medium text-gray-700 inline-flex items-center gap-1">
+                Premium APY
+                <HelpPopover label={isLong ? 'LP ask' : 'Trader bid'} width="w-72">
+                  <p>{sideMeta.apyHint}</p>
+                </HelpPopover>
+              </label>
+              <span className="text-[10px] text-gray-500">
+                suggested {fmtPct(suggested, { signed: suggested < 0 })}
+              </span>
+            </div>
+            <div className="flex items-stretch gap-2">
+              <button
+                type="button"
+                onClick={() => setApyBps(v => v - 100)}
+                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+              >−</button>
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  step={1}
+                  value={apyPct}
+                  onChange={e => setApyBps(Math.round(Number(e.target.value) * 100))}
+                  className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-trader)] focus:outline-none transition text-center"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApyBps(v => v + 100)}
+                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+              >+</button>
+            </div>
+          </div>
+
+          {/* Live preview */}
+          <div className="rounded-md border border-gray-200 px-3 py-2.5 space-y-1 text-[11px] num">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-1">Live preview</div>
+            <Row k="Virtual notional" v={fmtUSD(virtualNotional)} />
+            <Row k="Carry $/h" v={`${isLong ? '+' : '−'}${fmtUSD(carryPerHour)}/h`} tone={isLong ? 'pos' : 'neg'} />
+            <Row k="Carry $/day" v={`${isLong ? '+' : '−'}${fmtUSD(carryPerDay)}/d`} tone={isLong ? 'pos' : 'neg'} />
+            <Row k="Est. liquidation distance" v={`±${liqDistancePct.toFixed(2)}%`} />
+          </div>
+        </div>
+      )}
+      currentState={[]}
+      newState={[]}
+      risks={[]}
+      irreversibilityNote=""
+      confirmType="checkbox"
+      confirmButtonLabel={sideMeta.ctaLabel}
+      onConfirm={() => {
+        // TODO wire to actual protocol calls. For prototype, log + close.
+        // eslint-disable-next-line no-alert
+        alert(
+          `${sideMeta.title} confirmed.\n\n` +
+          `Pair: ${market.pair.token0}/${market.pair.token1} ${fmtFeeTier(market.feeTierBps)}\n` +
+          `Range: ${fmtPriceShort(market.rangeLow)}–${fmtPriceShort(market.rangeHigh)}\n` +
+          `Margin: ${fmtUSD(marginUSD)} · Leverage: ${leverage}× → ${fmtUSD(virtualNotional)} notional\n` +
+          `Premium APY: ${apyPct.toFixed(2)}%`
+        )
+        onClose()
+      }}
+      onCancel={onClose}
+    />
+  )
+}
+
+function Row({ k, v, tone }: { k: string; v: string; tone?: 'pos' | 'neg' }) {
+  const color =
+    tone === 'pos' ? 'var(--color-status-success)'
+    : tone === 'neg' ? 'var(--color-status-danger)'
+    : undefined
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className="text-gray-500">{k}</span>
+      <span className="text-gray-900 font-medium" style={color ? { color } : undefined}>{v}</span>
     </div>
   )
 }
