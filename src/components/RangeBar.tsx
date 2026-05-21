@@ -111,26 +111,26 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct, compac
           ▼
         </span>
       </div>
-      {/* Bottom — range bounds with delta-% (1-decimal precision). Skipped
-          in compact mode. */}
-      {!compact && (
-        <div className="relative h-4 text-[10px] num text-gray-700 mt-0.5">
-          <span
-            className="absolute -translate-x-1/2 whitespace-nowrap"
-            style={{ left: `${lowPos}%` }}
-          >
-            <span className="font-medium">{fmtPriceShort(rangeLow)}</span>
-            <span className="text-gray-400"> ({deltaLowPct >= 0 ? '+' : '−'}{Math.abs(deltaLowPct).toFixed(1)}%)</span>
-          </span>
-          <span
-            className="absolute -translate-x-1/2 whitespace-nowrap"
-            style={{ left: `${highPos}%` }}
-          >
-            <span className="font-medium">{fmtPriceShort(rangeHigh)}</span>
-            <span className="text-gray-400"> ({deltaHighPct >= 0 ? '+' : '−'}{Math.abs(deltaHighPct).toFixed(1)}%)</span>
-          </span>
-        </div>
-      )}
+      {/* Bottom — range bounds with delta-% (1-decimal precision). Compact
+          mode keeps these (only the top price-label gets dropped). Eugene
+          2026-05-21 v2: «над таббаром только ползунок» = no top label, but
+          bottom bounds stay so the user can still read the range. */}
+      <div className="relative h-4 text-[10px] num text-gray-700 mt-0.5">
+        <span
+          className="absolute -translate-x-1/2 whitespace-nowrap"
+          style={{ left: `${lowPos}%` }}
+        >
+          <span className="font-medium">{fmtPriceShort(rangeLow)}</span>
+          <span className="text-gray-400"> ({deltaLowPct >= 0 ? '+' : '−'}{Math.abs(deltaLowPct).toFixed(1)}%)</span>
+        </span>
+        <span
+          className="absolute -translate-x-1/2 whitespace-nowrap"
+          style={{ left: `${highPos}%` }}
+        >
+          <span className="font-medium">{fmtPriceShort(rangeHigh)}</span>
+          <span className="text-gray-400"> ({deltaHighPct >= 0 ? '+' : '−'}{Math.abs(deltaHighPct).toFixed(1)}%)</span>
+        </span>
+      </div>
       <span className="sr-only">{`Range ${fmtPriceShort(rangeLow)} to ${fmtPriceShort(rangeHigh)}, current ${fmtPriceShort(currentPrice)}`}</span>
     </div>
   )

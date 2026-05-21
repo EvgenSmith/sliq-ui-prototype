@@ -664,35 +664,37 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
             </span>
           )}
         </div>
-        {/* Eugene 2026-05-21 — Liquidity, compact RangeBar, and current price
-            label all on ONE visual line. Compact mode strips the bar's own
-            top/bottom labels so the bar is just the rail (~10px tall) and
-            stays vertically centred against the adjacent text. */}
-        <div className="flex items-center gap-3 num text-[11px] whitespace-nowrap">
-          <span className="text-gray-700">
-            <span className="text-gray-500">Liquidity</span>{' '}
-            <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span>
-          </span>
-          <span className="w-24 shrink-0">
+        {/* Eugene 2026-05-21 v3: Liquidity on top-left, Current price (with
+            in-range %) underneath. RangeBar to the right shows only the
+            slider (▼ above + rail + bound labels below) — no top price
+            label, so nothing overlaps with the marker. */}
+        <div className="flex items-start gap-4 num text-[11px] whitespace-nowrap">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-gray-700">
+              <span className="text-gray-500">Liquidity</span>{' '}
+              <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span>
+            </span>
+            <span
+              className="font-medium"
+              style={{
+                color: market.currentPrice >= market.rangeLow && market.currentPrice <= market.rangeHigh
+                  ? 'var(--color-status-success)'
+                  : 'var(--color-status-warning)',
+              }}
+              title={`Current price · (${market.inRangePct}%) is distance from range center (100% = perfectly centered, 0% = at range edge).`}
+            >
+              {fmtPriceShort(market.currentPrice)}
+              <span className="text-gray-500 font-normal ml-1">(in range {market.inRangePct}%)</span>
+            </span>
+          </div>
+          <div className="w-32 shrink-0 pt-2">
             <RangeBar
               rangeLow={market.rangeLow}
               rangeHigh={market.rangeHigh}
               currentPrice={market.currentPrice}
               compact
             />
-          </span>
-          <span
-            className="font-semibold"
-            style={{
-              color: market.currentPrice >= market.rangeLow && market.currentPrice <= market.rangeHigh
-                ? 'var(--color-status-success)'
-                : 'var(--color-status-warning)',
-            }}
-            title={`Current price · (${market.inRangePct}%) is distance from range center (100% = perfectly centered, 0% = at range edge).`}
-          >
-            {fmtPriceShort(market.currentPrice)}
-            <span className="text-gray-500 font-normal ml-1">({market.inRangePct}%)</span>
-          </span>
+          </div>
         </div>
       </div>
 
