@@ -19,7 +19,7 @@
 // пока так оставим»), with explicit subtitles «Provide liquidity» / «Open
 // position» so a fresh trader can read the intent without protocol jargon.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { connectedWallet, listings, positions } from '@/mocks/data'
 import type { Listing, Position } from '@/lib/types'
@@ -259,6 +259,11 @@ export function MarketView() {
    */
   const [rangeWidth, setRangeWidth] = useState<'all' | 'tight' | 'medium' | 'wide'>('all')
   const [dexFilter, setDexFilter] = useState<'all' | Listing['dex']>('all')
+  /** Specific range key (`rangeLow|rangeHigh`) — only visible / usable when
+   *  a single pair is selected. Eugene 2026-05-21: «ренджей же может быть
+   *  много, как такое спроектировать в фильтр» — answer: gate on pair so
+   *  the dropdown has bounded options. */
+  const [specificRange, setSpecificRange] = useState<string>('all')
   const [sort, setSort] = useState<'liquidity-desc' | 'apy-desc'>('liquidity-desc')
   const [pageSize, setPageSize] = useState<number>(10)
   const [page, setPage] = useState<number>(1)
@@ -272,6 +277,31 @@ export function MarketView() {
     return Array.from(set).sort()
   }, [markets])
 
+  // Specific ranges for the currently selected pair — sorted by total
+  // liquidity desc so the most popular ranges come first in the dropdown.
+  const rangesForPair = useMemo(() => {
+    if (pairFilter === 'all') return [] as { key: string; label: string; liquidityUSD: number }[]
+    const items = markets
+      .filter(m => `${m.pair.token0}/${m.pair.token1}` === pairFilter)
+      .map(m => ({
+        key: `${m.rangeLow}|${m.rangeHigh}`,
+        label: `${fmtPriceShort(m.rangeLow)} – ${fmtPriceShort(m.rangeHigh)} · ${m.rangeWidthPct.toFixed(1)}%`,
+        liquidityUSD: m.totalLiquidityUSD,
+      }))
+    // Dedup (same range can appear via multiple fee tiers); pick largest
+    // liquidity entry per range key.
+    const byKey = new Map<string, { key: string; label: string; liquidityUSD: number }>()
+    for (const it of items) {
+      const cur = byKey.get(it.key)
+      if (!cur || it.liquidityUSD > cur.liquidityUSD) byKey.set(it.key, it)
+    }
+    return [...byKey.values()].sort((a, b) => b.liquidityUSD - a.liquidityUSD)
+  }, [markets, pairFilter])
+
+  // Whenever the pair filter changes, reset the specific-range selection
+  // (the previously selected range no longer makes sense for the new pair).
+  useEffect(() => { setSpecificRange('all') }, [pairFilter])
+
   const filtered = useMemo(() => {
     let out = [...markets]
     if (pairFilter !== 'all') {
@@ -279,6 +309,9 @@ export function MarketView() {
     }
     out = out.filter(m => feeTiersOn.has(m.feeTierBps))
     if (dexFilter !== 'all') out = out.filter(m => m.dex === dexFilter)
+    if (specificRange !== 'all' && pairFilter !== 'all') {
+      out = out.filter(m => `${m.rangeLow}|${m.rangeHigh}` === specificRange)
+    }
     if (rangeWidth !== 'all') {
       out = out.filter(m => {
         const w = m.rangeWidthPct
@@ -309,7 +342,7 @@ export function MarketView() {
         break
     }
     return out
-  }, [markets, pairFilter, feeTiersOn, rangeStatus, rangeWidth, dexFilter, sort])
+  }, [markets, pairFilter, feeTiersOn, rangeStatus, rangeWidth, dexFilter, specificRange, sort])
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -326,8 +359,23 @@ export function MarketView() {
         </p>
       </header>
 
-      {/* Filter / sort strip */}
+      {/* Filter / sort strip. Eugene 2026-05-21 — DEX first («фильтр на
+          протокол должен быть первым»), then pair / fee / range filters. */}
       <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3 flex flex-wrap items-center gap-2">
+        <select
+          value={dexFilter}
+          onChange={e => setDexFilter(e.target.value as typeof dexFilter)}
+          className={selectCls(dexFilter !== 'all')}
+          aria-label="DEX protocol"
+        >
+          <option value="all">All protocols</option>
+          <option value="uniswap-v3">Uniswap v3</option>
+          <option value="uniswap-v4">Uniswap v4</option>
+          <option value="pancakeswap-v3">PancakeSwap v3</option>
+          <option value="gmx">GMX</option>
+          <option value="other">Other</option>
+        </select>
+
         <select
           value={pairFilter}
           onChange={e => setPairFilter(e.target.value)}
@@ -368,30 +416,33 @@ export function MarketView() {
         </select>
 
         <select
-          value={dexFilter}
-          onChange={e => setDexFilter(e.target.value as typeof dexFilter)}
-          className={selectCls(dexFilter !== 'all')}
-          aria-label="DEX protocol"
-        >
-          <option value="all">All protocols</option>
-          <option value="uniswap-v3">Uniswap v3</option>
-          <option value="uniswap-v4">Uniswap v4</option>
-          <option value="pancakeswap-v3">PancakeSwap v3</option>
-          <option value="gmx">GMX</option>
-          <option value="other">Other</option>
-        </select>
-
-        <select
           value={rangeWidth}
           onChange={e => setRangeWidth(e.target.value as typeof rangeWidth)}
           className={selectCls(rangeWidth !== 'all')}
           aria-label="Range width"
         >
-          <option value="all">All ranges</option>
+          <option value="all">All widths</option>
           <option value="tight">Tight · &lt; 5%</option>
           <option value="medium">Medium · 5–20%</option>
           <option value="wide">Wide · &gt; 20%</option>
         </select>
+
+        {/* Specific-range picker — only visible when a single pair is
+            selected (otherwise the option count would explode). Lists the
+            actual ranges that exist for that pair, sorted by liquidity. */}
+        {pairFilter !== 'all' && rangesForPair.length > 1 && (
+          <select
+            value={specificRange}
+            onChange={e => setSpecificRange(e.target.value)}
+            className={selectCls(specificRange !== 'all')}
+            aria-label="Specific range for selected pair"
+          >
+            <option value="all">All {rangesForPair.length} ranges</option>
+            {rangesForPair.map(r => (
+              <option key={r.key} value={r.key}>{r.label}</option>
+            ))}
+          </select>
+        )}
 
         <div className="ml-auto flex items-center gap-2 text-[11px] text-gray-500">
           <span>Sort</span>
@@ -452,7 +503,7 @@ export function MarketView() {
             <p className="text-[11px] text-gray-500 mb-3">
               Try a wider pair / fee tier / range selection.
             </p>
-            {(pairFilter !== 'all' || feeTiersOn.size !== FEE_TIER_OPTIONS.length || rangeStatus !== 'all' || dexFilter !== 'all' || rangeWidth !== 'all') && (
+            {(pairFilter !== 'all' || feeTiersOn.size !== FEE_TIER_OPTIONS.length || rangeStatus !== 'all' || dexFilter !== 'all' || rangeWidth !== 'all' || specificRange !== 'all') && (
               <button
                 type="button"
                 onClick={() => {
@@ -461,6 +512,7 @@ export function MarketView() {
                   setRangeStatus('all')
                   setDexFilter('all')
                   setRangeWidth('all')
+                  setSpecificRange('all')
                 }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
               >
