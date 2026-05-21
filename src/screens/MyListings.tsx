@@ -438,7 +438,7 @@ function ListingsView() {
           <ListingsTable
             listings={visible}
             hasAnyPro={hasAnyPro}
-            onClick={id => navigate(`/listings/${id}`)}
+            onClick={id => navigate(`/lp/listings/${id}`)}
             onClaim={id => {
               const l = listings.find(x => x.id === id)
               if (!l) return
