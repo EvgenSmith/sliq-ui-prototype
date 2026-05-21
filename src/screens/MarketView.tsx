@@ -664,30 +664,38 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
             </span>
           )}
         </div>
-        {/* Eugene 2026-05-21 v3: Liquidity on top-left, Current price (with
-            in-range %) underneath. RangeBar to the right shows only the
-            slider (▼ above + rail + bound labels below) — no top price
-            label, so nothing overlaps with the marker. */}
-        <div className="flex items-start gap-4 num text-[11px] whitespace-nowrap">
+        {/* Eugene 2026-05-21 v4:
+            · Left stack: Liquidity / Price line («Price: 3370 (88%)»; the
+              88% chip carries an in-range tooltip, no inline label clutter).
+            · RangeBar slightly taller so it visually matches the height of
+              the two-line text stack — bar block centered vertically. */}
+        <div className="flex items-center gap-4 num text-[11px] whitespace-nowrap">
           <div className="flex flex-col gap-0.5">
             <span className="text-gray-700">
               <span className="text-gray-500">Liquidity</span>{' '}
               <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span>
             </span>
-            <span
-              className="font-medium"
-              style={{
-                color: market.currentPrice >= market.rangeLow && market.currentPrice <= market.rangeHigh
-                  ? 'var(--color-status-success)'
-                  : 'var(--color-status-warning)',
-              }}
-              title={`Current price · (${market.inRangePct}%) is distance from range center (100% = perfectly centered, 0% = at range edge).`}
-            >
-              {fmtPriceShort(market.currentPrice)}
-              <span className="text-gray-500 font-normal ml-1">(in range {market.inRangePct}%)</span>
+            <span className="text-gray-700">
+              <span className="text-gray-500">Price</span>{' '}
+              <span
+                className="font-semibold"
+                style={{
+                  color: market.currentPrice >= market.rangeLow && market.currentPrice <= market.rangeHigh
+                    ? 'var(--color-status-success)'
+                    : 'var(--color-status-warning)',
+                }}
+              >
+                {fmtPriceShort(market.currentPrice)}
+              </span>
+              <span
+                className="text-gray-500 font-normal ml-1 cursor-help underline decoration-dotted decoration-gray-400 underline-offset-2"
+                title={`In-range tightness: ${market.inRangePct}%. 100% = price sits exactly at the range center; 0% = price is at the range edge or beyond. Lower numbers mean the LP is about to flip out-of-range.`}
+              >
+                ({market.inRangePct}%)
+              </span>
             </span>
           </div>
-          <div className="w-32 shrink-0 pt-2">
+          <div className="w-36 shrink-0">
             <RangeBar
               rangeLow={market.rangeLow}
               rangeHigh={market.rangeHigh}

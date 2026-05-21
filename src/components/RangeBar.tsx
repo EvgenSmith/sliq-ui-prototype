@@ -77,12 +77,15 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct, compac
           </span>
         </div>
       )}
-      {/* Bar */}
-      <div className="relative h-1.5">
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-gray-200" />
+      {/* Bar — Eugene 2026-05-21 v5: bumped from h-1.5 to h-2, marker
+          glyph to text-xs, bound-label dot to w-3 h-3 so the whole block
+          matches the height of a two-line text stack (Liquidity + Price)
+          when used compactly inside MarketCard headers. */}
+      <div className="relative h-2">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 rounded-full bg-gray-200" />
         {/* Inside-range emphasised segment between the two bound dots. */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full"
+          className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full"
           style={{
             left: `${lowPos}%`,
             width: `${highPos - lowPos}%`,
@@ -91,12 +94,12 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct, compac
         />
         {/* Range bound dots. */}
         <span
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white"
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white"
           style={{ left: `${lowPos}%`, background: innerColour }}
           aria-hidden
         />
         <span
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white"
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white"
           style={{ left: `${highPos}%`, background: innerColour }}
           aria-hidden
         />
@@ -104,7 +107,7 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct, compac
             tip sits at the bar's top edge instead of overlapping the
             inside-range segment (Eugene 2026-05-20). Clamped to [2,98]. */}
         <span
-          className="absolute -top-3 -translate-x-1/2 text-[10px] leading-none"
+          className="absolute -top-3.5 -translate-x-1/2 text-xs leading-none"
           style={{ left: `${priceClamped}%`, color: innerColour }}
           aria-label={`Current price ${fmtPriceShort(currentPrice)}`}
         >
