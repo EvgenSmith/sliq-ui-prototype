@@ -170,3 +170,125 @@ export function splitToTokens(usd: number, listing: Listing): { t0Amt: number | 
   if (t0IsUSD) return { t0Amt: half, t1Amt: half * listing.currentPrice }
   return { t0Amt: null, t1Amt: null }
 }
+
+// Trader-relative listing status — what the current viewer (a trader) can
+// DO with this listing, not just what the listing is.
+//
+// Eugene 2026-05-20: «У заявок от LP в сторону трейдеров... спроектируй
+// статусную модель». The marketplace surface needs to surface every possible
+// state with the right CTA, because trader actions diverge sharply by state.
+//
+// Resolution priority (top wins):
+//   1. Listing-level terminal states (liquidating / liquidated / withdrawn / closing)
+//   2. I have a position AND was outbid AND my margin is too low → out-of-margin
+//   3. I have a position AND was outbid AND my margin is ok → outbid (can buyout back)
+//   4. I have a position AND available capacity > 0 → open-and-mine
+//   5. I have a position (no outbid, no available) → my-position
+//   6. No my-position AND available <= 0 → full-buyout-only
+//   7. Default → open
+// Out-of-range is an overlay sub-modifier on 4-7 (active states), set
+// separately so the chip can stack «open · out of range».
+
+export type TraderListingChip =
+  | 'open'
+  | 'open-and-mine'
+  | 'full-buyout-only'
+  | 'my-position'
+  | 'outbid'
+  | 'out-of-margin'
+  | 'closing'
+  | 'liquidating'
+  | 'liquidated'
+  | 'withdrawn'
+
+export type TraderCtaKind =
+  | 'open'           // Open a new position on this listing
+  | 'buyout'         // Take over an incumbent's slot (Premium APY higher)
+  | 'manage'         // Drill into my position to manage it
+  | 'add'            // Add more to my existing position (available > 0)
+  | 'buyout-back'    // Re-buyout my own slot from whoever outbid me
+  | 'top-up-margin'  // Out-of-margin: deposit more before I can buyout back
+  | 'view'           // Read-only (terminal states)
+
+export interface TraderListingStatus {
+  chip: TraderListingChip
+  outOfRange: boolean   // overlay sub-modifier for active states
+  ctaPrimary: TraderCtaKind
+  ctaSecondary?: TraderCtaKind
+  /** True when the listing is not actionable (terminal or LP-exit). */
+  terminal: boolean
+}
+
+// Out-of-margin threshold — when the trader was outbid and their remaining
+// margin is below this $ floor, we surface «out-of-margin» instead of plain
+// «outbid» (CTA flips from «buyout back» to «top up margin»). Heuristic; will
+// be replaced by protocol-level «minimum buyout reserve» when that ships.
+const OUT_OF_MARGIN_THRESHOLD_USD = 500
+
+export function getTraderListingStatus(
+  listing: Listing,
+  allPositions: Position[],
+  traderAddress: string,
+): TraderListingStatus {
+  // Terminal listing-level states win over everything else.
+  if (listing.status === 'LIQUIDATING') {
+    return { chip: 'liquidating', outOfRange: false, ctaPrimary: 'view', terminal: true }
+  }
+  if (listing.status === 'LIQUIDATED') {
+    return { chip: 'liquidated', outOfRange: false, ctaPrimary: 'view', terminal: true }
+  }
+  if (listing.status === 'WITHDRAWN') {
+    return { chip: 'withdrawn', outOfRange: false, ctaPrimary: 'view', terminal: true }
+  }
+  if (listing.status === 'WITHDRAWAL_REQUESTED') {
+    return { chip: 'closing', outOfRange: false, ctaPrimary: 'view', terminal: true }
+  }
+
+  const myActive = allPositions.find(
+    p => p.listingId === listing.id
+      && p.trader === traderAddress
+      && (p.status === 'OPEN' || p.status === 'CLOSE_REQUESTED' || p.status === 'OUTBID_PENDING')
+  )
+  const outOfRange = getRangeStatus(listing) === 'out-of-range'
+  const hasAvailable = listing.availableCapacityUSD > 0.01
+
+  // I have a position — branch by outbid + margin state.
+  if (myActive) {
+    if (myActive.status === 'OUTBID_PENDING') {
+      const lowMargin = (myActive.marginValueUSD ?? 0) < OUT_OF_MARGIN_THRESHOLD_USD
+      if (lowMargin) {
+        return {
+          chip: 'out-of-margin',
+          outOfRange,
+          ctaPrimary: 'top-up-margin',
+          ctaSecondary: 'view',
+          terminal: false,
+        }
+      }
+      return {
+        chip: 'outbid',
+        outOfRange,
+        ctaPrimary: 'buyout-back',
+        ctaSecondary: 'top-up-margin',
+        terminal: false,
+      }
+    }
+    // Active position, no outbid
+    if (hasAvailable) {
+      return {
+        chip: 'open-and-mine',
+        outOfRange,
+        ctaPrimary: 'manage',
+        ctaSecondary: 'add',
+        terminal: false,
+      }
+    }
+    return { chip: 'my-position', outOfRange, ctaPrimary: 'manage', terminal: false }
+  }
+
+  // No position. Branch by available capacity.
+  if (!hasAvailable) {
+    return { chip: 'full-buyout-only', outOfRange, ctaPrimary: 'buyout', terminal: false }
+  }
+  return { chip: 'open', outOfRange, ctaPrimary: 'open', terminal: false }
+}

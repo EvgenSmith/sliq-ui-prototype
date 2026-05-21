@@ -385,6 +385,63 @@ positions.push(...generatePositions({
   now,
 }))
 
+// Explicit Maria positions to guarantee BOTH trader-relative chips
+// «outbid (can buyout back)» and «out-of-margin» are visible on /listings
+// at the same time (Eugene 2026-05-20 — status-model coverage demo).
+// We pick two listings the generator already created (Lg100, Lg101 are first
+// generated entries) so trader-listing rendering picks them up automatically.
+// Margins are tuned: ~ $1800 (clearly above the $500 «out-of-margin» floor)
+// vs $180 (clearly below) so the status helper resolves deterministically.
+{
+  const candidates = listings.filter(
+    l => l.owner !== '0xMaria' && l.status === 'ACTIVE' && l.id !== 'L3',
+  )
+  const targetForOutbidHealthy = candidates[0]
+  const targetForOutMargin = candidates[1] ?? candidates[0]
+  if (targetForOutbidHealthy) {
+    positions.push({
+      id: 'Pdemo-outbid',
+      listingId: targetForOutbidHealthy.id,
+      trader: '0xMaria',
+      notionalUSD: 18_000,
+      apyBps: targetForOutbidHealthy.minPremiumApyBps + 200,
+      margin0: 0.6,
+      margin1: 900,
+      marginValueUSD: 1_800, // healthy — above $500 floor → «outbid (can buyout back)»
+      reserveUSD: 1_540,
+      reservePctOfInitial: 86,
+      effectiveLeverage: 10,
+      entryPrice: targetForOutbidHealthy.currentPrice * 0.98,
+      openedAtLeverage: 12,
+      pendingRefApyBps: 360,
+      pendingPremApyBps: targetForOutbidHealthy.minPremiumApyBps + 200,
+      status: 'OUTBID_PENDING',
+      openedAt: now - 1000 * 60 * 60 * 6, // 6h ago
+    })
+  }
+  if (targetForOutMargin) {
+    positions.push({
+      id: 'Pdemo-outmargin',
+      listingId: targetForOutMargin.id,
+      trader: '0xMaria',
+      notionalUSD: 12_000,
+      apyBps: targetForOutMargin.minPremiumApyBps + 300,
+      margin0: 0.05,
+      margin1: 90,
+      marginValueUSD: 180, // below $500 floor → «out-of-margin»
+      reserveUSD: 60,
+      reservePctOfInitial: 33,
+      effectiveLeverage: 70,
+      entryPrice: targetForOutMargin.currentPrice * 1.01,
+      openedAtLeverage: 80,
+      pendingRefApyBps: 280,
+      pendingPremApyBps: targetForOutMargin.minPremiumApyBps + 300,
+      status: 'OUTBID_PENDING',
+      openedAt: now - 1000 * 60 * 60 * 18, // 18h ago
+    })
+  }
+}
+
 // Liquidator queue items (S14/S15)
 // 1) A position with reserve well below 10% — eligible for executeClose
 positions.push({

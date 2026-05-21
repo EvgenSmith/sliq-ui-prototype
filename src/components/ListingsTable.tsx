@@ -7,19 +7,24 @@
 //   - DEX labels expanded: Uniswap V3/V4, PancakeSwap V3, GMX, other
 
 import { useNavigate } from 'react-router-dom'
-import type { DexProtocol, Listing, ListingStatus } from '@/lib/types'
+import type { DexProtocol, Listing } from '@/lib/types'
 import {
   capacityFreePct,
   getNetApyBps,
   getRangeStatus,
+  getTraderListingStatus,
   isSubsidized,
   pairLabel,
   splitToTokens,
   type OutbidOpportunity,
+  type TraderCtaKind,
+  type TraderListingChip,
+  type TraderListingStatus,
 } from '@/lib/derive'
 import { fmtFeeTier, fmtPct, fmtToken, fmtUSD } from '@/lib/format'
 import { HelpPopover } from '@/components/HelpPopover'
 import { RangeBar } from '@/components/RangeBar'
+import { positions } from '@/mocks/data'
 
 interface Props {
   listings: Listing[]
@@ -30,6 +35,33 @@ interface Props {
 export function ListingsTable({ listings, connectedAddress, outbidByListing }: Props) {
   const navigate = useNavigate()
   const open = (id: string) => navigate(`/listings/${id}`)
+
+  // Primary-CTA handler — every action surfaces context on the detail page.
+  // The detail page reads URL params and auto-opens the right flow (Open /
+  // Buyout / Manage / Top-up modal). Trader-Positions navigation goes to the
+  // per-position page when we can find the trader's position id on the row.
+  const handlePrimaryCta = (kind: TraderCtaKind, listing: Listing) => {
+    const myPos = positions.find(
+      p => p.listingId === listing.id && p.trader === connectedAddress,
+    )
+    switch (kind) {
+      case 'manage':
+      case 'top-up-margin':
+        if (myPos) {
+          navigate(`/trader/positions/${myPos.id}`)
+          return
+        }
+        navigate(`/listings/${listing.id}`)
+        return
+      case 'open':
+      case 'add':
+      case 'buyout':
+      case 'buyout-back':
+      case 'view':
+      default:
+        navigate(`/listings/${listing.id}?action=${kind}`)
+    }
+  }
 
   return (
     <>
@@ -47,14 +79,25 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
               <th className="text-left font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1">
                   Status
-                  <HelpPopover label="Listing status" width="w-80">
-                    <p className="font-semibold mb-2">Состояния листинга</p>
-                    <ul className="space-y-1.5 text-[11px] leading-snug">
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-700 border border-gray-200 mr-1">open · in range</span> — цена внутри range LP. IP convex, можно зайти.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200 mr-1">open · out of range</span> — цена вне range. Зайти можно если ждёшь возврата.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">full · outbid only</span> — capacity занята. Заход только через Buyout incumbent'а.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">closing · LP exit</span> — LP попросил вывод. Новых трейдеров не принимает.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40 mr-1">💥 liquidating</span> — Listing-level ликвидация в процессе. Зайти нельзя.</li>
+                  <HelpPopover label="Listing status (trader view)" width="w-96" size="lg">
+                    <p className="font-semibold mb-2">Что я как трейдер могу сделать</p>
+                    <p className="text-[11px] text-gray-600 mb-2 leading-relaxed">Чипы зависят от того, есть ли у тебя позиция на этом листинге, и от состояния листинга. «Out of range» — суб-метка, появляется поверх активных состояний когда цена вышла из LP-range.</p>
+                    <p className="text-[11px] font-semibold mb-1">Когда у меня нет позиции</p>
+                    <ul className="space-y-1 text-[11px] leading-snug mb-2">
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-700 border border-gray-200 mr-1">open</span> — есть свободная capacity, можно зайти кнопкой <strong>Open</strong>.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">full · buyout only</span> — capacity занята другими. Зайти только через <strong>Buyout</strong> incumbent'а (выставить Premium APY выше).</li>
+                    </ul>
+                    <p className="text-[11px] font-semibold mb-1">Когда у меня уже есть позиция</p>
+                    <ul className="space-y-1 text-[11px] leading-snug mb-2">
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 mr-1">my position</span> — я держу, никто не перебивал.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 mr-1">my position · open</span> — я держу, ещё есть свободная capacity (можно добавиться).</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">outbid</span> — меня перебили. Маржи хватает — могу <strong>Buyout back</strong> (предложить выше Premium APY).</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40 mr-1">out of margin</span> — меня перебили + маржи не хватает на возврат. Нужен <strong>Top up margin</strong>, потом buyout. ≠ ликвидация.</li>
+                    </ul>
+                    <p className="text-[11px] font-semibold mb-1">Терминальные / LP-side</p>
+                    <ul className="space-y-1 text-[11px] leading-snug">
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">closing · LP exit</span> — LP запросил вывод. Новых не принимает.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40 mr-1">💥 liquidating</span> — Listing-level ликвидация в процессе.</li>
                       <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-700 border border-gray-300 mr-1">closed · liquidated</span> / <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-500 border border-gray-300 mr-1">closed</span> — терминальные.</li>
                     </ul>
                   </HelpPopover>
@@ -99,6 +142,7 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
                   </HelpPopover>
                 </span>
               </th>
+              <th className="text-right font-medium px-3 py-2.5">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -108,7 +152,9 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
                 listing={l}
                 isOwned={l.owner === connectedAddress}
                 outbid={outbidByListing?.get(l.id)}
+                traderStatus={getTraderListingStatus(l, positions, connectedAddress)}
                 onClick={() => open(l.id)}
+                onPrimaryCta={handlePrimaryCta}
               />
             ))}
           </tbody>
@@ -123,7 +169,9 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
             listing={l}
             isOwned={l.owner === connectedAddress}
             outbid={outbidByListing?.get(l.id)}
+            traderStatus={getTraderListingStatus(l, positions, connectedAddress)}
             onClick={() => open(l.id)}
+            onPrimaryCta={handlePrimaryCta}
           />
         ))}
       </div>
@@ -135,16 +183,19 @@ function DesktopRow({
   listing,
   isOwned,
   outbid,
+  traderStatus,
   onClick,
+  onPrimaryCta,
 }: {
   listing: Listing
   isOwned: boolean
   outbid?: OutbidOpportunity
+  traderStatus: TraderListingStatus
   onClick: () => void
+  onPrimaryCta: (kind: TraderCtaKind, listing: Listing) => void
 }) {
-  const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
-  const isAdvanced = listing.providerMode === 'advanced'
+  void isOwned // chip surfaces «my position»; the «· owned» label below also renders for LP owners
   const freePct = capacityFreePct(listing)
   const inactiveBg =
     listing.status === 'LIQUIDATING'
@@ -204,36 +255,46 @@ function DesktopRow({
         </div>
       </td>
 
-      {/* Status — single source of truth for «can I enter / what kind of
-          entry / is it in-range or not». Provider Leverage moved to detail. */}
+      {/* Trader-relative status — what THIS trader can do with this listing. */}
       <td className="px-3 py-3">
-        <StatusChip status={listing.status} leasedPct={100 - freePct} rangeStatus={rangeStatus} />
+        <TraderStatusChip status={traderStatus} />
       </td>
 
-      {/* Pool size — $ + token pair breakdown + Available sub-line. */}
+      {/* Pool size — $ + token pair breakdown + Available bar (Eugene
+          2026-05-20: «в тек версии Available колонка не плохо сделана» — keep
+          the progress-bar visual, just nested under pool size as a sub-block). */}
       <td className="px-3 py-3 text-right">
         {(() => {
           const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
           return (
-            <>
+            <div className="flex flex-col items-end gap-1">
               <div className="num font-semibold text-gray-900 leading-tight">{fmtUSD(listing.initialLiquidityUSD)}</div>
               {t0Amt !== null && t1Amt !== null && (
-                <div className="text-[10px] text-gray-500 num leading-tight mt-0.5 whitespace-nowrap">
+                <div className="text-[10px] text-gray-500 num leading-tight whitespace-nowrap">
                   {fmtToken(t0Amt, listing.pair.token0)} · {fmtToken(t1Amt, listing.pair.token1)}
                 </div>
               )}
               <div
-                className="text-[10px] num leading-tight mt-1"
-                style={{
-                  color: freePct < 5
-                    ? 'var(--color-status-warning)'
-                    : 'var(--color-text-muted, #6b7280)',
-                }}
+                className="h-1 w-24 bg-gray-200 rounded-full overflow-hidden mt-1"
                 title={`Available ${fmtUSD(listing.availableCapacityUSD)} of ${fmtUSD(listing.totalCapacityUSD)} (${Math.round(freePct)}%)`}
               >
-                Available {fmtUSD(listing.availableCapacityUSD)} ({Math.round(freePct)}%)
+                <div
+                  className={
+                    'h-full transition-all ' +
+                    (freePct < 5
+                      ? 'bg-amber-400'
+                      : freePct < 25
+                      ? 'bg-amber-300'
+                      : 'bg-[var(--color-status-success)]/70')
+                  }
+                  style={{ width: `${freePct}%` }}
+                  aria-hidden="true"
+                />
               </div>
-            </>
+              <div className="text-[10px] num text-gray-500 leading-tight whitespace-nowrap">
+                Available <span className="text-gray-900 font-medium">{fmtUSD(listing.availableCapacityUSD)}</span> ({Math.round(freePct)}%)
+              </div>
+            </div>
           )
         })()}
       </td>
@@ -288,6 +349,11 @@ function DesktopRow({
           )
         })()}
       </td>
+
+      {/* Primary CTA — driven by trader-relative status. */}
+      <td className="px-3 py-3 text-right">
+        <ActionButton cta={traderStatus.ctaPrimary} listing={listing} onPrimary={onPrimaryCta} />
+      </td>
     </tr>
   )
 }
@@ -296,16 +362,19 @@ function MobileRow({
   listing,
   isOwned,
   outbid,
+  traderStatus,
   onClick,
+  onPrimaryCta,
 }: {
   listing: Listing
   isOwned: boolean
   outbid?: OutbidOpportunity
+  traderStatus: TraderListingStatus
   onClick: () => void
+  onPrimaryCta: (kind: TraderCtaKind, listing: Listing) => void
 }) {
-  const rangeStatus = getRangeStatus(listing)
   const subsidized = isSubsidized(listing)
-  const isAdvanced = listing.providerMode === 'advanced'
+  void isOwned
   const freePct = capacityFreePct(listing)
   const inactiveBg =
     listing.status === 'LIQUIDATING'
@@ -351,12 +420,13 @@ function MobileRow({
         })()}
       </div>
 
-      {/* Chip row — pair · DEX · fee · status. Provider Leverage chip dropped
-          (moves to detail per ТЗ); subsidized + outbid kept (actionable). */}
+      {/* Chip row — pair · DEX · fee · trader-relative status. Provider
+          Leverage chip dropped (moves to detail per ТЗ); subsidized + outbid
+          kept (actionable). */}
       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
         <DexChip dex={listing.dex} />
         <FeeChip feeTierBps={listing.feeTierBps} />
-        <StatusChip status={listing.status} leasedPct={100 - freePct} rangeStatus={rangeStatus} tiny />
+        <TraderStatusChip status={traderStatus} tiny />
         {subsidized && (
           <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold">
             LP pays you
@@ -413,6 +483,11 @@ function MobileRow({
           currentPrice={listing.currentPrice}
         />
       </div>
+
+      {/* Primary CTA — same logic as desktop, full-width on mobile. */}
+      <div className="mt-3">
+        <ActionButton cta={traderStatus.ctaPrimary} listing={listing} onPrimary={onPrimaryCta} />
+      </div>
     </button>
   )
 }
@@ -441,70 +516,163 @@ function FeeChip({ feeTierBps }: { feeTierBps: number }) {
   )
 }
 
-function StatusChip({
-  status,
-  leasedPct,
-  rangeStatus,
-  tiny,
-}: {
-  status: ListingStatus
-  leasedPct: number
-  rangeStatus: 'in-range' | 'out-of-range'
-  tiny?: boolean
-}) {
+// Trader-relative status chip. Drives label, colour, and tooltip from the
+// resolved `TraderListingStatus` (helper in lib/derive.ts). The previous
+// listing-level StatusChip is gone — every marketplace row now shows the
+// status FROM THE CURRENT TRADER's PERSPECTIVE (Eugene 2026-05-20). Out-of-
+// range is rendered as a stacked secondary chip (« · out of range»).
+function TraderStatusChip({ status, tiny }: { status: TraderListingStatus; tiny?: boolean }) {
   const sizeCls = tiny ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'
   const baseCls = 'whitespace-nowrap rounded-full font-medium cursor-help ' + sizeCls
 
-  const data = (() => {
-    if (status === 'LIQUIDATING')
-      return {
-        label: '💥 liquidating',
-        cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40',
-        tip: 'Listing-level ликвидация в процессе. Все позиции закрываются по snapshot-цене. Зайти нельзя.',
-      }
-    if (status === 'LIQUIDATED')
-      return {
-        label: 'closed · liquidated',
-        cls: 'bg-gray-100 text-gray-700 border border-gray-300',
-        tip: 'Листинг полностью ликвидирован. Зайти нельзя. LP residual NFT (если остался) можно claim.',
-      }
-    if (status === 'WITHDRAWAL_REQUESTED')
-      return {
-        label: 'closing · LP exit',
-        cls: 'bg-amber-50 text-amber-900 border border-amber-300',
-        tip: 'LP попросил вывод NFT. Позиции принудительно закрываются. Новых трейдеров не принимает.',
-      }
-    if (status === 'WITHDRAWN')
-      return {
-        label: 'closed',
-        cls: 'bg-gray-100 text-gray-500 border border-gray-300',
-        tip: 'LP забрал NFT. Листинг закрыт. Зайти нельзя.',
-      }
-    // ACTIVE — derive trader-facing label from leased% + range
-    if (leasedPct >= 99.5)
-      return {
-        label: 'full · outbid only',
-        cls: 'bg-amber-50 text-amber-900 border border-amber-300',
-        tip: 'Вся capacity занята. Чтобы зайти — предложи Premium APY выше текущего трейдера (перекуп).',
-      }
-    if (rangeStatus === 'in-range')
-      return {
-        label: 'open · in range',
-        cls: 'bg-gray-50 text-gray-700 border border-gray-200',
-        tip: 'Листинг активен, цена внутри range. Uniswap fees начисляются, IP convex. Заходи трейдером.',
-      }
-    return {
-      label: 'open · out of range',
-      cls: 'bg-gray-50 text-gray-500 border border-gray-200',
-      tip: 'Листинг активен, но цена вне range. Fees не начисляются сейчас. Заходить можно — если ждёшь возврата цены в диапазон.',
-    }
-  })()
+  const meta = TRADER_CHIP_META[status.chip]
 
   return (
-    <span className={baseCls + ' ' + data.cls} title={data.tip}>
-      {data.label}
+    <span className="inline-flex items-center gap-1">
+      <span className={baseCls + ' ' + meta.cls} title={meta.tip}>{meta.label}</span>
+      {status.outOfRange && !status.terminal && (
+        <span
+          className={baseCls + ' bg-amber-50 text-amber-900 border border-amber-300'}
+          title="Цена вышла за LP-range. Fees не начисляются сейчас. Зайти можно — если ждёшь возврата цены в диапазон."
+        >
+          out of range
+        </span>
+      )}
     </span>
   )
+}
+
+const TRADER_CHIP_META: Record<TraderListingChip, { label: string; cls: string; tip: string }> = {
+  open: {
+    label: 'open',
+    cls: 'bg-gray-50 text-gray-700 border border-gray-200',
+    tip: 'Свободная capacity есть, никто меня тут не выбивал. Можно зайти кнопкой Open.',
+  },
+  'open-and-mine': {
+    label: 'my position · open',
+    cls: 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30',
+    tip: 'Я держу позицию + ещё есть свободная capacity. Можно добавиться к своей или зайти ещё одной заявкой.',
+  },
+  'full-buyout-only': {
+    label: 'full · buyout only',
+    cls: 'bg-amber-50 text-amber-900 border border-amber-300',
+    tip: 'Вся capacity занята другими трейдерами. Зайти — только через Buyout incumbent\'а (выставить Premium APY выше).',
+  },
+  'my-position': {
+    label: 'my position',
+    cls: 'bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30',
+    tip: 'Я держу позицию, никто не перебивал. Manage → детальная страница позиции.',
+  },
+  outbid: {
+    label: 'outbid',
+    cls: 'bg-amber-50 text-amber-900 border border-amber-300',
+    tip: 'Меня перебили другой Premium APY. Margin сохранён — можно Buyout back (предложить выше).',
+  },
+  'out-of-margin': {
+    label: 'out of margin',
+    cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40',
+    tip: 'Меня перебили + моей margin не хватает на возврат. Top up margin, потом Buyout back. ≠ ликвидация — margin не нулевой.',
+  },
+  closing: {
+    label: 'closing · LP exit',
+    cls: 'bg-amber-50 text-amber-900 border border-amber-300',
+    tip: 'LP запросил вывод NFT. Позиции принудительно закрываются. Новых не принимает.',
+  },
+  liquidating: {
+    label: '💥 liquidating',
+    cls: 'bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40',
+    tip: 'Listing-level ликвидация в процессе. Все позиции закрываются по snapshot-цене. Зайти нельзя.',
+  },
+  liquidated: {
+    label: 'closed · liquidated',
+    cls: 'bg-gray-100 text-gray-700 border border-gray-300',
+    tip: 'Листинг полностью ликвидирован. Зайти нельзя.',
+  },
+  withdrawn: {
+    label: 'closed',
+    cls: 'bg-gray-100 text-gray-500 border border-gray-300',
+    tip: 'LP забрал NFT. Листинг закрыт навсегда.',
+  },
+}
+
+// Trader-relative action button. Drives label + style from the resolved
+// TraderCtaKind. Click is intercepted (doesn't trigger row navigation).
+function ActionButton({
+  cta,
+  listing,
+  onPrimary,
+  tiny,
+}: {
+  cta: TraderCtaKind
+  listing: Listing
+  onPrimary: (kind: TraderCtaKind, listing: Listing) => void
+  tiny?: boolean
+}) {
+  const meta = ACTION_META[cta]
+  if (!meta) return null
+  const sizeCls = tiny
+    ? 'text-[10px] px-2 py-1'
+    : 'text-xs px-2.5 py-1'
+  return (
+    <button
+      type="button"
+      onClick={e => {
+        e.stopPropagation()
+        onPrimary(cta, listing)
+      }}
+      className={
+        'whitespace-nowrap rounded font-semibold transition border ' +
+        sizeCls + ' ' + meta.cls
+      }
+      title={meta.tip}
+    >
+      {meta.label}
+    </button>
+  )
+}
+
+const ACTION_META: Record<TraderCtaKind, { label: string; cls: string; tip: string } | null> = {
+  open: {
+    label: 'Open',
+    cls: 'bg-[var(--color-role-lp)] text-white border-transparent hover:opacity-90',
+    tip: 'Open a new position on this listing.',
+  },
+  buyout: {
+    label: 'Buyout',
+    cls: 'bg-[var(--color-role-lp)] text-white border-transparent hover:opacity-90',
+    tip: 'Перекупи incumbent\'а — предложи Premium APY выше его ставки.',
+  },
+  manage: {
+    label: 'Manage',
+    cls: 'bg-white text-[var(--color-role-lp)] border-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)]',
+    tip: 'Перейти на детальную страницу твоей позиции.',
+  },
+  add: {
+    label: 'Add',
+    cls: 'bg-white text-[var(--color-role-lp)] border-[var(--color-role-lp)] hover:bg-[var(--color-role-lp-bg)]',
+    tip: 'Добавить ещё к своей существующей позиции (свободная capacity есть).',
+  },
+  'buyout-back': {
+    label: 'Buyout back',
+    cls: 'bg-[var(--color-role-lp)] text-white border-transparent hover:opacity-90',
+    tip: 'Вернуть свою позицию — предложи Premium APY выше того, кто тебя перебил.',
+  },
+  'top-up-margin': {
+    label: 'Top up margin',
+    cls: 'bg-amber-500 text-white border-transparent hover:opacity-90',
+    tip: 'Маржи не хватает на возврат. Сначала пополни margin, потом сможешь Buyout back.',
+  },
+  view: {
+    label: 'View',
+    cls: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
+    tip: 'Открыть детальную страницу листинга.',
+  },
+}
+
+// (StatusChip removed — replaced by TraderStatusChip above; both DesktopRow
+// and MobileRow render the trader-relative chip now.)
+function _DEPRECATED_StatusChipShim() {
+  return null
 }
 
 function PairIcons({
