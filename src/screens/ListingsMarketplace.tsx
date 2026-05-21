@@ -8,7 +8,6 @@
 // - All status chips covered
 
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { HelpPopover } from '@/components/HelpPopover'
 import { ListingsTable } from '@/components/ListingsTable'
 import { closedPositions, connectedWallet, listings, positions } from '@/mocks/data'
@@ -149,18 +148,10 @@ export function ListingsMarketplace() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="mb-6">
-        <p className="text-sm text-gray-700 leading-relaxed">
-          <strong>С плечом до 1000× зайди в чужую LP позицию на Uniswap.</strong>{' '}
-          <span className="text-gray-600">Любое движение цены пары — твой профит, неважно куда; чем сильнее движение, тем больше зарабатываешь.</span>
-        </p>
-        <p className="text-xs text-gray-500 mt-1.5">
-          У тебя есть Uniswap V3 LP NFT?{' '}
-          <Link to="/lp/deposit" className="text-gray-600 hover:text-gray-900 underline decoration-gray-300 hover:decoration-gray-600 underline-offset-2">
-            Принеси сюда — заработай extra Premium APY поверх обычных Uniswap fees →
-          </Link>
-        </p>
-
-        {/* Slim onboarding banner — "what can I do as a trader?" */}
+        {/* Two pitch lines («С плечом до 1000×…» + «У тебя есть LP NFT?») dropped
+            per Eugene 2026-05-20. Marketplace lands users who already know what
+            they're here for; the slim onboarding banner below handles the
+            «что я могу как trader» nudge. */}
         <OnboardingBanner />
       </header>
 
