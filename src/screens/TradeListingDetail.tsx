@@ -32,6 +32,7 @@ import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 import { LPFlowSelector } from '@/components/LPFlowSelector'
 import { HelpPopover } from '@/components/HelpPopover'
 import { CopyAddress } from '@/components/CopyAddress'
+import { RangeBar } from '@/components/RangeBar'
 import {
   capacityFreePct,
   estimatePositionPnL,
@@ -177,45 +178,10 @@ export function TradeListingDetail() {
         {/* Sidebar — for trader perspective. Owner has its own Listing Summary block
             in the main column, so we hide this duplicate for them. */}
         <aside className="space-y-4">
-          {/* Listing summary — for trader decision context (hidden for owner — they have it in main) */}
-          {!isOwner && (
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
-              Listing summary
-            </h3>
-            <dl className="space-y-1.5 text-sm">
-              <Row k="Min Premium APY" v={
-                <span className="num font-medium" style={{ color: isSubsidized ? 'var(--color-negative-apy)' : undefined }}>
-                  {isSubsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
-                </span>
-              } />
-              <Row k="Available / Total" v={
-                <span className="num text-xs">
-                  <strong>{fmtUSD(listing.availableCapacityUSD)}</strong>
-                  <span className="text-gray-500"> / {fmtUSD(listing.totalCapacityUSD)}</span>
-                </span>
-              } />
-              <Row k="Active positions" v={
-                <span className="num">{listingPositions.filter(p => p.status === 'OPEN').length}</span>
-              } />
-              <Row k="LP stability" v={
-                isAdvanced ? (
-                  <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-                    at-risk · {listing.providerLeverage}×
-                  </span>
-                ) : (
-                  <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded text-gray-600 border border-gray-200 font-medium">
-                    safe · 1×
-                  </span>
-                )
-              } />
-              <Row k="Range" v={<span className="num text-xs">{fmtRange(listing.rangeLow, listing.rangeHigh)}</span>} />
-              <Row k="Fee tier" v={<span className="num text-xs">{fmtFeeTier(listing.feeTierBps)}</span>} />
-              <Row k="LP underlying" v={<span className="num text-xs">{fmtUSD(listing.initialLiquidityUSD)}</span>} />
-            </dl>
-
-          </div>
-          )}
+          {/* TraderInfoCard — collects everything we moved out of the
+              marketplace row (Eugene 2026-05-20: «Прячем в карточку Listing
+              stability, NFT ID, 4 цены, Lifetime, Uniswap APY, IP APY»). */}
+          {!isOwner && <TraderInfoCard listing={listing} positions={listingPositions} />}
 
           {/* «Advanced — listing risk» panel removed per Eugene 2026-05-15
               («Этот блок выпили»). The signal it carried (aggregate reserve,
@@ -3223,6 +3189,146 @@ function OutbidContextBanner({
           <div className="text-[10px] uppercase opacity-70">Your notional</div>
           <div className="font-semibold text-sm">{fmtUSD(myPos.notionalUSD)}</div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TraderInfoCard — sidebar info card that absorbs every field we pruned
+// out of the marketplace row (Eugene 2026-05-20). Lives in the right rail
+// of the trader detail page. Sections:
+//   1. Headline — Pair · Status chip · Provider Leverage chip
+//   2. Range — RangeBar primitive (centered ±10%, raw + delta-%)
+//   3. APY block — Total = Uniswap + Premium, with IP APY illustrative
+//   4. Pool size + token-pair breakdown + Available
+//   5. NFT id (truncated) + Uniswap link
+//   6. Lifetime + Fee tier
+// ─────────────────────────────────────────────────────────────────────────
+
+function TraderInfoCard({
+  listing,
+  positions,
+}: {
+  listing: import('@/lib/types').Listing
+  positions: import('@/lib/types').Position[]
+}) {
+  const subsidized = listing.minPremiumApyBps < 0
+  const isAdvanced = listing.providerMode === 'advanced'
+  const totalApyBps = listing.uniswapApyBps + listing.minPremiumApyBps
+  const activeCount = positions.filter(p => p.status === 'OPEN').length
+  const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
+  const freePct = (listing.availableCapacityUSD / Math.max(listing.totalCapacityUSD, 1)) * 100
+  const ageMs = Date.now() - listing.listedAt
+  const ageStr = ageMs < 1000 * 60 * 60 * 24
+    ? `${Math.floor(ageMs / (1000 * 60 * 60))}h`
+    : `${Math.floor(ageMs / (1000 * 60 * 60 * 24))}d`
+
+  // Provider Leverage chip — moved out of marketplace per Eugene 2026-05-20.
+  // For LP-vocabulary compactness we keep the «safe / at-risk» language
+  // on the detail card only.
+  const stabilityChip = isAdvanced
+    ? <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium num">at-risk · {listing.providerLeverage}×</span>
+    : <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded text-gray-600 border border-gray-200 font-medium num">safe · 1×</span>
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
+      {/* 1. Headline — Pair + Provider Leverage chip */}
+      <div>
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <h3 className="text-base font-semibold">
+            {listing.pair.token0} / {listing.pair.token1}
+          </h3>
+          {stabilityChip}
+        </div>
+        <div className="text-[11px] text-gray-500 mt-0.5">
+          {fmtFeeTier(listing.feeTierBps)} fee tier · {activeCount} position{activeCount === 1 ? '' : 's'} live
+        </div>
+      </div>
+
+      {/* 2. Range — centered scale */}
+      <div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 mb-1.5 font-semibold">Range</div>
+        <RangeBar
+          rangeLow={listing.rangeLow}
+          rangeHigh={listing.rangeHigh}
+          currentPrice={listing.currentPrice}
+        />
+      </div>
+
+      {/* 3. APY block — Total + breakdown + IP illustrative */}
+      <div className="space-y-1.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold inline-flex items-center gap-1">
+            Total APY
+            <HelpPopover label="Total APY (trader cost)" width="w-72">
+              <p>Сумма Uniswap APY (LP earns from swaps) + Premium APY (твой carry to LP). Сколько в общей сумме «крутится» на этом листинге в год относительно его notional. Net APY (signed expected return) — отдельная метрика, см. на странице маркетплейса.</p>
+            </HelpPopover>
+          </span>
+          <span className="text-base font-semibold num text-gray-900">{fmtPct(totalApyBps)}</span>
+        </div>
+        <div className="flex items-baseline justify-between text-[11px] num text-gray-700">
+          <span className="text-gray-500">Uniswap baseline</span>
+          <span>{fmtPct(listing.uniswapApyBps)}</span>
+        </div>
+        <div className="flex items-baseline justify-between text-[11px] num">
+          <span className="text-gray-500">Min Premium APY</span>
+          <span style={{ color: subsidized ? 'var(--color-negative-apy)' : undefined }}>
+            {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between text-[11px] num">
+          <span className="text-gray-500 inline-flex items-center gap-1">
+            Impermanent Profit APY
+            <HelpPopover label="Impermanent Profit APY (illustrative)" width="w-72">
+              <p className="font-semibold mb-1">Illustrative, not predictive</p>
+              <p className="mb-1.5">Прогноз ожидаемого IP за год при текущей волатильности пула. Считается на базе historical Uniswap APY как proxy. Реальный IP зависит от движения цены, может быть как выше, так и существенно ниже.</p>
+              <p className="text-[10px] text-gray-500">Per ТЗ §3.4 P1 R-068 — «historical, not predictive» caveat применяется ко всем IP-figures.</p>
+            </HelpPopover>
+          </span>
+          <span className="text-gray-700">≈ {fmtPct(listing.uniswapApyBps)}</span>
+        </div>
+      </div>
+
+      {/* 4. Pool size + Available */}
+      <div className="space-y-1.5 border-t border-gray-100 pt-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Pool size</span>
+          <span className="text-sm font-semibold num text-gray-900">{fmtUSD(listing.initialLiquidityUSD)}</span>
+        </div>
+        {t0Amt !== null && t1Amt !== null && (
+          <div className="text-[11px] num text-gray-600 flex items-baseline justify-end gap-1">
+            <span>{fmtToken(t0Amt, listing.pair.token0)}</span>
+            <span className="text-gray-400">+</span>
+            <span>{fmtToken(t1Amt, listing.pair.token1)}</span>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between text-[11px] num text-gray-600">
+          <span className="text-gray-500">Available</span>
+          <span>
+            <span className="font-medium text-gray-900">{fmtUSD(listing.availableCapacityUSD)}</span>
+            <span className="text-gray-400"> ({Math.round(freePct)}%)</span>
+          </span>
+        </div>
+      </div>
+
+      {/* 5. NFT id + Uniswap link */}
+      <div className="flex items-baseline justify-between text-[11px] num border-t border-gray-100 pt-3">
+        <span className="text-gray-500">NFT</span>
+        <a
+          href={`https://app.uniswap.org/positions/v3/arbitrum/${listing.tokenId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[var(--color-role-trader)] hover:underline font-medium"
+        >
+          #{listing.tokenId} ↗
+        </a>
+      </div>
+
+      {/* 6. Lifetime + Fee tier */}
+      <div className="flex items-baseline justify-between text-[11px] num">
+        <span className="text-gray-500">Lifetime</span>
+        <span className="text-gray-700">{ageStr}</span>
       </div>
     </div>
   )
