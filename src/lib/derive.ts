@@ -73,6 +73,57 @@ export function estimatePositionPnL(p: Position): number {
   return ip - refAccrued - premAccrued
 }
 
+// === Trader card / detail metric helpers ===
+// Spec sources:
+//   · whitepaper §9.3 (HF), §6 (PnL composition)
+//   · {sLiq} {prd} trader UI spec – 2026-05-18 (P2 R-032/033/034)
+//   · trader call transcripts 2026-05-18
+
+// HF = R_Σ(t) / (0.10 · R_Σ(0)). reservePctOfInitial encodes (R_Σ(t)/R_Σ(0))·100,
+// so HF = reservePctOfInitial / 10. HF=1.0 ⇔ liquidation threshold.
+export function healthFactor(p: Position): number {
+  return p.reservePctOfInitial / 10
+}
+
+// Band thresholds — not locked in spec (whitepaper only fixes HF=1.0 as the
+// liquidation line). Conservative bands for the prototype.
+export function healthBand(hf: number): 'red' | 'amber' | 'green' {
+  if (hf < 1.1) return 'red'
+  if (hf < 1.5) return 'amber'
+  return 'green'
+}
+export function healthColor(hf: number): string {
+  const band = healthBand(hf)
+  return band === 'red'
+    ? 'var(--color-status-danger)'
+    : band === 'amber'
+    ? 'var(--color-status-warning)'
+    : 'var(--color-status-success)'
+}
+
+// PnL trio components — % of margin and APY-on-margin (P2 R-033/034: «к марже,
+// не к notional»).
+export function pnlPctOfMargin(p: Position, pnl: number): number {
+  return (pnl / Math.max(1, p.marginValueUSD)) * 100
+}
+export function pnlApyOnMargin(p: Position, pnl: number): number {
+  const hoursOpen = Math.max(0.5, (Date.now() - p.openedAt) / 3_600_000)
+  const m = Math.max(1, p.marginValueUSD)
+  return (pnl / m) * (8760 / hoursOpen) * 100
+}
+
+// «Hours of runway» — if price stays flat, how many hours until reserve is
+// burned by carry. Useful KPI for trader to decide whether to top up margin
+// proactively (P1 R-020, P2 R-046).
+//
+// reserveUSD / (carry $/h). When carry is negative (LP pays trader = subsidy)
+// or near-zero, runway is infinite — we return null and the UI can render «∞».
+export function estimateMarginRunwayHours(p: Position): number | null {
+  const carry = estimateCarryPerHour(p)
+  if (carry <= 0) return null
+  return p.reserveUSD / carry
+}
+
 export function getOutbidOpportunity(
   listing: Listing,
   positionsOnListing: Position[]

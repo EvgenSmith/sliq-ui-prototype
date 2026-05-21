@@ -13,7 +13,16 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { closedPositions, connectedWallet, listings, positions } from '@/mocks/data'
 import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD } from '@/lib/format'
-import { estimateCarryPerHour, estimateLiquidationPrice, pairLabel } from '@/lib/derive'
+import {
+  estimateCarryPerHour,
+  estimateLiquidationPrice,
+  healthBand,
+  healthColor,
+  healthFactor,
+  pairLabel,
+  pnlApyOnMargin,
+  pnlPctOfMargin,
+} from '@/lib/derive'
 import { HelpPopover } from '@/components/HelpPopover'
 import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 import { RangeBar } from '@/components/RangeBar'
@@ -483,49 +492,11 @@ function estimatedPnL(p: Position): number {
   return ip - refAccrued - premAccrued
 }
 
-// Trader card metric helpers — spec sources:
-// · whitepaper §9.3 (HF), §6 (PnL composition)
-// · {sLiq} {prd} trader UI spec – 2026-05-18 (P2 R-032/033/034 PnL trio, APY-on-margin)
-// · {transcript} sLiq Trade part 2 prototype review 2026-05-18
-//
-// Eugene 2026-05-21: «Reference Fee» term retired in favor of «Uniswap fees» /
-// «Uniswap APY». pendingRefApyBps is the same number, just relabelled.
-
-// HF = R_Σ(t) / (0.10 · R_Σ(0)). reservePctOfInitial encodes (R_Σ(t)/R_Σ(0))·100
-// already, so HF reduces to reservePctOfInitial / 10. HF=1 ⇔ liquidation.
-function healthFactor(p: Position): number {
-  return p.reservePctOfInitial / 10
-}
-
-// Band thresholds not locked in spec (whitepaper has only the hard 10% =
-// HF 1.0 liquidation line, and the resolutions doc mentions <25% as «critical
-// banner» = HF<2.5). Picking conservative bands for the prototype.
-function healthBand(hf: number): 'red' | 'amber' | 'green' {
-  if (hf < 1.1) return 'red'
-  if (hf < 1.5) return 'amber'
-  return 'green'
-}
-function healthColor(hf: number): string {
-  const band = healthBand(hf)
-  return band === 'red'
-    ? 'var(--color-status-danger)'
-    : band === 'amber'
-    ? 'var(--color-status-warning)'
-    : 'var(--color-status-success)'
-}
-
-// «APY to margin» — PnL annualised against MARGIN, not notional (P2 R-033/034).
-// Per Kolya/Max trader-call: «он должен к марже быть, как трейдер».
-function pnlApyOnMargin(p: Position, pnl: number): number {
-  const hoursOpen = Math.max(0.5, (Date.now() - p.openedAt) / 3_600_000)
-  const m = Math.max(1, p.marginValueUSD)
-  return (pnl / m) * (8760 / hoursOpen) * 100
-}
-
-// % of margin — second leg of the PnL trio.
-function pnlPctOfMargin(p: Position, pnl: number): number {
-  return (pnl / Math.max(1, p.marginValueUSD)) * 100
-}
+// Trader card metric helpers moved to @/lib/derive (so PositionDetail can
+// reuse them without duplication). healthBand intentionally exported even
+// though only `healthColor` is used here — keeps the band <-> color mapping
+// single-source-of-truth.
+void healthBand // referenced via the import; silence unused-warning
 
 function PositionsTable({
   positions: ps,
