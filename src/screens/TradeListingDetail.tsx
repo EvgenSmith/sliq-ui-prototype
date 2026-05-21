@@ -326,14 +326,29 @@ function TraderPanel({
     )
   }
 
-  // Variants A/B/C/D — Open / Full-buyout / Outbid / Out-of-margin.
-  // OpenPositionForm already adapts via outbidTargetId; we additionally pass
-  // traderStatus so it can surface the right header + framing copy. Variant-
-  // specific «Outbid your slot back» / «Top up margin» wrappers come next pass.
+  // Variant D — out-of-margin: replace the standard form with a dedicated
+  // TopUpMarginCard. Trader can't buyout back until margin is healthy, so
+  // the priority action here is top-up.
+  if (traderStatus.chip === 'out-of-margin') {
+    return (
+      <div className="space-y-4">
+        <TopUpMarginCard listing={listing} positions={positions} />
+        <ListingPriceChart listing={listing} />
+      </div>
+    )
+  }
+
+  // Variants A/B/C — Open / Full-buyout / Outbid.
+  // OpenPositionForm handles all three via internal `outbidTargetId` state.
+  // For Outbid (Variant C) we pre-dispatch the prefill event so the form
+  // lands already in outbid-target mode with the right incumbent selected.
   return (
     <div className="space-y-4">
-      {(traderStatus.chip === 'outbid' || traderStatus.chip === 'out-of-margin') && (
-        <OutbidContextBanner listing={listing} positions={positions} status={traderStatus} />
+      {traderStatus.chip === 'outbid' && (
+        <>
+          <OutbidContextBanner listing={listing} positions={positions} status={traderStatus} />
+          <OutbidPrefillBridge listing={listing} positions={positions} />
+        </>
       )}
       {/* Inline Open Position form FIRST — CTA above the fold (primary intent) */}
       <OpenPositionForm listing={listing} isFull={isFull} positionsOnListing={positions} />
@@ -3330,6 +3345,188 @@ function TraderInfoCard({
         <span className="text-gray-500">Lifetime</span>
         <span className="text-gray-700">{ageStr}</span>
       </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// OutbidPrefillBridge — invisible component that, on mount, dispatches the
+// `sliq:prefillOutbid` event so the OpenPositionForm below lands already
+// in outbid-target mode with the right incumbent picked. Eugene 2026-05-20
+// Phase 3 — wanted Outbid state to drop the user straight into the buyout
+// flow rather than show a banner over a generic «Open» form.
+// ─────────────────────────────────────────────────────────────────────────
+
+function OutbidPrefillBridge({
+  listing,
+  positions,
+}: {
+  listing: import('@/lib/types').Listing
+  positions: import('@/lib/types').Position[]
+}) {
+  void listing
+  useEffect(() => {
+    // The incumbent who took my slot — highest APY OPEN position not mine.
+    const incumbent = positions
+      .filter(p => p.status === 'OPEN' && p.trader !== connectedWallet.address)
+      .sort((a, b) => b.apyBps - a.apyBps)[0]
+    if (!incumbent) return
+    // Dispatch after a tick so OpenPositionForm has mounted + bound its
+    // listener. setTimeout 0 puts us after the render commit.
+    const t = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent('sliq:prefillOutbid', {
+          detail: { positionId: incumbent.id, targetApyBps: incumbent.apyBps },
+        }),
+      )
+    }, 0)
+    return () => clearTimeout(t)
+  }, [positions])
+  return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TopUpMarginCard — Variant D dedicated form. Replaces OpenPositionForm
+// entirely when the trader is in out-of-margin state (margin too low to
+// re-bid). User adds USD to margin; on confirm, hand off to the actual
+// per-position Top-Up modal that lives on /trader/positions/:id.
+// ─────────────────────────────────────────────────────────────────────────
+
+function TopUpMarginCard({
+  listing,
+  positions,
+}: {
+  listing: import('@/lib/types').Listing
+  positions: import('@/lib/types').Position[]
+}) {
+  const myPos = positions.find(
+    p => p.trader === connectedWallet.address && p.status === 'OUTBID_PENDING',
+  )
+  const incumbent = positions
+    .filter(p => p.status === 'OPEN' && p.trader !== connectedWallet.address)
+    .sort((a, b) => b.apyBps - a.apyBps)[0]
+  const [topUpUSD, setTopUpUSD] = useState2<number>(1000)
+
+  if (!myPos) {
+    // Should never happen if status resolved to out-of-margin, but guard.
+    return null
+  }
+
+  // Heuristic floor — getTraderListingStatus uses $500. Show how short we are.
+  const FLOOR = 500
+  const currentMargin = myPos.marginValueUSD ?? 0
+  const neededDelta = Math.max(0, FLOOR - currentMargin)
+  const newMargin = currentMargin + topUpUSD
+  const willBeHealthy = newMargin >= FLOOR
+
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50/50 p-5 space-y-4">
+      <header>
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <h2 className="text-base font-semibold text-amber-900">Top up margin to buyout back</h2>
+          <span className="text-[11px] text-amber-700 num">
+            margin floor for buyout: <strong>{fmtUSD(FLOOR)}</strong>
+          </span>
+        </div>
+        <p className="text-sm text-amber-800 mt-1 leading-relaxed">
+          Тебя outbid'нули и оставшейся margin не хватает чтобы перебить incumbent'а
+          обратно. Top up — потом вернёшься в buyout-back флоу на странице позиции.
+        </p>
+      </header>
+
+      {/* Position summary */}
+      <div className="grid grid-cols-3 gap-3 text-[11px] num">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-amber-700/80">Your margin now</div>
+          <div className="text-sm font-semibold text-amber-900 mt-0.5">{fmtUSD(currentMargin)}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-amber-700/80">Short by</div>
+          <div className="text-sm font-semibold text-amber-900 mt-0.5">{fmtUSD(neededDelta)}</div>
+        </div>
+        {incumbent && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-amber-700/80">Incumbent APY</div>
+            <div className="text-sm font-semibold text-amber-900 mt-0.5">{fmtPct(incumbent.apyBps)}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Top-up input */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1">
+          <label className="text-xs font-medium text-amber-900">Amount to top up</label>
+          <span className="text-[10px] text-amber-700">USD value · auto-split at pool ratio on /trader/positions</span>
+        </div>
+        <div className="flex items-stretch gap-2">
+          <button
+            type="button"
+            onClick={() => setTopUpUSD(v => Math.max(50, v - 250))}
+            className="w-9 rounded border border-amber-400 hover:border-amber-600 text-amber-900 text-base font-bold transition"
+            aria-label="Decrease"
+          >−</button>
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-amber-700">$</span>
+            <input
+              type="number"
+              min={50}
+              step={250}
+              value={topUpUSD}
+              onChange={e => setTopUpUSD(Math.max(50, Number(e.target.value) || 50))}
+              className="w-full pl-7 pr-3 py-2 text-sm font-mono border border-amber-400 bg-white rounded focus:border-amber-700 focus:outline-none transition text-center"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setTopUpUSD(v => v + 250)}
+            className="w-9 rounded border border-amber-400 hover:border-amber-600 text-amber-900 text-base font-bold transition"
+            aria-label="Increase"
+          >+</button>
+        </div>
+        <div className="mt-2 grid grid-cols-4 gap-1.5">
+          {[250, 500, 1000, 2500].map(p => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setTopUpUSD(p)}
+              className={
+                'px-2 py-1.5 text-[11px] font-medium rounded border transition num ' +
+                (topUpUSD === p
+                  ? 'bg-amber-100 border-amber-500 text-amber-900'
+                  : 'bg-white border-amber-300 text-amber-800 hover:border-amber-500')
+              }
+            >+{fmtUSD(p)}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* After-state preview */}
+      <div className="rounded-md border border-amber-300 bg-white px-3 py-2.5 text-xs">
+        <div className="flex items-baseline justify-between mb-1">
+          <span className="text-amber-700">After top-up</span>
+          <span className="num font-semibold" style={{ color: willBeHealthy ? 'var(--color-status-success)' : 'var(--color-status-warning)' }}>
+            margin {fmtUSD(newMargin)} {willBeHealthy ? '· buyout enabled' : '· still short'}
+          </span>
+        </div>
+        {willBeHealthy && incumbent && (
+          <div className="flex items-baseline justify-between">
+            <span className="text-amber-700">Then on /trader/positions</span>
+            <span className="num text-amber-900">→ Buyout back at {fmtPct(incumbent.apyBps + 100)}+</span>
+          </div>
+        )}
+      </div>
+
+      <Link
+        to={`/trader/positions/${myPos.id}`}
+        className="block text-center text-sm font-semibold py-2.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 transition"
+      >
+        Continue to top-up on /trader/positions/{myPos.id.slice(0, 8)} →
+      </Link>
+
+      {/* Listing pair tag (small foot) */}
+      <p className="text-[10px] text-amber-700/70 text-center">
+        Listing: {listing.pair.token0} / {listing.pair.token1} · {fmtFeeTier(listing.feeTierBps)}
+      </p>
     </div>
   )
 }
