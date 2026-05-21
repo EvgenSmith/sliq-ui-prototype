@@ -664,21 +664,35 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
             </span>
           )}
         </div>
-        {/* Liquidity + RangeBar on a single horizontal line (Eugene 2026-05-21
-            «в 1 линию»), bar 2× smaller than before. */}
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="text-[11px] num text-gray-700 whitespace-nowrap">
+        {/* Eugene 2026-05-21 — Liquidity, compact RangeBar, and current price
+            label all on ONE visual line. Compact mode strips the bar's own
+            top/bottom labels so the bar is just the rail (~10px tall) and
+            stays vertically centred against the adjacent text. */}
+        <div className="flex items-center gap-3 num text-[11px] whitespace-nowrap">
+          <span className="text-gray-700">
             <span className="text-gray-500">Liquidity</span>{' '}
             <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span>
-          </div>
-          <div className="w-32 max-w-full">
+          </span>
+          <span className="w-24 shrink-0">
             <RangeBar
               rangeLow={market.rangeLow}
               rangeHigh={market.rangeHigh}
               currentPrice={market.currentPrice}
-              inRangePct={market.inRangePct}
+              compact
             />
-          </div>
+          </span>
+          <span
+            className="font-semibold"
+            style={{
+              color: market.currentPrice >= market.rangeLow && market.currentPrice <= market.rangeHigh
+                ? 'var(--color-status-success)'
+                : 'var(--color-status-warning)',
+            }}
+            title={`Current price · (${market.inRangePct}%) is distance from range center (100% = perfectly centered, 0% = at range edge).`}
+          >
+            {fmtPriceShort(market.currentPrice)}
+            <span className="text-gray-500 font-normal ml-1">({market.inRangePct}%)</span>
+          </span>
         </div>
       </div>
 
@@ -1183,7 +1197,29 @@ function PoolPane({
   return (
     <div className="rounded-md border border-gray-200 p-3 flex flex-col">
       <div className="flex items-baseline justify-between gap-2 mb-1">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-sm font-semibold inline-flex items-center gap-1">
+          {title}
+          <HelpPopover
+            label={tone === 'long' ? 'LongPool orders' : 'ShortPool orders'}
+            width="w-80"
+          >
+            {tone === 'long' ? (
+              <>
+                <p className="font-semibold mb-1">LongPool orders — LP-side</p>
+                <p className="mb-1.5">Это заявки от тех, кто <strong>предоставляет ликвидность</strong> рынку. Каждая строка — Premium APY, на котором LP согласен сдавать свою позицию в Uniswap v3 LP NFT.</p>
+                <p className="text-[11px] font-semibold mb-1 mt-2">Provide liquidity = стать LP</p>
+                <p className="text-[11px] leading-relaxed">Ты кладёшь токены в этот range; протокол минтит V3-NFT под твоим адресом. Зарабатываешь Uniswap fees + Premium APY от трейдера, который арендует твою позицию. Несёшь IL когда цена двигается.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold mb-1">ShortPool orders — trader-side</p>
+                <p className="mb-1.5">Это заявки от трейдеров, которые <strong>хотят арендовать</strong> LP-ликвидность. Каждая строка — Premium APY, который трейдер готов платить LP за использование его позиции с плечом.</p>
+                <p className="text-[11px] font-semibold mb-1 mt-2">Open position = стать трейдером</p>
+                <p className="text-[11px] leading-relaxed">Ты вносишь margin + leverage и арендуешь часть LP-позиции. Платишь Premium APY + Uniswap fees. Зарабатываешь Impermanent Profit когда цена двигается из range — это то же IL, но в твою пользу.</p>
+              </>
+            )}
+          </HelpPopover>
+        </h3>
         {/* Button = human-readable CTA («Provide liquidity» / «Open position»).
             Squared corners (Eugene 2026-05-21 «как у нас во флоу LP, округлые
             у нас теги статусов»). Subtitle line («Open LongPool» / «Open
@@ -1594,11 +1630,18 @@ function OrderBookModal({
                   const cum = cumulativeFor(r)
                   const share = (r.liquidityUSD / totalLiquidity) * 100
                   const cumPct = (cum / totalLiquidity) * 100
+                  // Active side is reference / read-only — rows are non-
+                  // clickable (Eugene 2026-05-21 — «по клику на заявки в
+                  // Active всё ещё открывается постановка позиции» bug fix).
+                  const rowClickable = side !== 'active'
                   return (
                     <tr
                       key={i}
-                      onClick={() => onRowClick(r.premiumApyBps)}
-                      className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition"
+                      onClick={rowClickable ? () => onRowClick(r.premiumApyBps) : undefined}
+                      className={
+                        'border-t border-gray-100 transition ' +
+                        (rowClickable ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default')
+                      }
                     >
                       <td className="px-5 py-1.5 text-gray-700 font-medium">{fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}</td>
                       <td className="px-3 py-1.5 text-right text-gray-900">{fmtUSD(r.liquidityUSD)}</td>

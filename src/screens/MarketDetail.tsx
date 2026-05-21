@@ -364,15 +364,21 @@ function BookSection({
             {rows.map((r, i) => {
               const widthPct = Math.max(2, (r.liquidityUSD / maxLiq) * 100)
               const subsidized = r.premiumApyBps < 0
+              // Active rows are reference / read-only — only «mine» row is
+              // clickable (routes to My Positions). Eugene 2026-05-21 bug:
+              // «по клику на заявки в Active всё ещё открывается постановка
+              // позиции» — non-mine Active rows now non-interactive.
+              const clickable = tone !== 'active' || (r.isMine && !!onMineClick)
               return (
                 <tr
                   key={i}
-                  onClick={() => {
+                  onClick={clickable ? () => {
                     if (r.isMine && onMineClick) onMineClick()
                     else onRowClick(r.premiumApyBps)
-                  }}
+                  } : undefined}
                   className={
-                    'border-t border-gray-50 cursor-pointer hover:bg-gray-50 transition ' +
+                    'border-t border-gray-50 transition ' +
+                    (clickable ? 'cursor-pointer hover:bg-gray-50 ' : 'cursor-default ') +
                     (r.isMine ? 'bg-[var(--color-role-lp-bg)]/40' : '')
                   }
                   title={r.isMine ? 'Open in My Positions →' : undefined}

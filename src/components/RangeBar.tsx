@@ -27,9 +27,13 @@ interface Props {
   /** Optional «closeness to range center» percentage shown next to the
    *  current-price label as `(NN%)`. Tooltip clarifies semantics. */
   inRangePct?: number
+  /** Compact mode — render ONLY the bar (drops top price label + bottom
+   *  bound labels). Used inline with adjacent text where the bar is
+   *  decoration, not the primary read. Eugene 2026-05-21. */
+  compact?: boolean
 }
 
-export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct }: Props) {
+export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct, compact }: Props) {
   const deltaLowPct = ((rangeLow - currentPrice) / currentPrice) * 100
   const deltaHighPct = ((rangeHigh - currentPrice) / currentPrice) * 100
 
@@ -52,25 +56,27 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct }: Prop
 
   return (
     <div className="w-full select-none">
-      {/* Top — current price top-right, optionally with «closeness to range
-          center» % next to it (Eugene 2026-05-21 — «Inrange перенести после
-          цифры цены, с тултипом»). */}
-      <div className="relative h-4 text-[11px] num">
-        <span
-          className="absolute right-0 font-semibold whitespace-nowrap"
-          style={{ color: innerColour }}
-          title={
-            inRangePct !== undefined
-              ? `Current price: ${fmtPriceShort(currentPrice)} · (${inRangePct}%) — distance from range center (100% = perfectly centered, 0% = at range edge or beyond). Lower numbers mean the LP range is about to flip out-of-range.`
-              : `Current price: ${fmtPriceShort(currentPrice)}`
-          }
-        >
-          {fmtPriceShort(currentPrice)}
-          {inRangePct !== undefined && (
-            <span className="text-gray-500 font-normal ml-1">({inRangePct}%)</span>
-          )}
-        </span>
-      </div>
+      {/* Top — current price top-right (skipped in compact mode; caller is
+          expected to show the price next to the bar inline). Optionally
+          shows «closeness to range center» % next to the price. */}
+      {!compact && (
+        <div className="relative h-4 text-[11px] num">
+          <span
+            className="absolute right-0 font-semibold whitespace-nowrap"
+            style={{ color: innerColour }}
+            title={
+              inRangePct !== undefined
+                ? `Current price: ${fmtPriceShort(currentPrice)} · (${inRangePct}%) — distance from range center (100% = perfectly centered, 0% = at range edge or beyond). Lower numbers mean the LP range is about to flip out-of-range.`
+                : `Current price: ${fmtPriceShort(currentPrice)}`
+            }
+          >
+            {fmtPriceShort(currentPrice)}
+            {inRangePct !== undefined && (
+              <span className="text-gray-500 font-normal ml-1">({inRangePct}%)</span>
+            )}
+          </span>
+        </div>
+      )}
       {/* Bar */}
       <div className="relative h-1.5">
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-gray-200" />
@@ -105,23 +111,26 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct }: Prop
           ▼
         </span>
       </div>
-      {/* Bottom — range bounds with delta-% (1-decimal precision). */}
-      <div className="relative h-4 text-[10px] num text-gray-700 mt-0.5">
-        <span
-          className="absolute -translate-x-1/2 whitespace-nowrap"
-          style={{ left: `${lowPos}%` }}
-        >
-          <span className="font-medium">{fmtPriceShort(rangeLow)}</span>
-          <span className="text-gray-400"> ({deltaLowPct >= 0 ? '+' : '−'}{Math.abs(deltaLowPct).toFixed(1)}%)</span>
-        </span>
-        <span
-          className="absolute -translate-x-1/2 whitespace-nowrap"
-          style={{ left: `${highPos}%` }}
-        >
-          <span className="font-medium">{fmtPriceShort(rangeHigh)}</span>
-          <span className="text-gray-400"> ({deltaHighPct >= 0 ? '+' : '−'}{Math.abs(deltaHighPct).toFixed(1)}%)</span>
-        </span>
-      </div>
+      {/* Bottom — range bounds with delta-% (1-decimal precision). Skipped
+          in compact mode. */}
+      {!compact && (
+        <div className="relative h-4 text-[10px] num text-gray-700 mt-0.5">
+          <span
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${lowPos}%` }}
+          >
+            <span className="font-medium">{fmtPriceShort(rangeLow)}</span>
+            <span className="text-gray-400"> ({deltaLowPct >= 0 ? '+' : '−'}{Math.abs(deltaLowPct).toFixed(1)}%)</span>
+          </span>
+          <span
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${highPos}%` }}
+          >
+            <span className="font-medium">{fmtPriceShort(rangeHigh)}</span>
+            <span className="text-gray-400"> ({deltaHighPct >= 0 ? '+' : '−'}{Math.abs(deltaHighPct).toFixed(1)}%)</span>
+          </span>
+        </div>
+      )}
       <span className="sr-only">{`Range ${fmtPriceShort(rangeLow)} to ${fmtPriceShort(rangeHigh)}, current ${fmtPriceShort(currentPrice)}`}</span>
     </div>
   )
