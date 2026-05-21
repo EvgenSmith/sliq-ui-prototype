@@ -692,7 +692,6 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           title="LongPool orders"
           subtitle="Provide liquidity"
           orders={market.longPoolOrders}
-          ctaLabel="Open LongPool"
           onCta={() => openLongAt(null)}
           onRowClick={apy => openLongAt(apy)}
           tone="long"
@@ -703,7 +702,6 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           title="ShortPool orders"
           subtitle="Open position"
           orders={market.shortPoolOrders}
-          ctaLabel="Open ShortPool"
           onCta={() => openShortAt(null)}
           onRowClick={apy => openShortAt(apy)}
           tone="short"
@@ -1011,7 +1009,6 @@ function PoolPane({
   title,
   subtitle,
   orders,
-  ctaLabel,
   onCta,
   onRowClick,
   tone,
@@ -1020,7 +1017,6 @@ function PoolPane({
   title: string
   subtitle: string
   orders: PoolOrder[]
-  ctaLabel: string
   onCta: () => void
   onRowClick?: (apyBps: number) => void
   tone: 'long' | 'short'
@@ -1050,14 +1046,11 @@ function PoolPane({
   return (
     <div className="rounded-md border border-gray-200 p-3 flex flex-col">
       <div className="flex items-baseline justify-between gap-2 mb-1">
-        <div>
-          <h3 className="text-sm font-semibold">{title}</h3>
-          {/* Subtitle = protocol label («Open LongPool» / «Open ShortPool»).
-              Eugene 2026-05-21: «в subtitle писать Open Short / Long Pool,
-              а кнопки как ты предлагал». */}
-          <p className="text-[10px] uppercase tracking-wide text-gray-500 mt-0.5">{ctaLabel}</p>
-        </div>
-        {/* Button = human-readable CTA («Provide liquidity» / «Open position»). */}
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {/* Button = human-readable CTA («Provide liquidity» / «Open position»).
+            Subtitle line («Open LongPool» / «Open ShortPool») dropped per
+            Eugene 2026-05-21 — already implied by the «LongPool orders» /
+            «ShortPool orders» title. */}
         <button
           type="button"
           onClick={onCta}
@@ -1093,8 +1086,8 @@ function PoolPane({
                   title={onRowClick ? `Click to ${tone === 'long' ? 'provide liquidity' : 'open position'} at this Premium APY` : undefined}
                 >
                   <td className="py-1.5 px-2 text-gray-700">
-                    {r.isMine && <span className="mr-1">🙂</span>}
                     {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
+                    {r.isMine && <span className="ml-1" aria-label="your order">🙂</span>}
                   </td>
                   <td className="py-1.5 px-2 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
                   {dense && (
@@ -1220,8 +1213,8 @@ function ActivePane({
                   title={onRowClick ? 'Click to open ShortPool at this Premium APY' : undefined}
                 >
                   <td className="py-1.5 px-2 text-gray-700">
-                    {r.isMine && <span className="mr-1">🙂</span>}
                     {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
+                    {r.isMine && <span className="ml-1" aria-label="your position">🙂</span>}
                   </td>
                   <td className="py-1.5 px-2 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
                   {dense && (

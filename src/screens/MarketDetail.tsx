@@ -369,13 +369,13 @@ function BookSection({
                   }
                 >
                   <td className="px-4 py-1.5">
-                    {r.isMine && <span className="mr-1">🙂</span>}
                     <span
                       className="font-medium"
                       style={subsidized ? { color: 'var(--color-negative-apy)' } : undefined}
                     >
                       {fmtPct(r.premiumApyBps, { signed: subsidized })}
                     </span>
+                    {r.isMine && <span className="ml-1" aria-label="yours">🙂</span>}
                   </td>
                   <td className="px-4 py-1.5 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
                   <td className="px-4 py-1.5">
