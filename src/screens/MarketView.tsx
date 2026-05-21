@@ -290,8 +290,24 @@ export function MarketView() {
           <MarketCard key={m.key} market={m} />
         ))}
         {filtered.length === 0 && (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
-            No markets match current filters.
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
+            <p className="text-sm text-gray-600 mb-1">No markets match current filters.</p>
+            <p className="text-[11px] text-gray-500 mb-3">
+              Try a wider pair / fee tier / range selection.
+            </p>
+            {(pairFilter !== 'all' || feeTiersOn.size !== FEE_TIER_OPTIONS.length || rangeStatus !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPairFilter('all')
+                  setFeeTiersOn(new Set(FEE_TIER_OPTIONS.map(o => o.bps)))
+                  setRangeStatus('all')
+                }}
+                className="text-xs font-semibold px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
+              >
+                Reset filters
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -307,9 +323,22 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
   void getRangeStatus
   void pairLabel
 
-  // Phase F — Open LongPool / ShortPool modals (Eugene 2026-05-21).
+  // Phase F — Open LongPool / ShortPool modals.
+  // Click-row-prefill (this commit) — clicking any row in a pool pane opens
+  // the matching modal with that row's Premium APY pre-filled, so the trader
+  // can act on what they saw without re-entering numbers.
   const [longOpen, setLongOpen] = useState(false)
   const [shortOpen, setShortOpen] = useState(false)
+  const [prefillLongApy, setPrefillLongApy] = useState<number | null>(null)
+  const [prefillShortApy, setPrefillShortApy] = useState<number | null>(null)
+  function openLongAt(apyBps: number | null) {
+    setPrefillLongApy(apyBps)
+    setLongOpen(true)
+  }
+  function openShortAt(apyBps: number | null) {
+    setPrefillShortApy(apyBps)
+    setShortOpen(true)
+  }
 
   return (
     <div className={'rounded-lg border bg-white ' + (market.myInActive ? 'border-[var(--color-role-lp)]/40' : 'border-gray-200')}>
@@ -319,6 +348,14 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           <h2 className="text-base font-semibold">
             {market.pair.token0} / {market.pair.token1}
           </h2>
+          {isVerifiedPair(market.pair) && (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 inline-flex items-center gap-1"
+              title="Both tokens in the pair are on the curated verified-asset list."
+            >
+              <span aria-hidden>✓</span>verified
+            </span>
+          )}
           <span className="text-[11px] text-gray-500">Uniswap v3</span>
           <span className="text-[11px] font-medium text-gray-600 num">{fmtFeeTier(market.feeTierBps)} fee</span>
           {market.myInActive && (
@@ -347,31 +384,37 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           subtitle="Provide liquidity"
           orders={market.longPoolOrders}
           ctaLabel="Open LongPool"
-          onCta={() => setLongOpen(true)}
+          onCta={() => openLongAt(null)}
+          onRowClick={apy => openLongAt(apy)}
           tone="long"
         />
-        <ActivePane market={market} />
+        <ActivePane market={market} onRowClick={apy => openShortAt(apy)} />
         <PoolPane
           title="ShortPool orders"
           subtitle="Open position"
           orders={market.shortPoolOrders}
           ctaLabel="Open ShortPool"
-          onCta={() => setShortOpen(true)}
+          onCta={() => openShortAt(null)}
+          onRowClick={apy => openShortAt(apy)}
           tone="short"
         />
       </div>
 
-      {/* Modals — open from CTA buttons in the panes above. */}
+      {/* Modals — open from CTA buttons OR row clicks in the panes above. */}
       <MarketActionModal
+        key={`long-${prefillLongApy ?? 'cta'}`}
         open={longOpen}
         side="long"
         market={market}
+        prefillApyBps={prefillLongApy}
         onClose={() => setLongOpen(false)}
       />
       <MarketActionModal
+        key={`short-${prefillShortApy ?? 'cta'}`}
         open={shortOpen}
         side="short"
         market={market}
+        prefillApyBps={prefillShortApy}
         onClose={() => setShortOpen(false)}
       />
     </div>
@@ -404,11 +447,14 @@ function MarketActionModal({
   open,
   side,
   market,
+  prefillApyBps,
   onClose,
 }: {
   open: boolean
   side: 'long' | 'short'
   market: AggregatedMarket
+  /** Optional pre-fill from a row click in one of the panes. */
+  prefillApyBps?: number | null
   onClose: () => void
 }) {
   // Suggested Premium APY based on the order book.
@@ -423,10 +469,11 @@ function MarketActionModal({
     const cheapest = market.longPoolOrders[market.longPoolOrders.length - 1]?.premiumApyBps ?? 100
     return Math.max(100, cheapest - 100)
   })()
+  const initialApy = prefillApyBps ?? suggested
 
   const [marginUSD, setMarginUSD] = useState(1000)
   const [leverage, setLeverage] = useState(1000)
-  const [apyBps, setApyBps] = useState(suggested)
+  const [apyBps, setApyBps] = useState(initialApy)
 
   // Reset state when modal closes (so reopening it gets fresh defaults).
   // The HighStakesConfirmModal also clears its internal state on close;
@@ -655,6 +702,7 @@ function PoolPane({
   orders,
   ctaLabel,
   onCta,
+  onRowClick,
   tone,
 }: {
   title: string
@@ -662,6 +710,7 @@ function PoolPane({
   orders: PoolOrder[]
   ctaLabel: string
   onCta: () => void
+  onRowClick?: (apyBps: number) => void
   tone: 'long' | 'short'
 }) {
   const accent = tone === 'long' ? 'var(--color-role-lp)' : 'var(--color-role-trader)'
@@ -700,7 +749,15 @@ function PoolPane({
           </thead>
           <tbody>
             {headRows.map((r, i) => (
-              <tr key={i} className="border-t border-gray-100">
+              <tr
+                key={i}
+                onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
+                className={
+                  'border-t border-gray-100 ' +
+                  (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
+                }
+                title={onRowClick ? `Click to ${tone === 'long' ? 'provide liquidity' : 'open position'} at this Premium APY` : undefined}
+              >
                 <td className="py-1.5 text-gray-700">{fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}</td>
                 <td className="py-1.5 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
               </tr>
@@ -724,7 +781,13 @@ function PoolPane({
 // range (representative pool yield), body shows matched (Premium APY, Liquidity)
 // rows. My position highlighted with 🙂 (Kolya: «со смайликом значит твоя
 // позиция»). If many entries — show min / max + my row + aggregated tail.
-function ActivePane({ market }: { market: AggregatedMarket }) {
+function ActivePane({
+  market,
+  onRowClick,
+}: {
+  market: AggregatedMarket
+  onRowClick?: (apyBps: number) => void
+}) {
   const rows = market.activePositions
   const HEAD_LIMIT = 5
   let visibleRows: ActiveRow[] = []
@@ -777,7 +840,13 @@ function ActivePane({ market }: { market: AggregatedMarket }) {
             {visibleRows.map((r, i) => (
               <tr
                 key={i}
-                className={'border-t border-gray-100 ' + (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50' : '')}
+                onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
+                className={
+                  'border-t border-gray-100 ' +
+                  (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
+                  (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
+                }
+                title={onRowClick ? 'Click to open ShortPool at this Premium APY' : undefined}
               >
                 <td className="py-1.5 text-gray-700">
                   {r.isMine && <span className="mr-1">🙂</span>}
@@ -807,4 +876,19 @@ function selectCls(active: boolean): string {
       ? 'border-[var(--color-role-trader)] bg-[var(--color-role-trader-bg)]'
       : 'border-gray-300 bg-white')
   )
+}
+
+// Verified assets — major curated tokens that get a ✓ chip on the market
+// card. Kolya mentioned «верифицированный actif» chip as a trust signal in
+// the 2026-05-18 review. Long-tail / unknown tokens stay unbadged so the
+// chip means something. Static list for now; production should source from
+// a curated token-list (Uniswap default, Coingecko verified, etc.).
+const VERIFIED_ASSETS = new Set([
+  'ETH', 'WETH', 'wstETH', 'cbETH', 'rETH',
+  'WBTC', 'cbBTC',
+  'USDC', 'USDT', 'DAI', 'PYUSD', 'crvUSD',
+  'ARB', 'OP', 'LINK', 'UNI',
+])
+function isVerifiedPair(p: { token0: string; token1: string }): boolean {
+  return VERIFIED_ASSETS.has(p.token0) && VERIFIED_ASSETS.has(p.token1)
 }
