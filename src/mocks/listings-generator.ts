@@ -69,8 +69,16 @@ export function generateListings(count: number, startId: number, now: number): L
     ;[statusPool[i], statusPool[j]] = [statusPool[j], statusPool[i]]
   }
 
+  // Eugene 2026-05-20: «первые пулы сделай с ETH связанные, не Doge».
+  // Bias the first ~15 generated entries to major / stable ETH-related pairs
+  // so the marketplace lands on a clean «familiar» first page. Long-tail
+  // shitcoins still appear, just deeper in the list.
+  const eth_related = PAIRS.filter(
+    p => p.volBucket === 'major' || p.volBucket === 'stable',
+  )
   for (let i = 0; i < count; i++) {
-    const pairDef = PAIRS[Math.floor(rng() * PAIRS.length)]
+    const pool = i < 15 ? eth_related : PAIRS
+    const pairDef = pool[Math.floor(rng() * pool.length)]
     const fees = FEE_TIERS_BY_VOL[pairDef.volBucket]
     const feeTierBps = fees[Math.floor(rng() * fees.length)]
 

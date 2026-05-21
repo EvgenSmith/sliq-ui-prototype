@@ -83,10 +83,11 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
           style={{ left: `${highPos}%`, background: innerColour }}
           aria-hidden
         />
-        {/* Current price marker — ▼ above the bar at the price's natural
-            position. Clamped to [2,98] so it stays inside the grey track. */}
+        {/* Current price marker — ▼ raised above the bar so the glyph
+            tip sits at the bar's top edge instead of overlapping the
+            inside-range segment (Eugene 2026-05-20). Clamped to [2,98]. */}
         <span
-          className="absolute -top-1 -translate-x-1/2 text-[10px] leading-none"
+          className="absolute -top-3 -translate-x-1/2 text-[10px] leading-none"
           style={{ left: `${priceClamped}%`, color: innerColour }}
           aria-label={`Current price ${fmtPriceShort(currentPrice)}`}
         >
