@@ -231,8 +231,11 @@ function ListingsView() {
         {/* Claimable banner removed (Eugene 2026-05-15) — Claimable now lives as a
             sub-line inside the «Total fees» summary card. One source of truth. */}
 
-        {/* Onboarding banner — collapsed by default */}
-        <OnboardingBanner />
+        {/* Onboarding banner («Как максимизировать earnings на sLiq») removed
+            per Eugene 2026-05-20. Worked as a v0 explainer; with the dashboard
+            cards + per-listing auction-heat signal in place, the steps are
+            redundant. Component definition kept below for now — strip on next
+            cleanup pass if it stays unused. */}
 
         {/* Summary cards — Eugene 2026-05-15:
               - «Earning today» replaced by «Total fees» (lifetime aggregate)
