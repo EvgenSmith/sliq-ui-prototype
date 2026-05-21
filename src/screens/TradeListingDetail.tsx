@@ -32,7 +32,13 @@ import { HighStakesConfirmModal } from '@/components/HighStakesConfirmModal'
 import { LPFlowSelector } from '@/components/LPFlowSelector'
 import { HelpPopover } from '@/components/HelpPopover'
 import { CopyAddress } from '@/components/CopyAddress'
-import { capacityFreePct, estimatePositionPnL, getAuctionHeat } from '@/lib/derive'
+import {
+  capacityFreePct,
+  estimatePositionPnL,
+  getAuctionHeat,
+  getTraderListingStatus,
+  type TraderListingStatus,
+} from '@/lib/derive'
 import { useState as useState2 } from 'react'
 
 export function TradeListingDetail() {
@@ -326,8 +332,43 @@ function TraderPanel({
   isFull: boolean
   positions: import('@/lib/types').Position[]
 }) {
+  // Trader-relative status — drives which Action card we render.
+  // Eugene 2026-05-20 — § «Проработай вид карточки заявок с разными статусами».
+  const traderStatus = getTraderListingStatus(listing, positions, connectedWallet.address)
+
+  // Variant E — terminal listing states (no action possible).
+  // Show a read-only banner + the 24h chart for context.
+  if (traderStatus.terminal) {
+    return (
+      <div className="space-y-4">
+        <TerminalListingBanner status={traderStatus} listing={listing} />
+        <ListingPriceChart listing={listing} />
+      </div>
+    )
+  }
+
+  // Variant F — my position active (no outbid). Per Eugene 2026-05-20
+  // «пока не трогай мои активные позиции, карточку под них сделаем в
+  // рамках подраздела My Positions». Show a referral card pointing the
+  // user to /trader/positions/:id, plus chart for context.
+  if (traderStatus.chip === 'my-position' || traderStatus.chip === 'open-and-mine') {
+    return (
+      <div className="space-y-4">
+        <MyPositionReferralCard listing={listing} positions={positions} />
+        <ListingPriceChart listing={listing} />
+      </div>
+    )
+  }
+
+  // Variants A/B/C/D — Open / Full-buyout / Outbid / Out-of-margin.
+  // OpenPositionForm already adapts via outbidTargetId; we additionally pass
+  // traderStatus so it can surface the right header + framing copy. Variant-
+  // specific «Outbid your slot back» / «Top up margin» wrappers come next pass.
   return (
     <div className="space-y-4">
+      {(traderStatus.chip === 'outbid' || traderStatus.chip === 'out-of-margin') && (
+        <OutbidContextBanner listing={listing} positions={positions} status={traderStatus} />
+      )}
       {/* Inline Open Position form FIRST — CTA above the fold (primary intent) */}
       <OpenPositionForm listing={listing} isFull={isFull} positionsOnListing={positions} />
 
@@ -2999,6 +3040,190 @@ function ComparisonBlock({
       <div className="text-[10px] text-gray-500 uppercase tracking-wide leading-tight">{label}</div>
       <div className="text-lg font-semibold mt-1" style={{ color }}>{value}</div>
       {subtitle && <div className="text-[10px] text-gray-500 mt-0.5">{subtitle}</div>}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Status-aware variant components for TraderPanel (Eugene 2026-05-20).
+// Open / Full-buyout: handled by existing OpenPositionForm (no new wrapper).
+// Outbid / Out-of-margin: banner above the form contextualises the state.
+// My-position-active: referral card pointing to /trader/positions.
+// Terminal: read-only banner replacing the form entirely.
+// ─────────────────────────────────────────────────────────────────────────
+
+function TerminalListingBanner({
+  status,
+  listing,
+}: {
+  status: TraderListingStatus
+  listing: import('@/lib/types').Listing
+}) {
+  const meta = (() => {
+    if (status.chip === 'liquidating') return {
+      title: '💥 Liquidating',
+      tone: 'danger',
+      body: 'Listing-level ликвидация в процессе. Все incumbent-позиции закрываются по snapshot-цене. Зайти новой позицией нельзя.',
+      cta: { label: 'View liquidation page', href: `/listings/${listing.id}/liquidation` },
+    }
+    if (status.chip === 'liquidated') return {
+      title: 'Closed · liquidated',
+      tone: 'neutral',
+      body: 'Листинг полностью ликвидирован. Зайти нельзя. LP residual NFT (если остался) можно увидеть в liquidation page.',
+      cta: { label: 'View liquidation page', href: `/listings/${listing.id}/liquidation` },
+    }
+    if (status.chip === 'withdrawn') return {
+      title: 'Closed',
+      tone: 'neutral',
+      body: 'LP забрал NFT. Листинг закрыт навсегда. Зайти нельзя.',
+      cta: null as null | { label: string; href: string },
+    }
+    // closing
+    return {
+      title: 'Closing · LP exit',
+      tone: 'warn',
+      body: 'LP запросил вывод NFT. Все incumbent-позиции принудительно закрываются. Новых трейдеров листинг не принимает.',
+      cta: null as null | { label: string; href: string },
+    }
+  })()
+  const cls = meta.tone === 'danger'
+    ? 'border-[var(--color-status-danger)]/40 bg-red-50 text-[var(--color-status-danger)]'
+    : meta.tone === 'warn'
+    ? 'border-amber-300 bg-amber-50 text-amber-900'
+    : 'border-gray-300 bg-gray-50 text-gray-800'
+  return (
+    <div className={'rounded-lg border p-5 ' + cls}>
+      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+        <h2 className="text-base font-semibold">{meta.title}</h2>
+        {meta.cta && (
+          <Link
+            to={meta.cta.href}
+            className="text-xs font-semibold underline decoration-dotted hover:opacity-80"
+          >
+            {meta.cta.label} →
+          </Link>
+        )}
+      </div>
+      <p className="text-sm mt-2 leading-relaxed">{meta.body}</p>
+    </div>
+  )
+}
+
+function MyPositionReferralCard({
+  listing,
+  positions,
+}: {
+  listing: import('@/lib/types').Listing
+  positions: import('@/lib/types').Position[]
+}) {
+  // Find all of MY positions on this listing (in active/close-requested states).
+  const myPositions = positions.filter(
+    p => p.trader === connectedWallet.address
+      && (p.status === 'OPEN' || p.status === 'CLOSE_REQUESTED'),
+  )
+  const firstId = myPositions[0]?.id
+  return (
+    <div className="rounded-lg border border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)] p-5">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-2">
+        <h2 className="text-base font-semibold text-[var(--color-role-lp)]">You have an active position here</h2>
+        <span className="text-[11px] text-gray-600 num">
+          {myPositions.length} position{myPositions.length === 1 ? '' : 's'} on {listing.pair.token0}/{listing.pair.token1}
+        </span>
+      </div>
+      <p className="text-sm text-gray-700 mb-3 leading-relaxed">
+        Управление активными позициями (P&L, top-up margin, request close) живёт в разделе <strong>My Positions</strong>.
+        Эта страница — про сам листинг и состояние аукциона.
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        {firstId ? (
+          <Link
+            to={`/trader/positions/${firstId}`}
+            className="inline-flex items-center text-sm font-semibold px-3 py-2 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
+          >
+            Manage in My Positions →
+          </Link>
+        ) : (
+          <Link
+            to="/trader/positions"
+            className="inline-flex items-center text-sm font-semibold px-3 py-2 rounded-md bg-[var(--color-role-lp)] text-white hover:opacity-90 transition"
+          >
+            Go to My Positions →
+          </Link>
+        )}
+        {listing.availableCapacityUSD > 0.01 && (
+          <span className="text-[11px] text-gray-500 leading-snug">
+            ↳ available capacity ${(listing.availableCapacityUSD / 1000).toFixed(1)}K still open — can add to existing
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function OutbidContextBanner({
+  listing,
+  positions,
+  status,
+}: {
+  listing: import('@/lib/types').Listing
+  positions: import('@/lib/types').Position[]
+  status: TraderListingStatus
+}) {
+  void listing
+  const myPos = positions.find(
+    p => p.trader === connectedWallet.address && p.status === 'OUTBID_PENDING',
+  )
+  // Find the trader who took our slot — the one with the highest premium APY
+  // amongst current OPEN positions (best-effort heuristic for the prototype).
+  const incumbent = positions
+    .filter(p => p.status === 'OPEN' && p.trader !== connectedWallet.address)
+    .sort((a, b) => b.apyBps - a.apyBps)[0]
+  if (!myPos) return null
+
+  const outOfMargin = status.chip === 'out-of-margin'
+  const tone = outOfMargin
+    ? 'border-[var(--color-status-danger)]/40 bg-red-50 text-[var(--color-status-danger)]'
+    : 'border-amber-300 bg-amber-50 text-amber-900'
+
+  return (
+    <div className={'rounded-lg border p-5 ' + tone}>
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+        <h2 className="text-base font-semibold">
+          {outOfMargin ? 'Out of margin' : 'Your position was outbid'}
+        </h2>
+        <span className="text-[11px] num">
+          margin remaining <strong>{fmtUSD(myPos.marginValueUSD ?? 0)}</strong>
+        </span>
+      </div>
+      <p className="text-sm leading-relaxed mb-3">
+        {outOfMargin ? (
+          <>
+            Тебя outbid'нули + маржи не хватает на возврат. <strong>Сначала top up margin</strong>, потом сможешь
+            выставить ставку выше incumbent'а и забрать слот обратно. ≠ ликвидация — margin не нулевой.
+          </>
+        ) : (
+          <>
+            Кто-то предложил выше Premium APY и забрал твой слот. Margin сохранён.
+            <strong> Buyout back</strong> — выставь Premium APY выше его ставки, чтобы вернуть позицию.
+          </>
+        )}
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[11px] num">
+        <div>
+          <div className="text-[10px] uppercase opacity-70">Your original APY</div>
+          <div className="font-semibold text-sm">{fmtPct(myPos.openedAtLeverage ? myPos.apyBps : myPos.apyBps)}</div>
+        </div>
+        {incumbent && (
+          <div>
+            <div className="text-[10px] uppercase opacity-70">Incumbent now paying</div>
+            <div className="font-semibold text-sm">{fmtPct(incumbent.apyBps)}</div>
+          </div>
+        )}
+        <div>
+          <div className="text-[10px] uppercase opacity-70">Your notional</div>
+          <div className="font-semibold text-sm">{fmtUSD(myPos.notionalUSD)}</div>
+        </div>
+      </div>
     </div>
   )
 }
