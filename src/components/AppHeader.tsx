@@ -7,8 +7,10 @@ import { connectedWallet } from '@/mocks/data'
 import { shortAddr } from '@/lib/format'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
 import { LPStateSwitcher } from '@/components/LPStateSwitcher'
+import { TraderStateSwitcher } from '@/components/TraderStateSwitcher'
 import { StatusBanner } from '@/components/StatusBanner'
 import { useLPDemoState, deriveLPState } from '@/lib/lpDemoState'
+import { useTraderDemoState, deriveTraderState } from '@/lib/traderDemoState'
 import type { ChainId } from '@/lib/types'
 
 const SECTIONS = [
@@ -26,11 +28,19 @@ export function AppHeader() {
     return (localStorage.getItem('sliq.activeChain') as ChainId) ?? 'arbitrum'
   })
   const [lpState] = useLPDemoState()
+  const [traderState] = useTraderDemoState()
   const inPoolsRoute = path.startsWith('/lp')
-  const { isConnected } = deriveLPState(lpState)
-  // When user is on /lp/* and demo state says "guest", visually present as not-connected.
-  // Other routes (Trade, Keeper) continue using the real `connectedWallet` mock unchanged.
-  const renderAsGuest = inPoolsRoute && !isConnected
+  const inTradeRoute = path.startsWith('/listings') || path.startsWith('/trader')
+  const { isConnected: lpConnected } = deriveLPState(lpState)
+  const { isConnected: traderConnected } = deriveTraderState(traderState)
+  // When the user is on a role route AND the demo state for that role says
+  // «guest», visually present the header as not-connected. Other routes
+  // (Keeper, landing, settings) continue using the real `connectedWallet`
+  // mock unchanged. Eugene 2026-05-20 — trader state is its own axis, not
+  // tied to LP state.
+  const renderAsGuest =
+    (inPoolsRoute && !lpConnected) ||
+    (inTradeRoute && !traderConnected)
   const walletRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -133,10 +143,14 @@ export function AppHeader() {
         </div>
       </div>
 
-      {/* Row 2 — Dev state switcher (prototype only; will be removed in production) */}
+      {/* Row 2 — Dev state switcher (prototype only; will be removed in
+          production). Trade and Pools routes get their own switcher — LP and
+          trader page-state axes are independent (Eugene 2026-05-20). Other
+          routes (Landing, Settings, Keeper) show neither. */}
       <div className="border-b border-dashed border-gray-200 bg-gray-50/50">
         <div className="mx-auto max-w-7xl px-4 h-8 flex items-center justify-end">
-          <LPStateSwitcher />
+          {inPoolsRoute && <LPStateSwitcher />}
+          {inTradeRoute && <TraderStateSwitcher />}
         </div>
       </div>
 
