@@ -538,7 +538,7 @@ function OpenPositionForm({
   const suggestedApyBps = isFull ? weakestActiveApyBps + 100 : minApyBps + 100
 
   const [marginUSD, setMarginUSD] = useState2<number>(1000)
-  const [leverage, setLeverage] = useState2<number>(100) // default 100× (excerpt 1: «можно 100-м или 10-м плечом маржу обеспечить»)
+  const [leverage, setLeverage] = useState2<number>(1000) // default 1000× per Eugene 2026-05-20 — «maximally efficient» framing (ТЗ §5.3 P1 R-024)
   const [apyBps, setApyBps] = useState2<number>(suggestedApyBps)
   const [twoTokenMode, setTwoTokenMode] = useState2<boolean>(false)
   const [marginTok0, setMarginTok0] = useState2<number>(0)

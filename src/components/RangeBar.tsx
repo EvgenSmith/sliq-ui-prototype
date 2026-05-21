@@ -1,17 +1,16 @@
-// RangeBar — visual primitive per ТЗ §3.2: centered range scale showing
-// LP range bounds + current price relative to them. The bar extends slightly
-// beyond the range bounds because the current price CAN sit outside the
-// range (out-of-range listings are still tradeable / waiting for re-entry).
+// RangeBar — visual primitive per ТЗ §3.2: shows LP range bounds + current
+// price as a centered scale. Bar extends slightly beyond the range so the
+// marker can sit outside without overflowing.
 //
-// Eugene 2026-05-20 v2 layout:
-//             ▼ $1.05               ← current price ABOVE the bar, in colour,
-//                                     positioned over the marker (▼ glyph)
-//   ●━━━━━━━━━━━━━━━━━●━━           ← bar with range bound dots + ▼ at price
-//   $0.95 (−8.34%)   $1.16 (+11.06%) ← range bounds BELOW, raw + delta in ()
+// Eugene 2026-05-20 v3 layout:
+//                                              ▼ $1.05      ← top-right, colour
+//   ●━━━━━━━━━━━━━━━━━●━━                                   ← bar with bounds + ▼
+//   $0.95 (−8.34%)   $1.16 (+11.06%)                       ← bounds with delta-%
 //
-// Reused on:
-//   - Trader marketplace listing rows (this commit)
-//   - Live position monitoring (per ТЗ §7.3)
+// Visual scale is ALWAYS ±10% from current price (Eugene 2026-05-20:
+// «% под прогрессбаром не должны быть больше 10% в среднем»). Range bounds
+// outside that window clamp to the bar edges; the label still shows the
+// actual delta-%.
 
 import { fmtPriceShort } from '@/lib/format'
 
@@ -21,42 +20,40 @@ interface Props {
   currentPrice: number
 }
 
-export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
-  // Compute % delta from current price to each bound
-  const deltaLowPct = ((rangeLow - currentPrice) / currentPrice) * 100   // typically negative
-  const deltaHighPct = ((rangeHigh - currentPrice) / currentPrice) * 100 // typically positive
+// Visible half-window — bar always shows current ± this fraction.
+// 0.10 = ±10%. Tight ranges fit comfortably; wide ranges clamp to edges.
+const VISIBLE_HALF_WINDOW = 0.10
 
-  // Layout math: we paint a horizontal scale that extends 25% beyond the
-  // range on each side so the marker can sit slightly outside without falling
-  // off the bar.
-  const span = rangeHigh - rangeLow
-  const padding = span * 0.25
-  const scaleStart = rangeLow - padding
-  const scaleEnd = rangeHigh + padding
+export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
+  const deltaLowPct = ((rangeLow - currentPrice) / currentPrice) * 100
+  const deltaHighPct = ((rangeHigh - currentPrice) / currentPrice) * 100
+
+  // Visible scale: ±VISIBLE_HALF_WINDOW from currentPrice. Current price
+  // is by construction at the center (50%) of the bar.
+  const scaleStart = currentPrice * (1 - VISIBLE_HALF_WINDOW)
+  const scaleEnd = currentPrice * (1 + VISIBLE_HALF_WINDOW)
   const scaleSpan = scaleEnd - scaleStart
 
-  const posPct = (v: number) => ((v - scaleStart) / scaleSpan) * 100
-
+  // Map a price to a % position on the bar, then clamp to [0, 100] so dots
+  // never visually exit the grey track. Labels still show actual delta-%
+  // even when the dot is clamped at the edge.
+  const posPct = (v: number) => {
+    const raw = ((v - scaleStart) / scaleSpan) * 100
+    return Math.max(0, Math.min(100, raw))
+  }
   const lowPos = posPct(rangeLow)
   const highPos = posPct(rangeHigh)
-  const priceRaw = posPct(currentPrice)
-  const priceClamped = Math.max(2, Math.min(98, priceRaw)) // visual clamp so marker stays on bar
   const priceOutsideRange = currentPrice < rangeLow || currentPrice > rangeHigh
-
-  // Inside-range region of the bar gets emphasised colour; padding stays gray.
   const innerColour = priceOutsideRange ? 'var(--color-status-warning)' : 'var(--color-status-success)'
-
-  // Above-bar label clamp: keep the «▼ $current» label inside the [0, 100]
-  // range so it never escapes the column on the sides.
-  const labelClamped = Math.max(8, Math.min(92, priceRaw))
 
   return (
     <div className="w-full select-none">
-      {/* Top — current price floating over its marker, in colour. */}
+      {/* Top — current price top-right, fixed (Eugene 2026-05-20: «цену
+          текущую над Range показываем всегда справа вверху»). */}
       <div className="relative h-4 text-[11px] num">
         <span
-          className="absolute -translate-x-1/2 font-semibold whitespace-nowrap"
-          style={{ left: `${labelClamped}%`, color: innerColour }}
+          className="absolute right-0 font-semibold whitespace-nowrap"
+          style={{ color: innerColour }}
           title={`Current price: ${fmtPriceShort(currentPrice)}`}
         >
           ▼ {fmtPriceShort(currentPrice)}
@@ -65,14 +62,16 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
       {/* Bar */}
       <div className="relative h-1.5">
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-gray-200" />
+        {/* Inside-range emphasised segment — between the two clamped dots. */}
         <div
           className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full"
           style={{
-            left: `${lowPos}%`,
-            width: `${highPos - lowPos}%`,
+            left: `${Math.min(lowPos, highPos)}%`,
+            width: `${Math.abs(highPos - lowPos)}%`,
             background: innerColour,
           }}
         />
+        {/* Range bound dots — clamped to bar edges. */}
         <span
           className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white"
           style={{ left: `${lowPos}%`, background: innerColour }}
@@ -101,10 +100,7 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
           <span className="text-gray-400"> ({deltaHighPct >= 0 ? '+' : '−'}{Math.abs(deltaHighPct).toFixed(2)}%)</span>
         </span>
       </div>
-      {/* Reserve some horizontal padding so endpoint labels don't clip when
-          they extend past the column edges (they're positioned absolutely
-          based on the dot positions, then -translate-x-1/2 centres them). */}
-      <span className="sr-only">{`Range ${fmtPriceShort(rangeLow)} to ${fmtPriceShort(rangeHigh)}, current ${fmtPriceShort(currentPrice)}, marker at ${priceClamped.toFixed(0)}% of visible scale`}</span>
+      <span className="sr-only">{`Range ${fmtPriceShort(rangeLow)} to ${fmtPriceShort(rangeHigh)}, current ${fmtPriceShort(currentPrice)}`}</span>
     </div>
   )
 }

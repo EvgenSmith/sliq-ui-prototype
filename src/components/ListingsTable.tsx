@@ -232,33 +232,23 @@ function DesktopRow({
         <TraderStatusChip status={traderStatus} />
       </td>
 
-      {/* Pool size — $ + token pair breakdown + Available text sub-line.
-          Progress bar dropped per Eugene 2026-05-20 — text-only read keeps
-          the cell quieter. */}
+      {/* Pool size — $ + Available sub-line. Token pair breakdown dropped
+          per Eugene 2026-05-20 («давай везде уберём — переложим внутрь
+          карточки»). The detail card surfaces the per-asset split. */}
       <td className="px-3 py-3 text-right">
-        {(() => {
-          const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
-          return (
-            <div className="flex flex-col items-end gap-0.5">
-              <div className="num font-semibold text-gray-900 leading-tight">{fmtUSD(listing.initialLiquidityUSD)}</div>
-              {t0Amt !== null && t1Amt !== null && (
-                <div className="text-[10px] text-gray-500 num leading-tight whitespace-nowrap">
-                  {fmtToken(t0Amt, listing.pair.token0)} · {fmtToken(t1Amt, listing.pair.token1)}
-                </div>
-              )}
-              <div
-                className="text-[10px] num leading-tight whitespace-nowrap mt-0.5"
-                style={{
-                  color: freePct < 5
-                    ? 'var(--color-status-warning)'
-                    : 'var(--color-text-muted, #6b7280)',
-                }}
-              >
-                Available <span className="text-gray-900 font-medium">{fmtUSD(listing.availableCapacityUSD)}</span> ({Math.round(freePct)}%)
-              </div>
-            </div>
-          )
-        })()}
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="num font-semibold text-gray-900 leading-tight">{fmtUSD(listing.initialLiquidityUSD)}</div>
+          <div
+            className="text-[10px] num leading-tight whitespace-nowrap mt-0.5"
+            style={{
+              color: freePct < 5
+                ? 'var(--color-status-warning)'
+                : 'var(--color-text-muted, #6b7280)',
+            }}
+          >
+            Available <span className="text-gray-900 font-medium">{fmtUSD(listing.availableCapacityUSD)}</span> ({Math.round(freePct)}%)
+          </div>
+        </div>
       </td>
 
       {/* Range — centered RangeBar primitive (per ТЗ §3.2, P1 R-076).
@@ -401,21 +391,12 @@ function MobileRow({
         )}
       </div>
 
-      {/* Pool size + Available sub-line — matches new desktop Pool column. */}
+      {/* Pool size sub-line — token-pair breakdown moved to detail card. */}
       <div className="mt-2 text-[11px] num text-gray-700 flex items-baseline justify-between gap-2">
         <span>
           <span className="font-semibold text-gray-900">{fmtUSD(listing.initialLiquidityUSD)}</span>
           <span className="text-gray-500"> pool</span>
         </span>
-        {(() => {
-          const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
-          if (t0Amt === null || t1Amt === null) return null
-          return (
-            <span className="text-[10px] text-gray-500 whitespace-nowrap">
-              {fmtToken(t0Amt, listing.pair.token0)} · {fmtToken(t1Amt, listing.pair.token1)}
-            </span>
-          )
-        })()}
       </div>
       <div className="mt-1 text-[10px] num text-gray-500 text-right">
         Available <span className="text-gray-900 font-medium">{fmtUSD(listing.availableCapacityUSD)}</span> ({Math.round(freePct)}%)
