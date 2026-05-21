@@ -28,6 +28,16 @@ export function fmtRange(lo: number, hi: number): string {
   return `$${Math.round(lo).toLocaleString()} – $${Math.round(hi).toLocaleString()}`
 }
 
+// Compact raw-price formatter for the RangeBar primitive. Sub-$1 token pairs
+// (e.g. 0.95) need 4 decimals; mid-range pairs need 2; thousands USD pairs
+// strip decimals. Used above/below the centered range scale labels.
+export function fmtPriceShort(n: number): string {
+  if (n >= 10_000) return Math.round(n).toLocaleString()
+  if (n >= 100) return n.toFixed(0)
+  if (n >= 1) return n.toFixed(2)
+  return n.toFixed(4)
+}
+
 export function fmtFeeTier(bps: number): string {
   return `${(bps / 100).toFixed(2)}%`.replace(/\.?0+%$/, '%').replace(/\.?0+$/, '')
 }

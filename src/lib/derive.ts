@@ -133,3 +133,40 @@ export function getAuctionHeat(
   if (deltaBps < 300) return null
   return { medianApyBps, deltaBps, sampleSize: openBids.length }
 }
+
+// Net APY (trader perspective) — what the trader expects to take home
+// annualised at this listing's parameters. Signed value: positive means the
+// position is currently set up to earn; negative means premium burn is
+// expected to exceed payoff at current pool conditions.
+//
+// Eugene 2026-05-20: this is the marketplace ranking signal — «как заработок
+// позиции, чтобы позиция была интересно и её можно было взять» (ТЗ §3.1 +
+// P1 R-016). ТЗ §11 OQ-2 flagged the «Total APY» name as confusable with the
+// LP-side «Premium + Uniswap» additive — we use «Net APY» on trader-side
+// to avoid the collision.
+//
+// CURRENT FORMULA — ILLUSTRATIVE: uniswapApyBps (pool's realised yield) is
+// used as a proxy for the trader's Impermanent Profit APY at this range.
+// Real formula will plug in implied volatility × leverage when the protocol
+// surfaces it. Per ТЗ §3.4 (P1 R-068) every IP-based figure carries a
+// «historical, not predictive» caveat — surfacing UI must reflect that.
+export function getNetApyBps(listing: Listing): number {
+  return listing.uniswapApyBps - listing.minPremiumApyBps
+}
+
+// Split a USD amount into the pair's two token amounts at midprice
+// (Uniswap V3 in-range ≈ 50/50). Returns null amounts for non-USD-quoted
+// pairs (consumers fall back to USD-split display).
+//
+// Eugene 2026-05-20: lifted out of ListingDetail.tsx + TradeListingDetail.tsx
+// (duplicate definitions left over from soft-split) so the marketplace table
+// can also consume it for the per-asset Pool-size breakdown.
+const STABLE_TOKENS = new Set(['USDC', 'USDT', 'DAI', 'PYUSD', 'crvUSD'])
+export function splitToTokens(usd: number, listing: Listing): { t0Amt: number | null; t1Amt: number | null } {
+  const half = usd / 2
+  const t0IsUSD = STABLE_TOKENS.has(listing.pair.token0)
+  const t1IsUSD = STABLE_TOKENS.has(listing.pair.token1)
+  if (t1IsUSD) return { t0Amt: half / Math.max(listing.currentPrice, 1e-12), t1Amt: half }
+  if (t0IsUSD) return { t0Amt: half, t1Amt: half * listing.currentPrice }
+  return { t0Amt: null, t1Amt: null }
+}

@@ -8,9 +8,18 @@
 
 import { useNavigate } from 'react-router-dom'
 import type { DexProtocol, Listing, ListingStatus } from '@/lib/types'
-import { capacityFreePct, getRangeStatus, isSubsidized, pairLabel, type OutbidOpportunity } from '@/lib/derive'
-import { fmtFeeTier, fmtPct, fmtTimeAgo, fmtUSD } from '@/lib/format'
+import {
+  capacityFreePct,
+  getNetApyBps,
+  getRangeStatus,
+  isSubsidized,
+  pairLabel,
+  splitToTokens,
+  type OutbidOpportunity,
+} from '@/lib/derive'
+import { fmtFeeTier, fmtPct, fmtToken, fmtUSD } from '@/lib/format'
 import { HelpPopover } from '@/components/HelpPopover'
+import { RangeBar } from '@/components/RangeBar'
 
 interface Props {
   listings: Listing[]
@@ -27,67 +36,69 @@ export function ListingsTable({ listings, connectedAddress, outbidByListing }: P
       {/* Desktop table (md+) */}
       <div className="hidden md:block rounded-lg border border-gray-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
+          {/* Trader marketplace columns (Eugene 2026-05-20 — ТЗ §3.1):
+              Pair · Status · Pool size · Range · Rent APY · Net APY.
+              Dropped: «Listing stability» chip (Provider Leverage moves to
+              detail), separate «Available» column (folded under Pool size),
+              «Listed» timestamp (moves to detail). */}
           <thead className="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="text-left font-medium px-4 py-2.5">Pair · DEX · fee</th>
               <th className="text-left font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1">
-                  Listing stability
-                  <HelpPopover label="Что такое Listing stability" width="w-72">
-                    <p className="font-semibold mb-1">Risk твоего force-close</p>
-                    <p className="mb-1"><strong>safe · 1×</strong> — LP не в залоге. Тебя не закроют принудительно по vol-event'у.</p>
-                    <p><strong>at-risk · N×</strong> — LP в залоге × N. Если случится vol-spike и LP ликвидируется — все твои позиции на этом листинге force-close по snapshot-цене. Зато потенциал выше: больше Reference-pool.</p>
-                  </HelpPopover>
-                </span>
-              </th>
-              <th className="text-left font-medium px-3 py-2.5">
-                <span className="inline-flex items-center gap-1">
                   Status
-                  <HelpPopover label="Все статусы листингов" width="w-80">
-                    <p className="font-semibold mb-2">Какие бывают статусы</p>
+                  <HelpPopover label="Listing status" width="w-80">
+                    <p className="font-semibold mb-2">Состояния листинга</p>
                     <ul className="space-y-1.5 text-[11px] leading-snug">
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-700 border border-gray-200 mr-1">open · in range</span> — цена внутри range LP, Uniswap fees начисляются, IP convex. Можно зайти.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200 mr-1">open · out of range</span> — цена вышла за range, fees не идут. Зайти можно если ждёшь возврата.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">full · outbid only</span> — capacity занята. Зайти можно только перекупив incumbent'а.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">closing · LP exit</span> — LP попросил вывод. Позиции принудительно закрываются.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-700 border border-gray-300 mr-1">paused</span> — LP временно остановил новые входы.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-700 border border-gray-200 mr-1">open · in range</span> — цена внутри range LP. IP convex, можно зайти.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200 mr-1">open · out of range</span> — цена вне range. Зайти можно если ждёшь возврата.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">full · outbid only</span> — capacity занята. Заход только через Buyout incumbent'а.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-amber-50 text-amber-900 border border-amber-300 mr-1">closing · LP exit</span> — LP попросил вывод. Новых трейдеров не принимает.</li>
                       <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-50 text-[var(--color-status-danger)] border border-[var(--color-status-danger)]/40 mr-1">💥 liquidating</span> — Listing-level ликвидация в процессе. Зайти нельзя.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-700 border border-gray-300 mr-1">closed · liquidated</span> — листинг полностью ликвидирован. Pro-rata claim доступен.</li>
-                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-500 border border-gray-300 mr-1">closed</span> — LP забрал NFT, листинг закрыт навсегда.</li>
+                      <li><span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-700 border border-gray-300 mr-1">closed · liquidated</span> / <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-500 border border-gray-300 mr-1">closed</span> — терминальные.</li>
                     </ul>
                   </HelpPopover>
                 </span>
               </th>
               <th className="text-right font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1 justify-end">
-                  Premium APY
-                  <HelpPopover label="Что такое Premium APY" width="w-72">
-                    <p className="font-semibold mb-1">Premium APY — твой carry за вход</p>
-                    <p className="mb-1.5">Минимальная ставка, которую LP принимает. <strong>Ты платишь</strong> её LP'у годовых на virtual notional, пока сидишь. Если отрицательная — наоборот, <strong>LP платит тебе</strong> (стейбл-пары).</p>
-                    <p className="text-[11px] text-gray-500">«+Uni X%» снизу — Uniswap APY за 30d. Это LP baseline (не идёт тебе). Используется как proxy для Reference Fees — второй части carry, которую ты тоже платишь.</p>
+                  Pool size
+                  <HelpPopover label="Pool size · Available" width="w-72">
+                    <p className="font-semibold mb-1">Размер пула + доступность</p>
+                    <p className="mb-1.5">Верхняя строка — размер LP-позиции в $ + разбивка по токенам (например, <span className="num">1.2 ETH + 3500 USDC</span>).</p>
+                    <p className="text-[11px] text-gray-600">«Available X (Y%)» — сколько ещё свободно для нового трейдера. При Provider Leverage &gt; 1× total capacity больше, чем сам NFT — плечо умножает доступный пул.</p>
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-4 py-2.5">
+              <th className="text-left font-medium px-3 py-2.5 hidden md:table-cell">
+                <span className="inline-flex items-center gap-1">
+                  Range
+                  <HelpPopover label="Range · centered" width="w-72">
+                    <p className="font-semibold mb-1">Где цена относительно range</p>
+                    <p>Полоса показывает текущую цену (▼) между нижней и верхней границей LP-range. Подписи под границами — % отклонение от текущей цены. Когда цена выходит за range — маркер сдвигается к краю.</p>
+                  </HelpPopover>
+                </span>
+              </th>
+              <th className="text-right font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1 justify-end">
-                  Available
-                  <HelpPopover label="Что такое Available" width="w-72">
-                    <p className="font-semibold mb-1">Доступно для входа</p>
-                    <p className="mb-1.5">Свободная virtual liquidity / total. Это max virtual notional одной новой позиции. Несколько трейдеров могут разделить один листинг.</p>
-                    <p className="text-[11px] text-gray-500">При LP risk &gt; 1× total capacity больше чем размер самой NFT — потому что LP плечо умножает её.</p>
+                  Rent APY
+                  <HelpPopover label="Rent APY — цена позиции" width="w-72">
+                    <p className="font-semibold mb-1">Сколько стоит держать позицию</p>
+                    <p className="mb-1.5">«Цена аренды» LP-NFT. Сумма Premium APY (что платишь LP) и Uniswap baseline. Чем больше Rent — тем дороже позиция, но и тем больше convex IP при движении цены.</p>
+                    <p className="text-[11px] text-gray-500">Если Premium отрицательный (subsidized) — наоборот, LP платит тебе.</p>
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">
+              <th className="text-right font-medium px-3 py-2.5">
                 <span className="inline-flex items-center gap-1 justify-end">
-                  Price in range
-                  <HelpPopover label="Price position" width="w-64">
-                    <p className="font-semibold mb-1">Где сейчас цена</p>
-                    <p>Маркер ▲ показывает текущую цену пары. Внутри границ LP → fees начисляются, IP convex. Снаружи → fees заморожены, но позиция всё ещё bid-able (если ждёшь mean-reversion).</p>
+                  Net APY
+                  <HelpPopover label="Net APY — заработок позиции" width="w-72">
+                    <p className="font-semibold mb-1">Ожидаемый чистый годовой</p>
+                    <p className="mb-1.5">Net = Impermanent Profit APY − Premium APY. <span className="text-[var(--color-status-success)] font-semibold">Зелёный</span> → позиция в плюсе при текущих условиях. <span className="text-[var(--color-status-danger)] font-semibold">Красный</span> → premium burn выше ожидаемого payoff.</p>
+                    <p className="text-[11px] text-gray-500"><strong>Illustrative</strong>: посчитан на базе historical Uniswap APY как proxy для IP. Не предсказание.</p>
                   </HelpPopover>
                 </span>
               </th>
-              <th className="text-right font-medium px-3 py-2.5 hidden lg:table-cell">Listed</th>
             </tr>
           </thead>
           <tbody>
@@ -193,80 +204,89 @@ function DesktopRow({
         </div>
       </td>
 
-      {/* LP risk — color только когда есть actionable signal (at-risk) */}
-      <td className="px-3 py-3">
-        {isAdvanced ? (
-          <span
-            className="text-xs whitespace-nowrap px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium cursor-help"
-            title={`LP в залоге ×${listing.providerLeverage}. Для тебя: возможен force-close твоей позиции если LP ликвидируется.`}
-          >
-            at-risk · {listing.providerLeverage}×
-          </span>
-        ) : (
-          <span
-            className="text-xs whitespace-nowrap text-gray-600 num cursor-help"
-            title="NFT владельца защищён. Для тебя: стабильно, listing-level force-close невозможен."
-          >
-            safe · 1×
-          </span>
-        )}
-      </td>
-
-      {/* Status — tooltip enabled */}
+      {/* Status — single source of truth for «can I enter / what kind of
+          entry / is it in-range or not». Provider Leverage moved to detail. */}
       <td className="px-3 py-3">
         <StatusChip status={listing.status} leasedPct={100 - freePct} rangeStatus={rangeStatus} />
       </td>
 
-      {/* Premium APY — stacked (no misleading +sign, subsidized shows negative) */}
+      {/* Pool size — $ + token pair breakdown + Available sub-line. */}
       <td className="px-3 py-3 text-right">
-        <div
-          className="num font-semibold leading-tight"
-          style={{ color: subsidized ? 'var(--color-negative-apy)' : 'oklch(20% 0 0)' }}
-        >
-          {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
-        </div>
-        <div className="text-[11px] text-gray-500 num leading-tight mt-0.5">
-          Uni baseline {fmtPct(listing.uniswapApyBps)}
-        </div>
+        {(() => {
+          const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
+          return (
+            <>
+              <div className="num font-semibold text-gray-900 leading-tight">{fmtUSD(listing.initialLiquidityUSD)}</div>
+              {t0Amt !== null && t1Amt !== null && (
+                <div className="text-[10px] text-gray-500 num leading-tight mt-0.5 whitespace-nowrap">
+                  {fmtToken(t0Amt, listing.pair.token0)} · {fmtToken(t1Amt, listing.pair.token1)}
+                </div>
+              )}
+              <div
+                className="text-[10px] num leading-tight mt-1"
+                style={{
+                  color: freePct < 5
+                    ? 'var(--color-status-warning)'
+                    : 'var(--color-text-muted, #6b7280)',
+                }}
+                title={`Available ${fmtUSD(listing.availableCapacityUSD)} of ${fmtUSD(listing.totalCapacityUSD)} (${Math.round(freePct)}%)`}
+              >
+                Available {fmtUSD(listing.availableCapacityUSD)} ({Math.round(freePct)}%)
+              </div>
+            </>
+          )
+        })()}
       </td>
 
-      {/* Open capacity */}
-      <td className="px-4 py-3">
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-xs num text-gray-700">
-            <span className="font-medium text-gray-900">{fmtUSD(listing.availableCapacityUSD)}</span>
-            <span className="text-gray-500"> / {fmtUSD(listing.totalCapacityUSD)}</span>
-          </span>
-          <div className="h-1 w-24 bg-gray-200 rounded-full overflow-hidden" title="Доступная для входа capacity">
-            <div
-              className={
-                'h-full transition-all ' +
-                (freePct < 5
-                  ? 'bg-amber-400'
-                  : freePct < 25
-                  ? 'bg-amber-300'
-                  : 'bg-[var(--color-status-success)]/70')
-              }
-              style={{ width: `${freePct}%` }}
-              aria-hidden="true"
-            />
-          </div>
-        </div>
-      </td>
-
-      {/* Where price is in range (lg+) */}
-      <td className="px-3 py-3 num text-xs text-gray-700 hidden lg:table-cell">
-        <PriceInRange
-          low={listing.rangeLow}
-          high={listing.rangeHigh}
-          current={listing.currentPrice}
-          inRange={rangeStatus === 'in-range'}
+      {/* Range — centered RangeBar primitive (per ТЗ §3.2, P1 R-076).
+          Hidden on small screens to keep the row tight. */}
+      <td className="px-3 py-3 hidden md:table-cell" style={{ minWidth: '180px' }}>
+        <RangeBar
+          rangeLow={listing.rangeLow}
+          rangeHigh={listing.rangeHigh}
+          currentPrice={listing.currentPrice}
         />
       </td>
 
-      {/* Listed (lg+) */}
-      <td className="px-3 py-3 text-right num text-xs text-gray-500 hidden lg:table-cell">
-        {fmtTimeAgo(listing.listedAt)}
+      {/* Rent APY — what trader pays. Headline = Premium + Uniswap;
+          breakdown sub-line shows the split. Subsidized listings (negative
+          Premium) keep the signed render so the sign reads correctly. */}
+      <td className="px-3 py-3 text-right">
+        {(() => {
+          const rentBps = listing.minPremiumApyBps + listing.uniswapApyBps
+          return (
+            <>
+              <div
+                className="num font-semibold leading-tight"
+                style={{ color: subsidized && rentBps < 0 ? 'var(--color-negative-apy)' : 'oklch(20% 0 0)' }}
+              >
+                {fmtPct(rentBps, { signed: subsidized })}
+              </div>
+              <div className="text-[10px] text-gray-500 num leading-tight mt-0.5 whitespace-nowrap">
+                {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)} Prem
+                {' + '}
+                {fmtPct(listing.uniswapApyBps)} Uni
+              </div>
+            </>
+          )
+        })()}
+      </td>
+
+      {/* Net APY — illustrative: Uniswap APY (IP proxy) − Premium APY.
+          Signed, green/red. Caveat lives in the column-header tooltip. */}
+      <td className="px-3 py-3 text-right">
+        {(() => {
+          const netBps = getNetApyBps(listing)
+          const positive = netBps >= 0
+          return (
+            <div
+              className="num font-semibold leading-tight"
+              style={{ color: positive ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+            >
+              {fmtPct(netBps, { signed: true })}
+            </div>
+          )
+        })()}
       </td>
     </tr>
   )
@@ -300,6 +320,9 @@ function MobileRow({
       onClick={onClick}
       className={'w-full text-left px-4 py-3 transition active:bg-gray-100 ' + inactiveBg}
     >
+      {/* Top-right headline = Net APY (signed earning signal — green/red).
+          Rent APY (cost) drops to a sub-line. Mirror of new desktop column
+          priority: Net is the «interesting / take it» metric. */}
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <PairIcons pair={listing.pair} compact />
@@ -308,29 +331,31 @@ function MobileRow({
             <span className="text-[10px] uppercase tracking-wide text-gray-500 flex-shrink-0">· owned</span>
           )}
         </div>
-        <div className="text-right num flex-shrink-0">
-          <div
-            className="font-semibold text-base"
-            style={{ color: subsidized ? 'var(--color-negative-apy)' : 'oklch(20% 0 0)' }}
-          >
-            {subsidized ? fmtPct(listing.minPremiumApyBps, { signed: true }) : fmtPct(listing.minPremiumApyBps)}
-          </div>
-          <div className="text-[10px] text-gray-500">Uni {fmtPct(listing.uniswapApyBps)}</div>
-        </div>
+        {(() => {
+          const netBps = getNetApyBps(listing)
+          const rentBps = listing.minPremiumApyBps + listing.uniswapApyBps
+          const positive = netBps >= 0
+          return (
+            <div className="text-right num flex-shrink-0">
+              <div
+                className="font-semibold text-base"
+                style={{ color: positive ? 'var(--color-status-success)' : 'var(--color-status-danger)' }}
+              >
+                {fmtPct(netBps, { signed: true })}
+              </div>
+              <div className="text-[10px] text-gray-500">
+                Rent {fmtPct(rentBps, { signed: subsidized })}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
+      {/* Chip row — pair · DEX · fee · status. Provider Leverage chip dropped
+          (moves to detail per ТЗ); subsidized + outbid kept (actionable). */}
       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
         <DexChip dex={listing.dex} />
         <FeeChip feeTierBps={listing.feeTierBps} />
-        {isAdvanced ? (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-medium">
-            at-risk · {listing.providerLeverage}×
-          </span>
-        ) : (
-          <span className="text-[10px] px-1.5 py-0.5 rounded text-gray-600 border border-gray-200 font-medium">
-            safe · 1×
-          </span>
-        )}
         <StatusChip status={listing.status} leasedPct={100 - freePct} rangeStatus={rangeStatus} tiny />
         {subsidized && (
           <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-negative-apy-bg)] text-[var(--color-negative-apy)] font-semibold">
@@ -344,7 +369,23 @@ function MobileRow({
         )}
       </div>
 
-      <div className="mt-2">
+      {/* Pool size + Available sub-line — matches new desktop Pool column. */}
+      <div className="mt-2 text-[11px] num text-gray-700 flex items-baseline justify-between gap-2">
+        <span>
+          <span className="font-semibold text-gray-900">{fmtUSD(listing.initialLiquidityUSD)}</span>
+          <span className="text-gray-500"> pool</span>
+        </span>
+        {(() => {
+          const { t0Amt, t1Amt } = splitToTokens(listing.initialLiquidityUSD, listing)
+          if (t0Amt === null || t1Amt === null) return null
+          return (
+            <span className="text-[10px] text-gray-500 whitespace-nowrap">
+              {fmtToken(t0Amt, listing.pair.token0)} · {fmtToken(t1Amt, listing.pair.token1)}
+            </span>
+          )
+        })()}
+      </div>
+      <div className="mt-1">
         <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
           <div
             className={
@@ -359,17 +400,17 @@ function MobileRow({
             aria-hidden="true"
           />
         </div>
-        <div className="mt-1 text-[11px] num text-gray-500 text-right">
-          available {fmtUSD(listing.availableCapacityUSD)} / {fmtUSD(listing.totalCapacityUSD)}
+        <div className="mt-1 text-[10px] num text-gray-500 text-right">
+          Available {fmtUSD(listing.availableCapacityUSD)} ({Math.round(freePct)}%)
         </div>
       </div>
 
-      <div className="mt-2">
-        <PriceInRange
-          low={listing.rangeLow}
-          high={listing.rangeHigh}
-          current={listing.currentPrice}
-          inRange={rangeStatus === 'in-range'}
+      {/* Centered range scale — same primitive as desktop. */}
+      <div className="mt-3">
+        <RangeBar
+          rangeLow={listing.rangeLow}
+          rangeHigh={listing.rangeHigh}
+          currentPrice={listing.currentPrice}
         />
       </div>
     </button>
