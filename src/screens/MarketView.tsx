@@ -829,44 +829,71 @@ function MarketActionModal({
   const LEV_DEFAULT = isLong ? 25 : 1000
   const LEV_TICKS = isLong ? [1, 25, 50, 75, 100] : [1, 100, 500, 1000]
 
-  // Margin token-mode — Eugene 2026-05-21 v2:
-  //   t1   — single-token in token1 (USDC for ETH/USDC pair) [DEFAULT]
-  //   t0   — single-token in token0 (ETH)
-  //   both — both tokens deposited separately (not USD-split)
-  type MarginMode = 't1' | 't0' | 'both'
-  const [marginMode, setMarginMode] = useState<MarginMode>('t1')
-  const [marginUSD, setMarginUSD] = useState(1000)
+  // Margin token-mode — Eugene 2026-05-21 v3 (order swap):
+  //   t0   — single-token in token0 (ETH = first token of pair) [DEFAULT]
+  //   t1   — single-token in token1 (USDC)
+  //   both — both tokens deposited separately, user enters each amount
+  // State: two independent token amounts (t0Amt, t1Amt). For single-token
+  // modes only the active side has value; for 'both' both are independent
+  // and user-editable. Total USD is derived at current pool price.
+  type MarginMode = 't0' | 't1' | 'both'
+  const [marginMode, setMarginMode] = useState<MarginMode>('t0')
+  const price = Math.max(market.currentPrice, 1e-12)
+  const [t0Amt, setT0Amt] = useState(1000 / price)   // initial $1K worth of token0
+  const [t1Amt, setT1Amt] = useState(0)
   const [leverage, setLeverage] = useState(LEV_DEFAULT)
   const [apyBps, setApyBps] = useState(initialApy)
   const [approved, setApproved] = useState(false)
 
-  // Token amounts derived from the margin USD value at current pool price.
-  // Real flow would respect tick spacing; this is the prototype approximation.
-  // For `both` mode, half goes to each side.
-  const tok0Amt = (marginUSD / 2) / Math.max(market.currentPrice, 1e-12)
-  const tok1Amt = marginUSD / 2
+  // Derived total USD across both token sides.
+  const totalUSD = t0Amt * price + t1Amt
 
-  const virtualNotional = marginUSD * leverage
+  // Set total $ value, distributed per current margin mode. Used by quick
+  // presets and Max button — keeps token split coherent with active mode.
+  function setTotalUSD(usd: number) {
+    const v = Math.max(50, usd)
+    if (marginMode === 't0') { setT0Amt(v / price); setT1Amt(0) }
+    else if (marginMode === 't1') { setT0Amt(0); setT1Amt(v) }
+    else { setT0Amt((v / 2) / price); setT1Amt(v / 2) }
+    setApproved(false)
+  }
+
+  // Mode switch — convert current total USD to the new distribution so the
+  // user's «headline number» (~ total $) stays stable across mode changes.
+  function switchMode(next: MarginMode) {
+    if (next === marginMode) return
+    const v = totalUSD || 1000
+    if (next === 't0') { setT0Amt(v / price); setT1Amt(0) }
+    else if (next === 't1') { setT0Amt(0); setT1Amt(v) }
+    else { setT0Amt((v / 2) / price); setT1Amt(v / 2) }
+    setMarginMode(next)
+    setApproved(false)
+  }
+
+  const virtualNotional = totalUSD * leverage
   // LP-side rename — «Virtual notional» on trader-side is «Trader market»
   // on LP-side flow (per ListingDetail.tsx ProMetrics). Same number, role-
   // appropriate label. Eugene 2026-05-21.
   const exposureLabel = isLong ? 'Trader market' : 'Virtual notional'
   const apyPct = apyBps / 100
+  // Margin USD = total combined across both sides (matches summary line).
+  const marginUSD = totalUSD
   const carryPerHour = (virtualNotional * apyBps / 10000) / 8760
   const carryPerDay = carryPerHour * 24
   const liqDistancePct = (0.9 / leverage) * 100
 
-  // Approve-token resolution: in 'both' mode we still need only one approve
-  // for prototype (real flow approves both). Pick token0 for ETH-style first.
+  // Approve-token label — reflects what user is approving for this tx.
+  // In 'both' mode the prototype shows a combined label; real flow would
+  // issue two separate ERC20.approve() calls.
   const approveToken =
     marginMode === 't0' ? market.pair.token0
     : marginMode === 't1' ? market.pair.token1
-    : market.pair.token0
+    : `${market.pair.token0} & ${market.pair.token1}`
 
   // Mock wallet balances — used to drive the Max button. Real flow reads
   // from wallet provider; for prototype these are static.
   const MOCK_BALANCE_USD = 25_000
-  function applyMax() { setMarginUSD(MOCK_BALANCE_USD) }
+  function applyMax() { setTotalUSD(MOCK_BALANCE_USD) }
 
   const sideMeta = isLong
     ? {
@@ -1001,67 +1028,86 @@ function MarketActionModal({
             </div>
           </div>
 
-          {/* 4. Margin — token-mode switcher (USD auto-split | token0 | token1)
-              + amount input + Approve step. Eugene 2026-05-21 — «надо
-              переключалку, что можно внести в 1й монете, во 2й или в обоих». */}
+          {/* 4. Margin — token-mode switcher + amount input(s) + Approve.
+              Eugene 2026-05-21 v3:
+              · Order: token0 (ETH = first of pair) → token1 (USDC) → both
+              · In «both» mode the form shows TWO independent token-amount
+                inputs (no auto-split), so the user actually enters margin in
+                both monies as the label promises.
+              · Quick presets ($ total) + Max work in all modes — split per
+                active mode (50/50 in «both»). */}
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="text-xs font-medium text-gray-700">Margin</label>
-              {/* Mode order: token1 (USDC) → token0 (ETH) → both, per Eugene
-                  2026-05-21. «both» = both tokens deposited separately. */}
               <div className="inline-flex rounded border border-gray-300 overflow-hidden text-[10px]">
                 <button
                   type="button"
-                  onClick={() => { setMarginMode('t1'); setApproved(false) }}
-                  className={'px-2 py-0.5 ' + (marginMode === 't1' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
-                >{market.pair.token1}</button>
-                <button
-                  type="button"
-                  onClick={() => { setMarginMode('t0'); setApproved(false) }}
-                  className={'px-2 py-0.5 border-l border-gray-300 ' + (marginMode === 't0' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
+                  onClick={() => switchMode('t0')}
+                  className={'px-2 py-0.5 ' + (marginMode === 't0' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
                 >{market.pair.token0}</button>
                 <button
                   type="button"
-                  onClick={() => { setMarginMode('both'); setApproved(false) }}
+                  onClick={() => switchMode('t1')}
+                  className={'px-2 py-0.5 border-l border-gray-300 ' + (marginMode === 't1' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
+                >{market.pair.token1}</button>
+                <button
+                  type="button"
+                  onClick={() => switchMode('both')}
                   className={'px-2 py-0.5 border-l border-gray-300 ' + (marginMode === 'both' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50')}
                 >both</button>
               </div>
             </div>
-            <div className="flex items-stretch gap-2">
-              <button
-                type="button"
-                onClick={() => setMarginUSD(v => Math.max(50, v - 250))}
-                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
-                aria-label="Decrease margin"
-              >−</button>
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
-                <input
-                  type="number"
-                  min={50}
-                  step={250}
-                  value={marginUSD}
-                  onChange={e => setMarginUSD(Math.max(50, Number(e.target.value) || 50))}
-                  className="w-full pl-7 pr-3 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition text-center"
+
+            {/* Single-token mode — one input in the active token unit. */}
+            {marginMode !== 'both' && (
+              <TokenAmountInput
+                symbol={marginMode === 't0' ? market.pair.token0 : market.pair.token1}
+                amount={marginMode === 't0' ? t0Amt : t1Amt}
+                onChange={v => marginMode === 't0' ? (setT0Amt(v), setApproved(false)) : (setT1Amt(v), setApproved(false))}
+                usdEquiv={marginMode === 't0' ? t0Amt * price : t1Amt}
+                stepHint={marginMode === 't0' ? 0.1 : 250}
+                decimals={marginMode === 't0' ? 4 : 2}
+              />
+            )}
+
+            {/* Both-token mode — two independent inputs stacked, per Eugene
+                2026-05-21: «при переключении на both мы попросили в обоих
+                монетах маржу внести — значит и форма должна это позволять». */}
+            {marginMode === 'both' && (
+              <div className="space-y-2">
+                <TokenAmountInput
+                  symbol={market.pair.token0}
+                  amount={t0Amt}
+                  onChange={v => { setT0Amt(v); setApproved(false) }}
+                  usdEquiv={t0Amt * price}
+                  stepHint={0.1}
+                  decimals={4}
                 />
+                <TokenAmountInput
+                  symbol={market.pair.token1}
+                  amount={t1Amt}
+                  onChange={v => { setT1Amt(v); setApproved(false) }}
+                  usdEquiv={t1Amt}
+                  stepHint={250}
+                  decimals={2}
+                />
+                <div className="flex items-baseline justify-between text-[10px] num pt-0.5 border-t border-gray-100">
+                  <span className="text-gray-500">Total margin</span>
+                  <span className="text-gray-900 font-semibold">{fmtUSD(totalUSD)}</span>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setMarginUSD(v => v + 250)}
-                className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
-                aria-label="Increase margin"
-              >+</button>
-            </div>
-            {/* Presets + Max — Max pulls full wallet balance (Eugene 2026-05-21). */}
+            )}
+
+            {/* Presets + Max — set total $; mode controls how it splits. */}
             <div className="mt-2 grid grid-cols-5 gap-1.5">
               {[500, 1000, 5000, 10000].map(p => (
                 <button
                   key={p}
                   type="button"
-                  onClick={() => setMarginUSD(p)}
+                  onClick={() => setTotalUSD(p)}
                   className={
                     'px-2 py-1.5 text-[11px] font-medium rounded border transition num ' +
-                    (marginUSD === p
+                    (Math.abs(totalUSD - p) < 0.5
                       ? 'bg-gray-900 border-gray-900 text-white'
                       : 'bg-white border-gray-300 text-gray-700 hover:border-gray-500')
                   }
@@ -1072,23 +1118,24 @@ function MarketActionModal({
                 onClick={applyMax}
                 className={
                   'px-2 py-1.5 text-[11px] font-semibold rounded border transition num ' +
-                  (marginUSD === MOCK_BALANCE_USD
+                  (Math.abs(totalUSD - MOCK_BALANCE_USD) < 0.5
                     ? 'bg-gray-900 border-gray-900 text-white'
                     : 'bg-white border-gray-900 text-gray-900 hover:bg-gray-50')
                 }
                 title={`Pull max balance from wallet (~${fmtUSD(MOCK_BALANCE_USD)} available)`}
               >Max</button>
             </div>
-            {/* Per-mode deposit preview */}
+
+            {/* Per-mode deposit preview — what hits the contract on open. */}
             <p className="mt-1.5 text-[10px] num text-gray-500">
-              {marginMode === 't1' && (
-                <>You deposit: <span className="text-gray-900 font-medium">{marginUSD.toFixed(2)} {market.pair.token1}</span> · auto-swap half to {market.pair.token0} on open</>
-              )}
               {marginMode === 't0' && (
-                <>You deposit: <span className="text-gray-900 font-medium">{(marginUSD / Math.max(market.currentPrice, 1e-12)).toFixed(4)} {market.pair.token0}</span> · auto-swap half to {market.pair.token1} on open</>
+                <>You deposit: <span className="text-gray-900 font-medium">{t0Amt.toFixed(4)} {market.pair.token0}</span> · auto-swap half to {market.pair.token1} on open</>
+              )}
+              {marginMode === 't1' && (
+                <>You deposit: <span className="text-gray-900 font-medium">{t1Amt.toFixed(2)} {market.pair.token1}</span> · auto-swap half to {market.pair.token0} on open</>
               )}
               {marginMode === 'both' && (
-                <>You deposit: <span className="text-gray-900 font-medium">{tok0Amt.toFixed(4)} {market.pair.token0}</span> + <span className="text-gray-900 font-medium">{tok1Amt.toFixed(2)} {market.pair.token1}</span> · no swap on open</>
+                <>You deposit: <span className="text-gray-900 font-medium">{t0Amt.toFixed(4)} {market.pair.token0}</span> + <span className="text-gray-900 font-medium">{t1Amt.toFixed(2)} {market.pair.token1}</span> · no swap on open</>
               )}
             </p>
 
@@ -1148,6 +1195,59 @@ function MarketActionModal({
       }}
       onCancel={onClose}
     />
+  )
+}
+
+// Token-amount input — used both for single-token margin modes and twice in
+// «both» mode. Shows: [−] [amount   SYMBOL] [+] with USD equivalent on the
+// right below. Step controls round to a sensible per-token step; the input
+// itself accepts arbitrary decimals so users can paste exact wallet values.
+function TokenAmountInput({
+  symbol,
+  amount,
+  onChange,
+  usdEquiv,
+  stepHint,
+  decimals,
+}: {
+  symbol: string
+  amount: number
+  onChange: (v: number) => void
+  usdEquiv: number
+  stepHint: number
+  decimals: number
+}) {
+  return (
+    <div>
+      <div className="flex items-stretch gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(Math.max(0, amount - stepHint))}
+          className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+          aria-label={`Decrease ${symbol}`}
+        >−</button>
+        <div className="relative flex-1">
+          <input
+            type="number"
+            min={0}
+            step={stepHint}
+            value={Number.isFinite(amount) ? Number(amount.toFixed(decimals)) : 0}
+            onChange={e => onChange(Math.max(0, Number(e.target.value) || 0))}
+            className="w-full pl-3 pr-14 py-2 text-sm font-mono border border-gray-300 rounded focus:border-[var(--color-role-lp)] focus:outline-none transition text-center"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-semibold">{symbol}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(amount + stepHint)}
+          className="w-9 rounded border border-gray-300 hover:border-gray-500 text-gray-700 text-base font-bold transition"
+          aria-label={`Increase ${symbol}`}
+        >+</button>
+      </div>
+      <div className="mt-0.5 pl-11 text-[10px] num text-gray-500">
+        ≈ <span className="text-gray-700 font-medium">{fmtUSD(usdEquiv)}</span>
+      </div>
+    </div>
   )
 }
 
