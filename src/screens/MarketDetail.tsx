@@ -219,6 +219,7 @@ export function MarketDetail() {
           maxLiq={maxLiq}
           tone="long"
           onRowClick={apy => { setPrefillLongApy(apy); setLongOpen(true) }}
+          onMineClick={() => navigate('/lp/positions')}
         />
 
         <BookDivider label="Active matched" apyBps={market.activePositions[0]?.premiumApyBps} />
@@ -230,6 +231,7 @@ export function MarketDetail() {
           maxLiq={maxLiq}
           tone="active"
           onRowClick={apy => { setPrefillShortApy(apy); setShortOpen(true) }}
+          onMineClick={() => navigate('/trader/positions')}
         />
 
         <BookDivider label="Best bid" apyBps={bestShortBid} />
@@ -245,6 +247,7 @@ export function MarketDetail() {
           maxLiq={maxLiq}
           tone="short"
           onRowClick={apy => { setPrefillShortApy(apy); setShortOpen(true) }}
+          onMineClick={() => navigate('/trader/positions')}
         />
       </div>
 
@@ -322,6 +325,7 @@ function BookSection({
   maxLiq,
   tone,
   onRowClick,
+  onMineClick,
 }: {
   title: string
   subtitle: string
@@ -329,6 +333,7 @@ function BookSection({
   maxLiq: number
   tone: 'long' | 'short' | 'active'
   onRowClick: (apyBps: number) => void
+  onMineClick?: () => void
 }) {
   const barColor =
     tone === 'long' ? 'var(--color-role-lp)'
@@ -362,11 +367,15 @@ function BookSection({
               return (
                 <tr
                   key={i}
-                  onClick={() => onRowClick(r.premiumApyBps)}
+                  onClick={() => {
+                    if (r.isMine && onMineClick) onMineClick()
+                    else onRowClick(r.premiumApyBps)
+                  }}
                   className={
                     'border-t border-gray-50 cursor-pointer hover:bg-gray-50 transition ' +
                     (r.isMine ? 'bg-[var(--color-role-lp-bg)]/40' : '')
                   }
+                  title={r.isMine ? 'Open in My Positions →' : undefined}
                 >
                   <td className="px-4 py-1.5">
                     <span

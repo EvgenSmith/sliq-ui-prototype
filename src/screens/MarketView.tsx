@@ -692,6 +692,7 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           orders={market.longPoolOrders}
           onCta={() => openLongAt(null)}
           onRowClick={apy => openLongAt(apy)}
+          onMineClick={() => navigate('/lp/positions')}
           onExpand={() => setBookSide('long')}
           tone="long"
         />
@@ -701,6 +702,7 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           // (Eugene 2026-05-21 — already-matched positions are reference
           // info, not actionable from a single row).
           onRowClick={() => setBookSide('active')}
+          onMineClick={() => navigate('/trader/positions')}
           onExpand={() => setBookSide('active')}
         />
         <PoolPane
@@ -709,6 +711,7 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           orders={market.shortPoolOrders}
           onCta={() => openShortAt(null)}
           onRowClick={apy => openShortAt(apy)}
+          onMineClick={() => navigate('/trader/positions')}
           onExpand={() => setBookSide('short')}
           tone="short"
         />
@@ -738,6 +741,12 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
         onRowClick={apy => {
           if (bookSide === 'long') openLongAt(apy)
           else openShortAt(apy)
+          setBookSide(null)
+        }}
+        onMineClick={() => {
+          // Route to the side-appropriate My Positions surface.
+          if (bookSide === 'long') navigate('/lp/positions')
+          else navigate('/trader/positions')
           setBookSide(null)
         }}
       />
@@ -1111,6 +1120,7 @@ function PoolPane({
   orders,
   onCta,
   onRowClick,
+  onMineClick,
   onExpand,
   tone,
 }: {
@@ -1119,6 +1129,7 @@ function PoolPane({
   orders: PoolOrder[]
   onCta: () => void
   onRowClick?: (apyBps: number) => void
+  onMineClick?: () => void
   onExpand?: () => void
   tone: 'long' | 'short'
 }) {
@@ -1162,6 +1173,7 @@ function PoolPane({
             mineRank={mineRank}
             mineTotal={orders.length}
             onRowClick={onRowClick}
+            onMineClick={onMineClick}
             accent={accent}
           />
           {/* Footer hint — clickable to open the full стакан modal. */}
@@ -1206,6 +1218,7 @@ function SummaryTable({
   mineRank,
   mineTotal,
   onRowClick,
+  onMineClick,
   accent,
 }: {
   rows: Array<{ row: PoolOrder | ActiveRow; label: string }>
@@ -1213,6 +1226,10 @@ function SummaryTable({
   mineRank: number
   mineTotal: number
   onRowClick?: (apyBps: number) => void
+  /** Click on the «Yours» row — routes to /trader/positions per Eugene
+   *  2026-05-21 («по клику на Yours попадать в My Positions»). Falls
+   *  back to onRowClick when not provided. */
+  onMineClick?: () => void
   accent: string
 }) {
   void accent
@@ -1247,11 +1264,13 @@ function SummaryTable({
         ))}
         {mineRow && (
           <tr
-            onClick={onRowClick ? e => { e.stopPropagation(); handleClick(mineRow.premiumApyBps) } : undefined}
-            className={
-              'border-t-2 border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)]/40 ' +
-              (onRowClick ? 'cursor-pointer hover:bg-[var(--color-role-lp-bg)]/60 transition' : '')
-            }
+            onClick={e => {
+              e.stopPropagation()
+              if (onMineClick) onMineClick()
+              else handleClick(mineRow.premiumApyBps)
+            }}
+            className="border-t-2 border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)]/40 cursor-pointer hover:bg-[var(--color-role-lp-bg)]/60 transition"
+            title="Open in My Positions →"
           >
             <td className="py-1.5 text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--color-role-lp)' }}>
               Yours
@@ -1280,10 +1299,12 @@ function SummaryTable({
 function ActivePane({
   market,
   onRowClick,
+  onMineClick,
   onExpand,
 }: {
   market: AggregatedMarket
   onRowClick?: (apyBps: number) => void
+  onMineClick?: () => void
   onExpand?: () => void
 }) {
   const rows = market.activePositions
@@ -1321,6 +1342,7 @@ function ActivePane({
             mineRank={mineRank}
             mineTotal={rows.length}
             onRowClick={onRowClick}
+            onMineClick={onMineClick}
             accent="var(--color-status-success)"
           />
           <button
@@ -1403,11 +1425,14 @@ function OrderBookModal({
   side,
   onClose,
   onRowClick,
+  onMineClick,
 }: {
   market: AggregatedMarket
   side: null | 'long' | 'active' | 'short'
   onClose: () => void
   onRowClick: (apyBps: number) => void
+  /** «Yours» click — routes to My Positions instead of the action modal. */
+  onMineClick?: () => void
 }) {
   if (!side) return null
 
@@ -1491,11 +1516,15 @@ function OrderBookModal({
           )}
         </div>
 
-        {/* Pinned «mine» row banner */}
+        {/* Pinned «mine» row banner — click routes to My Positions. */}
         {mineRow && (
           <div
             className="px-5 py-2 bg-[var(--color-role-lp-bg)]/50 border-b border-[var(--color-role-lp)]/30 text-[12px] num flex items-baseline justify-between gap-3 cursor-pointer hover:bg-[var(--color-role-lp-bg)]/80 transition"
-            onClick={() => onRowClick(mineRow.premiumApyBps)}
+            onClick={() => {
+              if (onMineClick) onMineClick()
+              else onRowClick(mineRow.premiumApyBps)
+            }}
+            title="Open in My Positions →"
           >
             <span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--color-role-lp)' }}>
               Your order 🙂
