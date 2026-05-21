@@ -115,11 +115,7 @@ export function MarketDetail() {
             <h1 className="text-2xl font-semibold">
               {market.pair.token0} / {market.pair.token1}
             </h1>
-            {verified && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 inline-flex items-center gap-1">
-                <span aria-hidden>✓</span>verified
-              </span>
-            )}
+            {/* Verified chip dropped per Eugene 2026-05-21. */}
             <span className="text-sm text-gray-500">Uniswap v3</span>
             <span className="text-sm font-medium text-gray-600 num">{fmtFeeTier(market.feeTierBps)} fee</span>
             {market.myInActive && (

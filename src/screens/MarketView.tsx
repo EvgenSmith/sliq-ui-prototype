@@ -640,26 +640,10 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
               {market.pair.token0} / {market.pair.token1}
             </button>
           </h2>
-          {/* Verified / unverified — explicit binary state (Eugene 2026-05-21).
-              Verified means both tokens are on the curated whitelist (real
-              contracts, no known scam reports). Unverified means at least
-              one isn't, so trader should sanity-check the token contract
-              before opening a position. */}
-          {isVerifiedPair(market.pair) ? (
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-role-lp-bg)] text-[var(--color-role-lp)] border border-[var(--color-role-lp)]/30 inline-flex items-center gap-1"
-              title="Both tokens in this pair are on our curated verified-asset list — real contracts, no known scam reports."
-            >
-              <span aria-hidden>✓</span>verified
-            </span>
-          ) : (
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
-              title="At least one token in this pair is not on the curated whitelist. Sanity-check the token contract before opening a position."
-            >
-              <span aria-hidden>⚠</span>unverified
-            </span>
-          )}
+          {/* Verified / unverified chip dropped per Eugene 2026-05-21 — not
+              useful as designed; real product will surface this via the
+              token-list integration if at all. `isVerifiedPair` helper kept
+              below for reference / future re-introduction. */}
           <span className="text-[11px] text-gray-500">Uniswap v3</span>
           <span className="text-[11px] font-medium text-gray-600 num">{fmtFeeTier(market.feeTierBps)} fee</span>
           {market.myInActive && (
@@ -1194,20 +1178,22 @@ function ActivePane({
 
   return (
     <div className="rounded-md border border-gray-200 p-3 flex flex-col bg-gray-50/30">
+      {/* Title + Help icon stacked next to «Active positions», explanation
+          text moved into the popover (Eugene 2026-05-21 — «Matched best-bid
+          ↔ best-ask строчку убери в тултип, тултип подними к Active»). */}
       <div className="flex items-baseline justify-between gap-2 mb-1">
-        <h3 className="text-sm font-semibold">Active positions</h3>
+        <h3 className="text-sm font-semibold inline-flex items-center gap-1">
+          Active positions
+          <HelpPopover label="Active positions" width="w-80">
+            <p className="font-semibold mb-1">Matched best-bid ↔ best-ask</p>
+            <p className="mb-1.5">Эти позиции уже сматчены: LP-ask пересекся с trader-bid, на них начисляется доходность по средней Uniswap APY этого ренджа. По сути — clearing rate рынка.</p>
+            <p className="text-[10px] text-gray-500">Когда позиций много — оставляем строку с минимальным Premium, с максимальным и твою позицию (🙂). Остальное агрегируется в «+N more» с суммарной ликвидностью.</p>
+          </HelpPopover>
+        </h3>
         <span className="text-[11px] font-semibold num" style={{ color: 'var(--color-status-success)' }}>
           Uniswap APY {fmtPct(market.uniswapApyBps)}
         </span>
       </div>
-      <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1 inline-flex items-center gap-1">
-        Matched best-bid ↔ best-ask
-        <HelpPopover label="Active positions" width="w-80">
-          <p className="font-semibold mb-1">Cross-rate of the order book</p>
-          <p className="mb-1.5">Эти позиции уже сматчены: LP-ask пересекся с trader-bid, на них начисляется доходность по средней Uniswap APY этого ренджа. По сути — clearing rate рынка.</p>
-          <p className="text-[10px] text-gray-500">Когда позиций много — оставляем строку с минимальным Premium, с максимальным и твою позицию (🙂). Остальное агрегируется в «+N more» с суммарной ликвидностью.</p>
-        </HelpPopover>
-      </p>
 
       {rows.length === 0 ? (
         <p className="text-[11px] text-gray-500 mt-2 italic">No matched positions yet.</p>
