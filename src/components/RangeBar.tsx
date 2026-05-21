@@ -24,9 +24,12 @@ interface Props {
   rangeLow: number
   rangeHigh: number
   currentPrice: number
+  /** Optional «closeness to range center» percentage shown next to the
+   *  current-price label as `(NN%)`. Tooltip clarifies semantics. */
+  inRangePct?: number
 }
 
-export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
+export function RangeBar({ rangeLow, rangeHigh, currentPrice, inRangePct }: Props) {
   const deltaLowPct = ((rangeLow - currentPrice) / currentPrice) * 100
   const deltaHighPct = ((rangeHigh - currentPrice) / currentPrice) * 100
 
@@ -49,15 +52,23 @@ export function RangeBar({ rangeLow, rangeHigh, currentPrice }: Props) {
 
   return (
     <div className="w-full select-none">
-      {/* Top — current price top-right, fixed (Eugene 2026-05-20: «цену
-          текущую над Range показываем всегда справа вверху»). */}
+      {/* Top — current price top-right, optionally with «closeness to range
+          center» % next to it (Eugene 2026-05-21 — «Inrange перенести после
+          цифры цены, с тултипом»). */}
       <div className="relative h-4 text-[11px] num">
         <span
           className="absolute right-0 font-semibold whitespace-nowrap"
           style={{ color: innerColour }}
-          title={`Current price: ${fmtPriceShort(currentPrice)}`}
+          title={
+            inRangePct !== undefined
+              ? `Current price: ${fmtPriceShort(currentPrice)} · (${inRangePct}%) — distance from range center (100% = perfectly centered, 0% = at range edge or beyond). Lower numbers mean the LP range is about to flip out-of-range.`
+              : `Current price: ${fmtPriceShort(currentPrice)}`
+          }
         >
           {fmtPriceShort(currentPrice)}
+          {inRangePct !== undefined && (
+            <span className="text-gray-500 font-normal ml-1">({inRangePct}%)</span>
+          )}
         </span>
       </div>
       {/* Bar */}

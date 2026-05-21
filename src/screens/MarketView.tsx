@@ -601,19 +601,18 @@ export function MarketView() {
 // ─── Per-market card ───────────────────────────────────────────────────
 function MarketCard({ market }: { market: AggregatedMarket }) {
   const navigate = useNavigate()
-  const inRange = market.currentPrice >= market.rangeLow && market.currentPrice <= market.rangeHigh
+  // `inRange` flag no longer surfaced on card header — RangeBar handles it.
   void navigate
   void getRangeStatus
   void pairLabel
 
-  // Phase F — Open LongPool / ShortPool modals.
-  // Click-row-prefill (this commit) — clicking any row in a pool pane opens
-  // the matching modal with that row's Premium APY pre-filled, so the trader
-  // can act on what they saw without re-entering numbers.
+  // Action modals.
   const [longOpen, setLongOpen] = useState(false)
   const [shortOpen, setShortOpen] = useState(false)
   const [prefillLongApy, setPrefillLongApy] = useState<number | null>(null)
   const [prefillShortApy, setPrefillShortApy] = useState<number | null>(null)
+  // Full-book modal — opened by «tap to expand» footer or pane background.
+  const [bookSide, setBookSide] = useState<null | 'long' | 'active' | 'short'>(null)
   function openLongAt(apyBps: number | null) {
     setPrefillLongApy(apyBps)
     setLongOpen(true)
@@ -661,24 +660,19 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           )}
         </div>
         <div className="flex flex-col items-end gap-1.5 min-w-0">
-          <div className="flex items-baseline gap-3 text-[11px] num text-gray-700">
-            <span><span className="text-gray-500">Liquidity</span> <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span></span>
-            <span className="text-gray-300">·</span>
-            <span>
-              <span className="text-gray-500">Range width</span>{' '}
-              <span className="font-medium">{market.rangeWidthPct.toFixed(1)}%</span>
-            </span>
-            <span className="text-gray-300">·</span>
-            <span>
-              <span className="text-gray-500">Inrange</span>{' '}
-              <span className="font-medium" style={{ color: inRange ? 'var(--color-status-success)' : 'var(--color-status-warning)' }}>{market.inRangePct}%</span>
-            </span>
+          {/* Liquidity-only text now — range width is read off the bar,
+              «inrange %» moved inside RangeBar next to current price (Eugene
+              2026-05-21). Two signals, not four. */}
+          <div className="text-[11px] num text-gray-700">
+            <span className="text-gray-500">Liquidity</span>{' '}
+            <span className="font-semibold">{fmtUSD(market.totalLiquidityUSD)}</span>
           </div>
           <div className="w-64 max-w-full">
             <RangeBar
               rangeLow={market.rangeLow}
               rangeHigh={market.rangeHigh}
               currentPrice={market.currentPrice}
+              inRangePct={market.inRangePct}
             />
           </div>
         </div>
@@ -694,18 +688,22 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
           orders={market.longPoolOrders}
           onCta={() => openLongAt(null)}
           onRowClick={apy => openLongAt(apy)}
+          onExpand={() => setBookSide('long')}
           tone="long"
-          dense={market.dense}
         />
-        <ActivePane market={market} onRowClick={apy => openShortAt(apy)} dense={market.dense} />
+        <ActivePane
+          market={market}
+          onRowClick={apy => openShortAt(apy)}
+          onExpand={() => setBookSide('active')}
+        />
         <PoolPane
           title="ShortPool orders"
           subtitle="Open position"
           orders={market.shortPoolOrders}
           onCta={() => openShortAt(null)}
           onRowClick={apy => openShortAt(apy)}
+          onExpand={() => setBookSide('short')}
           tone="short"
-          dense={market.dense}
         />
       </div>
 
@@ -725,6 +723,16 @@ function MarketCard({ market }: { market: AggregatedMarket }) {
         market={market}
         prefillApyBps={prefillShortApy}
         onClose={() => setShortOpen(false)}
+      />
+      <OrderBookModal
+        market={market}
+        side={bookSide}
+        onClose={() => setBookSide(null)}
+        onRowClick={apy => {
+          if (bookSide === 'long') openLongAt(apy)
+          else openShortAt(apy)
+          setBookSide(null)
+        }}
       />
     </div>
   )
@@ -1011,37 +1019,28 @@ function PoolPane({
   orders,
   onCta,
   onRowClick,
+  onExpand,
   tone,
-  dense,
 }: {
   title: string
   subtitle: string
   orders: PoolOrder[]
   onCta: () => void
   onRowClick?: (apyBps: number) => void
+  onExpand?: () => void
   tone: 'long' | 'short'
-  /** Dense mode — show full list with internal scroll + cumulative depth
-   *  bar (per Kolya 2026-05-18 scroll suggestion). Used by the «100 orders»
-   *  demo card so the team can see how a heavy book renders. */
-  dense?: boolean
 }) {
   const accent = tone === 'long' ? 'var(--color-role-lp)' : 'var(--color-role-trader)'
-  // Show top N rows; if more, aggregate into «N more · $X total» footer.
-  // Dense mode skips truncation — render all rows inside an internal scroll.
-  const HEAD_LIMIT = 5
-  const headRows = dense ? orders : orders.slice(0, HEAD_LIMIT)
-  const tailRows = dense ? [] : orders.slice(HEAD_LIMIT)
-  const tailLiquidity = tailRows.reduce((s, r) => s + r.liquidityUSD, 0)
-  // Cumulative depth — used in dense mode to scale each row's depth bar
-  // against the cumulative total seen so far (Deribit-style).
-  const cumulative = useMemo(() => {
-    if (!dense) return [] as number[]
-    const out: number[] = []
-    let s = 0
-    for (const r of orders) { s += r.liquidityUSD; out.push(s) }
-    return out
-  }, [orders, dense])
-  const totalLiquidity = cumulative[cumulative.length - 1] ?? 1
+
+  // Summary rows — Eugene 2026-05-21 design challenge: no scroll, no
+  // truncation-tail. Show the top / median / bottom of book + the user's
+  // own order if present. This gives a LP/trader enough to read the
+  // distribution shape and their own queue position without scanning a
+  // long list. Full list lives in the «tap to expand» modal.
+  const summary = useMemo(() => buildPoolSummary(orders), [orders])
+  const totalLiquidity = orders.reduce((s, r) => s + r.liquidityUSD, 0)
+  const mineRow = summary.mine
+  const mineRank = mineRow ? orders.findIndex(r => r === mineRow) + 1 : 0
 
   return (
     <div className="rounded-md border border-gray-200 p-3 flex flex-col">
@@ -1064,64 +1063,119 @@ function PoolPane({
       {orders.length === 0 ? (
         <p className="text-[11px] text-gray-500 mt-2 italic">No orders yet — be first.</p>
       ) : (
-        <div className={dense ? 'mt-2 max-h-60 overflow-y-auto border border-gray-100 rounded' : 'mt-2'}>
-          <table className="w-full text-[11px] num">
-            <thead className={'text-[10px] uppercase tracking-wide text-gray-500 ' + (dense ? 'sticky top-0 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)] z-10' : '')}>
-              <tr>
-                <th className="text-left font-medium pb-1 px-2">Premium APY</th>
-                <th className="text-right font-medium pb-1 px-2">Liquidity</th>
-                {dense && <th className="text-left font-medium pb-1 px-2 w-1/3">Depth</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {headRows.map((r, i) => (
-                <tr
-                  key={i}
-                  onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
-                  className={
-                    'border-t border-gray-100 ' +
-                    (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
-                    (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
-                  }
-                  title={onRowClick ? `Click to ${tone === 'long' ? 'provide liquidity' : 'open position'} at this Premium APY` : undefined}
-                >
-                  <td className="py-1.5 px-2 text-gray-700">
-                    {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
-                    {r.isMine && <span className="ml-1" aria-label="your order">🙂</span>}
-                  </td>
-                  <td className="py-1.5 px-2 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
-                  {dense && (
-                    <td className="py-1.5 px-2">
-                      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.max(2, (cumulative[i] / totalLiquidity) * 100)}%`,
-                            background: accent,
-                            opacity: 0.7,
-                          }}
-                        />
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {tailRows.length > 0 && (
-                <tr className="border-t border-gray-100 bg-gray-50/50">
-                  <td className="py-1.5 px-2 text-[10px] text-gray-500 italic">+{tailRows.length} more</td>
-                  <td className="py-1.5 px-2 text-right text-[10px] text-gray-500">{fmtUSD(tailLiquidity)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {dense && orders.length > 0 && (
-        <p className="mt-1 text-[10px] text-gray-500 italic">
-          {orders.length} orders · scroll within pane · depth bars are cumulative
-        </p>
+        <>
+          <SummaryTable
+            rows={summary.rows}
+            mineRow={mineRow}
+            mineRank={mineRank}
+            mineTotal={orders.length}
+            onRowClick={onRowClick}
+            accent={accent}
+          />
+          {/* Footer hint — clickable to open the full стакан modal. */}
+          <button
+            type="button"
+            onClick={onExpand}
+            className="mt-2 text-left text-[10px] text-gray-500 hover:text-gray-900 transition cursor-pointer w-full"
+          >
+            {orders.length} {orders.length === 1 ? 'order' : 'orders'} · {fmtUSD(totalLiquidity)} total · <span className="font-medium underline decoration-dotted">tap for full book →</span>
+          </button>
+        </>
       )}
     </div>
+  )
+}
+
+// ─── Pool summary builder ──────────────────────────────────────────────
+// Returns 3 representative rows + the user's row if present. Drives the
+// inline pane (Eugene 2026-05-21 design redesign — no scroll inside the
+// card, full стакан behind «tap to expand»).
+function buildPoolSummary(orders: PoolOrder[]): {
+  rows: Array<{ row: PoolOrder; label: string }>
+  mine: PoolOrder | undefined
+} {
+  if (orders.length === 0) return { rows: [], mine: undefined }
+  const mine = orders.find(o => o.isMine)
+  const nonMine = orders.filter(o => o !== mine)
+  const sorted = [...nonMine].sort((a, b) => b.premiumApyBps - a.premiumApyBps)
+  const top = sorted[0]
+  const bottom = sorted[sorted.length - 1]
+  const median = sorted.length >= 3 ? sorted[Math.floor(sorted.length / 2)] : undefined
+  const rows: Array<{ row: PoolOrder; label: string }> = []
+  if (top) rows.push({ row: top, label: 'Top' })
+  if (median && median !== top && median !== bottom) rows.push({ row: median, label: 'Median' })
+  if (bottom && bottom !== top) rows.push({ row: bottom, label: 'Bottom' })
+  return { rows, mine }
+}
+
+function SummaryTable({
+  rows,
+  mineRow,
+  mineRank,
+  mineTotal,
+  onRowClick,
+  accent,
+}: {
+  rows: Array<{ row: PoolOrder | ActiveRow; label: string }>
+  mineRow: PoolOrder | ActiveRow | undefined
+  mineRank: number
+  mineTotal: number
+  onRowClick?: (apyBps: number) => void
+  accent: string
+}) {
+  void accent
+  const handleClick = (apy: number) => {
+    onRowClick?.(apy)
+  }
+  return (
+    <table className="w-full text-[11px] num mt-2">
+      <thead className="text-[10px] uppercase tracking-wide text-gray-500">
+        <tr>
+          <th className="text-left font-medium pb-1"></th>
+          <th className="text-left font-medium pb-1">Premium APY</th>
+          <th className="text-right font-medium pb-1">Liquidity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(({ row, label }, i) => (
+          <tr
+            key={i}
+            onClick={onRowClick ? e => { e.stopPropagation(); handleClick(row.premiumApyBps) } : undefined}
+            className={
+              'border-t border-gray-100 ' +
+              (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
+            }
+          >
+            <td className="py-1.5 text-[10px] uppercase tracking-wide text-gray-400 w-1/4">{label}</td>
+            <td className="py-1.5 text-gray-700">
+              {fmtPct(row.premiumApyBps, { signed: row.premiumApyBps < 0 })}
+            </td>
+            <td className="py-1.5 text-right font-medium text-gray-900">{fmtUSD(row.liquidityUSD)}</td>
+          </tr>
+        ))}
+        {mineRow && (
+          <tr
+            onClick={onRowClick ? e => { e.stopPropagation(); handleClick(mineRow.premiumApyBps) } : undefined}
+            className={
+              'border-t-2 border-[var(--color-role-lp)]/40 bg-[var(--color-role-lp-bg)]/40 ' +
+              (onRowClick ? 'cursor-pointer hover:bg-[var(--color-role-lp-bg)]/60 transition' : '')
+            }
+          >
+            <td className="py-1.5 text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--color-role-lp)' }}>
+              Yours
+            </td>
+            <td className="py-1.5 text-gray-700">
+              {fmtPct(mineRow.premiumApyBps, { signed: mineRow.premiumApyBps < 0 })}
+              <span className="ml-1" aria-label="your order">🙂</span>
+            </td>
+            <td className="py-1.5 text-right font-medium text-gray-900">
+              {fmtUSD(mineRow.liquidityUSD)}
+              <span className="text-[10px] text-gray-500 font-normal ml-1">#{mineRank} of {mineTotal}</span>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   )
 }
 
@@ -1134,40 +1188,17 @@ function PoolPane({
 function ActivePane({
   market,
   onRowClick,
-  dense,
+  onExpand,
 }: {
   market: AggregatedMarket
   onRowClick?: (apyBps: number) => void
-  dense?: boolean
+  onExpand?: () => void
 }) {
   const rows = market.activePositions
-  const HEAD_LIMIT = 5
-  let visibleRows: ActiveRow[] = []
-  let tailRows: ActiveRow[] = []
-  if (dense || rows.length <= HEAD_LIMIT) {
-    visibleRows = rows
-  } else {
-    // Always keep min, max, and my position; fill rest by highest liquidity.
-    const min = rows[rows.length - 1]
-    const max = rows[0]
-    const mine = rows.filter(r => r.isMine)
-    const middle = rows
-      .filter(r => r !== min && r !== max && !r.isMine)
-      .sort((a, b) => b.liquidityUSD - a.liquidityUSD)
-      .slice(0, Math.max(0, HEAD_LIMIT - 2 - mine.length))
-    const set = new Set<ActiveRow>([max, ...mine, ...middle, min])
-    visibleRows = [...set].sort((a, b) => b.premiumApyBps - a.premiumApyBps)
-    tailRows = rows.filter(r => !set.has(r))
-  }
-  const tailLiquidity = tailRows.reduce((s, r) => s + r.liquidityUSD, 0)
-  const cumulative = useMemo(() => {
-    if (!dense) return [] as number[]
-    const out: number[] = []
-    let s = 0
-    for (const r of rows) { s += r.liquidityUSD; out.push(s) }
-    return out
-  }, [rows, dense])
-  const totalLiquidity = cumulative[cumulative.length - 1] ?? 1
+  const summary = useMemo(() => buildActiveSummary(rows), [rows])
+  const totalLiquidity = rows.reduce((s, r) => s + r.liquidityUSD, 0)
+  const mineRow = summary.mine
+  const mineRank = mineRow ? rows.findIndex(r => r === mineRow) + 1 : 0
 
   return (
     <div className="rounded-md border border-gray-200 p-3 flex flex-col bg-gray-50/30">
@@ -1191,65 +1222,46 @@ function ActivePane({
       {rows.length === 0 ? (
         <p className="text-[11px] text-gray-500 mt-2 italic">No matched positions yet.</p>
       ) : (
-        <div className={dense ? 'mt-1 max-h-60 overflow-y-auto border border-gray-100 rounded' : 'mt-1'}>
-          <table className="w-full text-[11px] num">
-            <thead className={'text-[10px] uppercase tracking-wide text-gray-500 ' + (dense ? 'sticky top-0 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)] z-10' : '')}>
-              <tr>
-                <th className="text-left font-medium pb-1 px-2">Premium APY</th>
-                <th className="text-right font-medium pb-1 px-2">Liquidity</th>
-                {dense && <th className="text-left font-medium pb-1 px-2 w-1/3">Depth</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((r, i) => (
-                <tr
-                  key={i}
-                  onClick={onRowClick ? () => onRowClick(r.premiumApyBps) : undefined}
-                  className={
-                    'border-t border-gray-100 ' +
-                    (r.isMine ? 'bg-[var(--color-role-lp-bg)]/50 ' : '') +
-                    (onRowClick ? 'cursor-pointer hover:bg-gray-50 transition' : '')
-                  }
-                  title={onRowClick ? 'Click to open ShortPool at this Premium APY' : undefined}
-                >
-                  <td className="py-1.5 px-2 text-gray-700">
-                    {fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}
-                    {r.isMine && <span className="ml-1" aria-label="your position">🙂</span>}
-                  </td>
-                  <td className="py-1.5 px-2 text-right font-medium text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
-                  {dense && (
-                    <td className="py-1.5 px-2">
-                      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.max(2, (cumulative[i] / totalLiquidity) * 100)}%`,
-                            background: 'var(--color-status-success)',
-                            opacity: 0.7,
-                          }}
-                        />
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {tailRows.length > 0 && (
-                <tr className="border-t border-gray-100 bg-gray-50/50">
-                  <td className="py-1.5 px-2 text-[10px] text-gray-500 italic">+{tailRows.length} more matched</td>
-                  <td className="py-1.5 px-2 text-right text-[10px] text-gray-500">{fmtUSD(tailLiquidity)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {dense && rows.length > 0 && (
-        <p className="mt-1 text-[10px] text-gray-500 italic">
-          {rows.length} matched · scroll · depth bars cumulative
-        </p>
+        <>
+          <SummaryTable
+            rows={summary.rows}
+            mineRow={mineRow}
+            mineRank={mineRank}
+            mineTotal={rows.length}
+            onRowClick={onRowClick}
+            accent="var(--color-status-success)"
+          />
+          <button
+            type="button"
+            onClick={onExpand}
+            className="mt-2 text-left text-[10px] text-gray-500 hover:text-gray-900 transition cursor-pointer w-full"
+          >
+            {rows.length} matched · {fmtUSD(totalLiquidity)} · <span className="font-medium underline decoration-dotted">tap for full book →</span>
+          </button>
+        </>
       )}
     </div>
   )
+}
+
+// Active variant of the summary builder — same logic as buildPoolSummary
+// but returns ActiveRow labels (clearing context).
+function buildActiveSummary(rows: ActiveRow[]): {
+  rows: Array<{ row: ActiveRow; label: string }>
+  mine: ActiveRow | undefined
+} {
+  if (rows.length === 0) return { rows: [], mine: undefined }
+  const mine = rows.find(r => r.isMine)
+  const nonMine = rows.filter(r => r !== mine)
+  const sorted = [...nonMine].sort((a, b) => b.premiumApyBps - a.premiumApyBps)
+  const top = sorted[0]
+  const bottom = sorted[sorted.length - 1]
+  const median = sorted.length >= 3 ? sorted[Math.floor(sorted.length / 2)] : undefined
+  const out: Array<{ row: ActiveRow; label: string }> = []
+  if (top) out.push({ row: top, label: 'Top' })
+  if (median && median !== top && median !== bottom) out.push({ row: median, label: 'Clearing' })
+  if (bottom && bottom !== top) out.push({ row: bottom, label: 'Bottom' })
+  return { rows: out, mine }
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────
@@ -1275,4 +1287,191 @@ const VERIFIED_ASSETS = new Set([
 ])
 function isVerifiedPair(p: { token0: string; token1: string }): boolean {
   return VERIFIED_ASSETS.has(p.token0) && VERIFIED_ASSETS.has(p.token1)
+}
+
+// ─── OrderBookModal — full стакан for one side ─────────────────────────
+// Eugene 2026-05-21: «по клику на этот блок можно в модальном окне раскрывать
+// стакан со всеми». Drill-in surface for the side the user clicked.
+//
+// Designed for the LP / trader decision: «what Premium APY should I bid?».
+// Columns chosen for decision-making, not just data dump:
+//   • Premium APY — sorted desc for Long/Active (best ask top); for Short
+//     also desc but interpretation flips (best bid for trader = lowest pay).
+//   • Liquidity — depth at this single rate.
+//   • Cumulative — running sum from top of book; reads as «how much would
+//     fill before mine if I price here».
+//   • Share — this rate's % of total book.
+//   • Depth bar — cumulative bar, visual scan of distribution.
+//
+// «My» row pinned at top of the table (sticky) when the user already has
+// an entry on this side.
+
+function OrderBookModal({
+  market,
+  side,
+  onClose,
+  onRowClick,
+}: {
+  market: AggregatedMarket
+  side: null | 'long' | 'active' | 'short'
+  onClose: () => void
+  onRowClick: (apyBps: number) => void
+}) {
+  if (!side) return null
+
+  const sideMeta = (() => {
+    if (side === 'long') return {
+      title: 'LongPool orders · full стакан',
+      sub: 'LP-side asks — what providers are willing to accept. Top = highest Premium APY.',
+      orders: market.longPoolOrders as Array<PoolOrder | ActiveRow>,
+      accent: 'var(--color-role-lp)',
+      ctaPrompt: 'Click a row to provide liquidity at that Premium APY.',
+    }
+    if (side === 'short') return {
+      title: 'ShortPool orders · full стакан',
+      sub: 'Trader-side bids — what traders are willing to pay. Top = highest Premium APY (best for LP).',
+      orders: market.shortPoolOrders as Array<PoolOrder | ActiveRow>,
+      accent: 'var(--color-role-trader)',
+      ctaPrompt: 'Click a row to open a position at that Premium APY.',
+    }
+    return {
+      title: 'Active positions · full стакан',
+      sub: 'Matched LP↔Trader pairings. Premium APY = clearing rate per match. Uniswap APY this range = ' + fmtPct(market.uniswapApyBps) + '.',
+      orders: market.activePositions as Array<PoolOrder | ActiveRow>,
+      accent: 'var(--color-status-success)',
+      ctaPrompt: 'Click a row to open a ShortPool position at that Premium APY.',
+    }
+  })()
+
+  // Sort desc by Premium APY for stable «top of book at top» semantics
+  // across all three sides.
+  const sortedAll = [...sideMeta.orders].sort((a, b) => b.premiumApyBps - a.premiumApyBps)
+  const mineRow = sortedAll.find(r => 'isMine' in r && r.isMine)
+  const sortedNonMine = sortedAll.filter(r => r !== mineRow)
+  const totalLiquidity = sortedAll.reduce((s, r) => s + r.liquidityUSD, 0)
+
+  // Cumulative liquidity from top → for the «depth» bar.
+  function cumulativeFor(row: PoolOrder | ActiveRow): number {
+    let s = 0
+    for (const r of sortedAll) {
+      s += r.liquidityUSD
+      if (r === row) return s
+    }
+    return totalLiquidity
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <header className="px-5 pt-4 pb-3 border-b border-gray-100">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold">{sideMeta.title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="w-7 h-7 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition text-xl leading-none"
+            >×</button>
+          </div>
+          <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">{sideMeta.sub}</p>
+          <p className="text-[11px] text-gray-500 mt-2 num">
+            {market.pair.token0}/{market.pair.token1} · {fmtFeeTier(market.feeTierBps)} ·
+            Range <span className="text-gray-700">{fmtPriceShort(market.rangeLow)} – {fmtPriceShort(market.rangeHigh)}</span> ·
+            Price <span className="text-gray-700">{fmtPriceShort(market.currentPrice)}</span>
+          </p>
+        </header>
+
+        {/* Stats strip */}
+        <div className="px-5 py-2 border-b border-gray-100 bg-gray-50/40 flex items-baseline gap-4 text-[11px] num text-gray-700">
+          <span><span className="text-gray-500">Orders</span> <span className="font-semibold">{sortedAll.length}</span></span>
+          <span><span className="text-gray-500">Total liquidity</span> <span className="font-semibold">{fmtUSD(totalLiquidity)}</span></span>
+          {sortedAll.length > 0 && (
+            <>
+              <span><span className="text-gray-500">Top</span> <span className="font-semibold">{fmtPct(sortedAll[0].premiumApyBps, { signed: sortedAll[0].premiumApyBps < 0 })}</span></span>
+              <span><span className="text-gray-500">Bottom</span> <span className="font-semibold">{fmtPct(sortedAll[sortedAll.length - 1].premiumApyBps, { signed: sortedAll[sortedAll.length - 1].premiumApyBps < 0 })}</span></span>
+            </>
+          )}
+        </div>
+
+        {/* Pinned «mine» row banner */}
+        {mineRow && (
+          <div
+            className="px-5 py-2 bg-[var(--color-role-lp-bg)]/50 border-b border-[var(--color-role-lp)]/30 text-[12px] num flex items-baseline justify-between gap-3 cursor-pointer hover:bg-[var(--color-role-lp-bg)]/80 transition"
+            onClick={() => onRowClick(mineRow.premiumApyBps)}
+          >
+            <span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--color-role-lp)' }}>
+              Your order 🙂
+            </span>
+            <span>
+              <span className="text-gray-700 font-medium">{fmtPct(mineRow.premiumApyBps, { signed: mineRow.premiumApyBps < 0 })}</span>
+              <span className="text-gray-400"> · </span>
+              <span className="text-gray-700">{fmtUSD(mineRow.liquidityUSD)}</span>
+              <span className="text-gray-400"> · </span>
+              <span className="text-gray-500">#{sortedAll.findIndex(r => r === mineRow) + 1} of {sortedAll.length}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Book table — scroll inside the modal body */}
+        <div className="overflow-y-auto flex-1">
+          {sortedAll.length === 0 ? (
+            <p className="px-5 py-12 text-center text-sm text-gray-500 italic">No orders on this side yet.</p>
+          ) : (
+            <table className="w-full text-[11px] num">
+              <thead className="text-[10px] uppercase tracking-wide text-gray-500 sticky top-0 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)] z-10">
+                <tr>
+                  <th className="text-left font-medium px-5 py-2">Premium APY</th>
+                  <th className="text-right font-medium px-3 py-2">Liquidity</th>
+                  <th className="text-right font-medium px-3 py-2">Cumulative</th>
+                  <th className="text-right font-medium px-3 py-2">% of book</th>
+                  <th className="text-left font-medium px-3 py-2 w-1/4">Depth</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedNonMine.map((r, i) => {
+                  const cum = cumulativeFor(r)
+                  const share = (r.liquidityUSD / totalLiquidity) * 100
+                  const cumPct = (cum / totalLiquidity) * 100
+                  return (
+                    <tr
+                      key={i}
+                      onClick={() => onRowClick(r.premiumApyBps)}
+                      className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition"
+                    >
+                      <td className="px-5 py-1.5 text-gray-700 font-medium">{fmtPct(r.premiumApyBps, { signed: r.premiumApyBps < 0 })}</td>
+                      <td className="px-3 py-1.5 text-right text-gray-900">{fmtUSD(r.liquidityUSD)}</td>
+                      <td className="px-3 py-1.5 text-right text-gray-700">{fmtUSD(cum)}</td>
+                      <td className="px-3 py-1.5 text-right text-gray-500">{share.toFixed(1)}%</td>
+                      <td className="px-3 py-1.5">
+                        <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.max(2, cumPct)}%`,
+                              background: sideMeta.accent,
+                              opacity: 0.65,
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <footer className="px-5 py-2.5 border-t border-gray-100 text-[10px] text-gray-500 bg-gray-50/40">
+          {sideMeta.ctaPrompt}
+        </footer>
+      </div>
+    </div>
+  )
 }
