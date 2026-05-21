@@ -24,11 +24,11 @@ const PAIRS: Array<{ pair: { token0: string; token1: string }; basePrice: number
   { pair: { token0: 'OP', token1: 'USDC' }, basePrice: 1.92, volBucket: 'mid' },
   { pair: { token0: 'LINK', token1: 'ETH' }, basePrice: 0.0042, volBucket: 'mid' },
   { pair: { token0: 'UNI', token1: 'ETH' }, basePrice: 0.0032, volBucket: 'mid' },
-  // Shitcoins / long-tail
-  { pair: { token0: 'PEPE', token1: 'ETH' }, basePrice: 0.0000023, volBucket: 'shit' },
-  { pair: { token0: 'DOGE', token1: 'ETH' }, basePrice: 0.000037, volBucket: 'shit' },
-  { pair: { token0: 'SHIB', token1: 'ETH' }, basePrice: 0.0000045, volBucket: 'shit' },
-  { pair: { token0: 'MOG', token1: 'ETH' }, basePrice: 0.0000019, volBucket: 'shit' },
+  // Shitcoin / long-tail entries removed per Eugene 2026-05-20 — «первые
+  // пулы сделай с ETH связанные, не Doge». Sub-cent token prices were
+  // dominating the apy-desc default sort and reading as ugly noise on the
+  // first marketplace page. Real product can re-add them later behind a
+  // «long-tail» filter when there's a UX for that surface.
 ]
 
 const FEE_TIERS_BY_VOL: Record<string, number[]> = {
@@ -69,16 +69,8 @@ export function generateListings(count: number, startId: number, now: number): L
     ;[statusPool[i], statusPool[j]] = [statusPool[j], statusPool[i]]
   }
 
-  // Eugene 2026-05-20: «первые пулы сделай с ETH связанные, не Doge».
-  // Bias the first ~15 generated entries to major / stable ETH-related pairs
-  // so the marketplace lands on a clean «familiar» first page. Long-tail
-  // shitcoins still appear, just deeper in the list.
-  const eth_related = PAIRS.filter(
-    p => p.volBucket === 'major' || p.volBucket === 'stable',
-  )
   for (let i = 0; i < count; i++) {
-    const pool = i < 15 ? eth_related : PAIRS
-    const pairDef = pool[Math.floor(rng() * pool.length)]
+    const pairDef = PAIRS[Math.floor(rng() * PAIRS.length)]
     const fees = FEE_TIERS_BY_VOL[pairDef.volBucket]
     const feeTierBps = fees[Math.floor(rng() * fees.length)]
 
