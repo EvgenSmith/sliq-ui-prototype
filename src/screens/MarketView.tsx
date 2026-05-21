@@ -1124,7 +1124,7 @@ function MarketActionModal({
           `${sideMeta.title} confirmed.\n\n` +
           `Pair: ${market.pair.token0}/${market.pair.token1} ${fmtFeeTier(market.feeTierBps)}\n` +
           `Range: ${fmtPriceShort(market.rangeLow)}–${fmtPriceShort(market.rangeHigh)}\n` +
-          `Margin: ${fmtUSD(marginUSD)} (${marginMode === 'usd' ? 'auto-split' : marginMode === 't0' ? market.pair.token0 + ' only' : market.pair.token1 + ' only'})\n` +
+          `Margin: ${fmtUSD(marginUSD)} (${marginMode === 'both' ? 'both tokens' : marginMode === 't0' ? market.pair.token0 + ' only' : market.pair.token1 + ' only'})\n` +
           `Leverage: ${leverage}× → ${fmtUSD(virtualNotional)} notional\n` +
           `Premium APY: ${apyPct.toFixed(2)}%`
         )
